@@ -11,6 +11,7 @@
 9. Human approval is required for Review-class work.
 10. Merge only after required checks/reviews.
 11. Release and update Linear.
-12. Capture observations as new Linear work.
+12. Delete the feature branch (remote and local) once the work is merged or completed; only `main` persists between tasks.
+13. Capture observations as new Linear work.
 
 If requirements conflict: stop immediately and create a change request.

@@ -36,6 +36,7 @@ Before declaring work complete, run the repository's documented checks. Never cl
 
 ## Git
 Use a branch containing the Linear issue identifier. Open a PR rather than pushing directly to main. Include the Linear issue identifier in the PR. Never merge your own work unless repository policy explicitly permits it.
+Delete every feature branch (remote and local) as soon as its work is merged or otherwise completed; only `main` persists between tasks. This rule is permanent.
 
 ## Definition of Done
 Implemented → acceptance criteria pass → deterministic verification pass → reviewable PR → required review → merged → release verified when applicable → Linear/Notion/GitHub synchronized.
