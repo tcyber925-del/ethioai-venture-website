@@ -1,0 +1,12 @@
+# build output
+dist/
+.astro/
+
+# dependencies and lockfile
+node_modules/
+package-lock.json
+
+# repository governance documents maintained outside the application
+AGENTS.md
+DESIGN.md
+.factory/
