@@ -1,0 +1,106 @@
+/*
+ * Design tokens — EthioAI Venture
+ * Source of truth: approved visual design system (Notion "03 — Visual Design System",
+ * repo DESIGN.md). Values are copied verbatim from the approved specification.
+ * Do not invent or materially change token values here (ENG-75 boundary).
+ */
+
+:root {
+  /* Colors */
+  --color-primary: #171717;
+  --color-secondary: #525252;
+  --color-tertiary: #0f5b5a;
+  --color-tertiary-hover: #0a4948;
+  --color-neutral: #fafaf8;
+  --color-surface: #ffffff;
+  --color-on-surface: #171717;
+  --color-border: #d9d9d5;
+  --color-muted: #737373;
+
+  /* Typography — families */
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Typography — display */
+  --text-display-size: 4.5rem;
+  --text-display-weight: 700;
+  --text-display-leading: 1;
+  --text-display-tracking: -0.04em;
+
+  /* Typography — headings */
+  --text-h1-size: 3.75rem;
+  --text-h1-weight: 700;
+  --text-h1-leading: 1.05;
+  --text-h1-tracking: -0.035em;
+
+  --text-h2-size: 3rem;
+  --text-h2-weight: 700;
+  --text-h2-leading: 1.1;
+  --text-h2-tracking: -0.025em;
+
+  --text-h3-size: 1.5rem;
+  --text-h3-weight: 600;
+  --text-h3-leading: 1.2;
+  --text-h3-tracking: normal;
+
+  /* Typography — body */
+  --text-body-lg-size: 1.125rem;
+  --text-body-lg-weight: 400;
+  --text-body-lg-leading: 1.6;
+
+  --text-body-size: 1rem;
+  --text-body-weight: 400;
+  --text-body-leading: 1.6;
+
+  --text-body-sm-size: 0.875rem;
+  --text-body-sm-weight: 400;
+  --text-body-sm-leading: 1.5;
+
+  /* Typography — label & mono */
+  --text-label-size: 0.75rem;
+  --text-label-weight: 600;
+  --text-label-leading: 1.3;
+  --text-label-tracking: 0.06em;
+
+  --text-mono-size: 0.875rem;
+  --text-mono-weight: 400;
+  --text-mono-leading: 1.5;
+
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 80px;
+  --space-5xl: 96px;
+  --space-6xl: 128px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /*
+   * Container
+   * DESIGN.md: "centered container with a desktop maximum width of
+   * approximately 1200-1280px. The precise implementation may be adjusted
+   * when the first real page is built and visually verified."
+   */
+  --container-max: 1200px;
+
+  /*
+   * Responsive breakpoints
+   * Derived from the approved validation widths (320 / 375 / 768 / 1024 /
+   * 1280) and the approved conceptual grid (mobile 4col < 768, tablet 8col,
+   * desktop 12col >= 1024). Native CSS has no cross-browser custom media
+   * queries without extra tooling, so these values are used literally in
+   * media queries and kept in sync here:
+   *   --breakpoint-md: 768px  (tablet)
+   *   --breakpoint-lg: 1024px (desktop)
+   *   --breakpoint-xl: 1280px (wide)
+   */
+}

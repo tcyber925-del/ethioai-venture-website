@@ -1,10 +1,15 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import Container from "../components/Container.astro";
+import MetadataLabel from "../components/MetadataLabel.astro";
 ---
 
 <BaseLayout title="EthioAI Venture">
-  <main>
-    <h1>EthioAI Venture</h1>
-    <p>Practical AI systems for real-world organizations.</p>
-  </main>
+  <Container>
+    <main>
+      <MetadataLabel>AI engineering studio</MetadataLabel>
+      <h1>EthioAI Venture</h1>
+      <p>Practical AI systems for real-world organizations.</p>
+    </main>
+  </Container>
 </BaseLayout>
