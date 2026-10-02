@@ -20,5 +20,8 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 
+# browser tooling artifacts (Playwright MCP)
+.playwright-mcp/
+
 # misc
 *.tsbuildinfo

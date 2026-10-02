@@ -1,0 +1,28 @@
+---
+/**
+ * MetadataLabel — approved label typography for metadata
+ * (small, semibold, tracked, low-emphasis muted color per the design system:
+ * "Muted is reserved for low-emphasis supporting information").
+ * Use for section eyebrows, status/category metadata and technical identifiers.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className = "" } = Astro.props;
+---
+
+<span class:list={["metadata-label", className]}>
+  <slot />
+</span>
+
+<style>
+  .metadata-label {
+    display: inline-block;
+    font-size: var(--text-label-size);
+    font-weight: var(--text-label-weight);
+    line-height: var(--text-label-leading);
+    letter-spacing: var(--text-label-tracking);
+    color: var(--color-muted);
+  }
+</style>

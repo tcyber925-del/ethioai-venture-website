@@ -1,0 +1,30 @@
+---
+/**
+ * Container — centered content container per the approved layout spec
+ * (max width ~1200-1280px, responsive side padding from the spacing scale).
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className = "" } = Astro.props;
+---
+
+<div class:list={["container", className]}>
+  <slot />
+</div>
+
+<style>
+  .container {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: var(--space-md);
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      padding-inline: var(--space-lg);
+    }
+  }
+</style>

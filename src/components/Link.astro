@@ -1,0 +1,38 @@
+---
+/**
+ * Link — approved text link semantics.
+ * Inline links keep the inherited text color with an underline for clarity;
+ * hover/focus uses the tertiary accent (approved for "important links and
+ * active states"). No target=_blank: links stay same-tab for predictability.
+ */
+interface Props {
+  href: string;
+  class?: string;
+}
+
+const { href, class: className = "" } = Astro.props;
+---
+
+<a href={href} class:list={["link", className]}>
+  <slot />
+</a>
+
+<style>
+  .link {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    transition: color 0.15s ease;
+  }
+
+  .link:hover {
+    color: var(--color-tertiary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .link {
+      transition: none;
+    }
+  }
+</style>

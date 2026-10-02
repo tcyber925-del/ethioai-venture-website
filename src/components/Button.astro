@@ -1,0 +1,72 @@
+---
+/**
+ * Button — approved button variants per the visual design system.
+ * Primary: tertiary background, surface text, md radius, 12px padding,
+ * hover #0A4948. Secondary: surface background, primary text.
+ * Renders an anchor when `href` is provided, a native button otherwise.
+ * The primary CTA label/route per MIS: "Start a Project" -> /start-a-project.
+ */
+interface Props {
+  variant?: "primary" | "secondary";
+  href?: string;
+  type?: "button" | "submit" | "reset";
+  class?: string;
+}
+
+const {
+  variant = "primary",
+  href,
+  type = "button",
+  class: className = "",
+} = Astro.props;
+---
+
+{href ? (
+  <a href={href} class:list={["btn", `btn--${variant}`, className]}>
+    <slot />
+  </a>
+) : (
+  <button type={type} class:list={["btn", `btn--${variant}`, className]}>
+    <slot />
+  </button>
+)}
+
+<style>
+  .btn {
+    display: inline-block;
+    padding: 12px; /* approved component spec: padding 12px */
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .btn--primary {
+    background-color: var(--color-tertiary);
+    color: var(--color-surface);
+  }
+
+  .btn--primary:hover {
+    background-color: var(--color-tertiary-hover);
+  }
+
+  .btn--secondary {
+    background-color: var(--color-surface);
+    border-color: var(--color-border);
+    color: var(--color-primary);
+  }
+
+  .btn--secondary:hover {
+    border-color: var(--color-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn {
+      transition: none;
+    }
+  }
+</style>
