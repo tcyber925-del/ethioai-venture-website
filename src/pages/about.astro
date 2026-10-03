@@ -43,19 +43,17 @@ const solutionAreas = (await getCollection("solutions"))
     href: `/solutions/${entry.data.slug}`,
   }));
 
-const startProjectExists = routeExists("/start-a-project");
-/**
- * Gate each solution-area link on its own href. Since ENG-78 (merged),
- * routeExists is dynamic-segment aware: `/solutions/<slug>` matches the
- * `solutions/[slug].astro` module itself, so a link activates only when
- * the file that serves its URL exists — strictly stricter than the former
- * `/solutions` index proxy (an index without the detail route would have
- * activated five 404s). Hrefs derive from the seeded collection — the same
- * source ENG-79's detail route emits getStaticPaths from (caller contract
- * in src/config/routes.ts) — so a rendered link and its page activate
- * together. File shape is checked; getStaticPaths output is not visible at
- * build time (documented routes.ts limitation).
- */
+// Per-href gating policy for the solution-area links, applied in the JSX
+// below via `routeExists(href)`. Since ENG-78 (merged), routeExists is
+// dynamic-segment aware: `/solutions/<slug>` matches the
+// `solutions/[slug].astro` module itself, so a link activates only when
+// the file that serves its URL exists — strictly stricter than the former
+// `/solutions` index proxy (an index without the detail route would have
+// activated five 404s). Hrefs derive from the seeded collection — the same
+// source ENG-79's detail route emits getStaticPaths from (caller contract
+// in src/config/routes.ts) — so a rendered link and its page activate
+// together. File shape is checked; getStaticPaths output is not visible at
+// build time (documented routes.ts limitation).
 ---
 
 <BaseLayout title="About">
@@ -185,13 +183,12 @@ const startProjectExists = routeExists("/start-a-project");
       <section class="section cta" aria-labelledby="start-a-project">
         <h2 id="start-a-project">Start a Project</h2>
         <p>Have a concrete AI, workflow, knowledge, or document problem?</p>
-        {startProjectExists ? (
-          <Button href="/start-a-project" variant="primary">
-            Start a Project
-          </Button>
-        ) : (
-          <span class="cta-pending">Start a Project</span>
-        )}
+        {/* Button self-gates /start-a-project (inert styled span with an
+            unavailability title until ENG-83) — the same pattern the
+            homepage already uses; no page-local pending variant. */}
+        <Button href="/start-a-project" variant="primary">
+          Start a Project
+        </Button>
       </section>
     </div>
   </Container>
@@ -295,13 +292,6 @@ const startProjectExists = routeExists("/start-a-project");
 
   .cta p {
     margin-bottom: var(--space-lg);
-  }
-
-  .cta-pending {
-    display: inline-block;
-    color: var(--color-secondary);
-    font-size: var(--text-body-size);
-    line-height: var(--text-body-leading);
   }
 
   @media (min-width: 768px) {
