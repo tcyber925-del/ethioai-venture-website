@@ -24,7 +24,7 @@ const statuses = [
   ...new Set(
     projects
       .map((project) => project.data.status)
-      .filter((status): status is string => typeof status === "string"),
+      .filter((status): status is string => status !== undefined),
   ),
 ].sort();
 ---
@@ -87,7 +87,7 @@ const statuses = [
 
   .project-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-lg);
     margin: 0;
     padding: 0;

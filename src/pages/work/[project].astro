@@ -40,27 +40,42 @@ const { data } = project;
 /** Honest fallback when a section has no approved source content. */
 const noContent = "No approved content published for this section yet.";
 
-const sections = [
-  { id: "problem", title: "Problem", body: data.problem },
-  { id: "built", title: "What We Built", body: data.built },
-  { id: "architecture", title: "Architecture", body: data.architecture },
-  {
-    id: "implementation",
-    title: "Technical Implementation",
-    body: data.implementation,
-  },
-  { id: "evidence", title: "Evidence", body: data.evidence },
-  { id: "limitations", title: "Limitations", body: data.limitations },
-  { id: "learnings", title: "What We Learned", body: data.learnings },
-  { id: "next", title: "Next", body: data.next },
-];
-
 const technologies = data.technologies ?? [];
 const images = data.images ?? [];
 
-/** Evidence text and evidence images are both content: only note absence when neither exists. */
+/**
+ * Evidence text and evidence images are both content: only note absence when
+ * neither exists. An `undefined` body means the images slot renders instead.
+ */
 const evidenceBody =
   data.evidence ?? (images.length > 0 ? undefined : noContent);
+
+const sections = [
+  { id: "problem", title: "Problem", body: data.problem ?? noContent },
+  { id: "built", title: "What We Built", body: data.built ?? noContent },
+  {
+    id: "architecture",
+    title: "Architecture",
+    body: data.architecture ?? noContent,
+  },
+  {
+    id: "implementation",
+    title: "Technical Implementation",
+    body: data.implementation ?? noContent,
+  },
+  { id: "evidence", title: "Evidence", body: evidenceBody },
+  {
+    id: "limitations",
+    title: "Limitations",
+    body: data.limitations ?? noContent,
+  },
+  {
+    id: "learnings",
+    title: "What We Learned",
+    body: data.learnings ?? noContent,
+  },
+  { id: "next", title: "Next", body: data.next ?? noContent },
+];
 
 const solutions = await getCollection("solutions");
 const relatedSolutions = solutions.filter((solution) =>
@@ -101,13 +116,7 @@ const relatedSolutions = solutions.filter((solution) =>
     </header>
 
     {sections.map((section) => (
-      <ProjectSection
-        id={section.id}
-        title={section.title}
-        body={
-          section.id === "evidence" ? evidenceBody : (section.body ?? noContent)
-        }
-      >
+      <ProjectSection id={section.id} title={section.title} body={section.body}>
         {section.id === "evidence" && images.length > 0 && (
           <ul class="evidence-images">
             {images.map((image) => (
@@ -149,10 +158,8 @@ const relatedSolutions = solutions.filter((solution) =>
     <section class="cta" aria-labelledby="cta-heading">
       <h2 id="cta-heading">Start a Project</h2>
       <p class="cta__text">{site.description}</p>
-      {routeExists("/start-a-project") ? (
+      {routeExists("/start-a-project") && (
         <Button href="/start-a-project">Start a Project</Button>
-      ) : (
-        <span class="cta__pending">Start a Project</span>
       )}
     </section>
   </Container>
@@ -222,7 +229,7 @@ const relatedSolutions = solutions.filter((solution) =>
 
   .evidence-images {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-md);
     margin: 0;
     padding: 0;
@@ -271,13 +278,5 @@ const relatedSolutions = solutions.filter((solution) =>
 
   .cta__text {
     color: var(--color-secondary);
-  }
-
-  /* Pending route: plain text, same convention as the header/footer nav. */
-  .cta__pending {
-    padding: 12px;
-    color: var(--color-muted);
-    font-size: var(--text-body-size);
-    line-height: var(--text-body-leading);
   }
 </style>
