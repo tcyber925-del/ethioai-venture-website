@@ -7,17 +7,20 @@
  * automated regression protection only — manual visual, responsive,
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
- * Per generated page (markup outside inline <script> bodies):
+ * Per generated page (rendered markup — inline <script> bodies and HTML
+ * comments are stripped first; attributes are matched with either quote
+ * style):
  *   - non-empty <html lang>
  *   - non-empty <title>
- *   - meta name="description" present and non-empty
- *   - meta name="viewport" present
+ *   - meta name="description" present and non-empty (either attribute order)
+ *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1>
  * Across pages:
  *   - every internal href/src/srcset reference — root-relative or relative,
- *     percent-encoded paths decoded — resolves to a built file (zero dead
- *     links). CSS-internal url() references are not validated (would require
- *     parsing stylesheets); that stays in ENG-86's manual asset checks.
+ *     query/fragment stripped, percent-encoded paths decoded — resolves to a
+ *     built file (zero dead links). CSS-internal url() references are not
+ *     validated (would require parsing stylesheets); that stays in ENG-86's
+ *     manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -60,14 +63,16 @@ if (htmlFiles.length === 0) {
 
 /**
  * Does a normalized internal pathname resolve to a built file?
- * Percent-encoded paths (e.g. non-ASCII slugs) are decoded first; normalizing
- * with a leading "/" collapses any ".." segments so the check can never
- * escape dist/.
+ * Syntactic query/fragment delimiters are stripped first (`/about#team` →
+ * `/about`), then percent-encoded paths (e.g. non-ASCII slugs) are decoded;
+ * normalizing with a leading "/" collapses any ".." segments so the check
+ * can never escape dist/.
  */
 function targetResolves(pathname) {
-  let decoded = pathname;
+  const stripped = pathname.split(/[?#]/)[0];
+  let decoded = stripped;
   try {
-    decoded = decodeURIComponent(pathname);
+    decoded = decodeURIComponent(stripped);
   } catch {
     // malformed percent-encoding — check the raw path instead of crashing
   }
@@ -88,25 +93,46 @@ for (const file of htmlFiles) {
   const relFile = relative(distDir, file).split(sep).join("/");
   const route = "/" + relFile.replace(/(^|\/)index\.html$/, "$1");
   const raw = readFileSync(file, "utf8");
-  // Drop inline script bodies (JS strings are not markup — a "<h1>" or
-  // href="..." inside a script must not count), keeping <script src=...>
-  // tags so asset references are still checked.
-  const html = raw.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/g, "$1$2");
+  // Rendered markup only: inline <script> bodies (JS strings are not markup)
+  // — keeping <script src=...> tags so asset references are still checked —
+  // and HTML comments (commented-out markup must not count) are stripped
+  // before any string-based check.
+  const html = raw
+    .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/g, "$1$2")
+    .replace(/<!--[\s\S]*?-->/g, "");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
-  if (!/<html[^>]*\slang="[^"]+"/.test(html)) {
+  const lang = html.match(/<html[^>]*\slang=(?:"([^"]*)"|'([^']*)')/);
+  if (!lang || !(lang[1] ?? lang[2]).trim()) {
     fail("missing or empty <html lang>");
   }
 
   const title = html.match(/<title>([^<]*)<\/title>/);
   if (!title || !title[1].trim()) fail("missing or empty <title>");
 
-  const desc =
-    html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"/) ??
-    html.match(/<meta[^>]*content="([^"]*)"[^>]*name="description"/);
-  if (!desc || !desc[1].trim()) fail("missing or empty meta description");
+  // Either attribute order, either quote style.
+  const metaContent = (name) => {
+    const m =
+      html.match(
+        new RegExp(
+          `<meta[^>]*name=["']${name}["'][^>]*content=["']([^"']*)["']`,
+        ),
+      ) ??
+      html.match(
+        new RegExp(
+          `<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${name}["']`,
+        ),
+      );
+    return m ? m[1] : null;
+  };
 
-  if (!/<meta[^>]*name="viewport"/.test(html)) fail("missing meta viewport");
+  const desc = metaContent("description");
+  if (desc === null || !desc.trim()) fail("missing or empty meta description");
+
+  const viewport = metaContent("viewport");
+  if (viewport === null || !viewport.trim()) {
+    fail("missing or empty meta viewport");
+  }
 
   const h1Count = (html.match(/<h1[\s>]/g) ?? []).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
@@ -138,15 +164,29 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
-  for (const [, target] of html.matchAll(/\s(?:href|src)="([^"]+)"/g)) {
-    checkReference(target, "link");
+  for (const m of html.matchAll(/\s(?:href|src)=(?:"([^"]+)"|'([^']+)')/g)) {
+    checkReference(m[1] ?? m[2], "link");
   }
 
-  for (const [, srcset] of html.matchAll(/\ssrcset="([^"]+)"/g)) {
-    if (srcset.includes("data:")) continue; // inline data URIs are external
-    for (const entry of srcset.split(",")) {
-      const candidate = entry.trim().split(/\s+/)[0];
-      if (candidate) checkReference(candidate, "srcset target");
+  for (const m of html.matchAll(/\ssrcset=(?:"([^"]+)"|'([^']+)')/g)) {
+    const value = m[1] ?? m[2];
+    let skipFragment = false;
+    for (const entry of value.split(",")) {
+      const trimmed = entry.trim();
+      if (skipFragment) {
+        // This fragment is the payload/descriptor of a data: URI started in
+        // the previous fragment (valid data: URIs always contain a comma).
+        skipFragment = false;
+        continue;
+      }
+      if (!trimmed) continue;
+      if (/^data:/i.test(trimmed)) {
+        // No whitespace → the payload continues into the next fragment.
+        if (!/\s/.test(trimmed)) skipFragment = true;
+        continue;
+      }
+      const token = trimmed.split(/\s+/)[0];
+      if (token) checkReference(token, "srcset target");
     }
   }
 }
