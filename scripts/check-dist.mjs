@@ -7,20 +7,23 @@
  * automated regression protection only — manual visual, responsive,
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
- * Per generated page:
- *   - <html lang> present
+ * Per generated page (markup outside inline <script> bodies):
+ *   - non-empty <html lang>
  *   - non-empty <title>
  *   - meta name="description" present and non-empty
  *   - meta name="viewport" present
  *   - exactly one <h1>
  * Across pages:
- *   - every internal href/src resolves to a built file (zero dead links)
+ *   - every internal href/src/srcset reference — root-relative or relative,
+ *     percent-encoded paths decoded — resolves to a built file (zero dead
+ *     links). CSS-internal url() references are not validated (would require
+ *     parsing stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
  */
-import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
+import { join, posix, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const distDir = fileURLToPath(new URL("../dist", import.meta.url));
@@ -32,6 +35,14 @@ function walk(dir, out = []) {
     else out.push(full);
   }
   return out;
+}
+
+function isFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
 }
 
 if (!existsSync(distDir)) {
@@ -47,30 +58,45 @@ if (htmlFiles.length === 0) {
   process.exit(1);
 }
 
-/** Does an internal URL path resolve to something a static host serves? */
-function targetResolves(urlPath) {
-  const clean = urlPath.split(/[?#]/)[0];
-  const rel = clean.replace(/^\/+/, "");
-  const candidates = clean.endsWith("/")
+/**
+ * Does a normalized internal pathname resolve to a built file?
+ * Percent-encoded paths (e.g. non-ASCII slugs) are decoded first; normalizing
+ * with a leading "/" collapses any ".." segments so the check can never
+ * escape dist/.
+ */
+function targetResolves(pathname) {
+  let decoded = pathname;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    // malformed percent-encoding — check the raw path instead of crashing
+  }
+  const norm = posix.normalize("/" + decoded.replace(/^\/+/, ""));
+  const rel = norm.slice(1);
+  const candidates = norm.endsWith("/")
     ? [join(rel, "index.html")]
     : [rel, `${rel}.html`, join(rel, "index.html")];
-  return candidates.some((c) => existsSync(join(distDir, c)));
+  // isFile, not existsSync: a directory alone does not serve (no index.html
+  // inside means the static host 404s the directory URL).
+  return candidates.some((c) => isFile(join(distDir, c)));
 }
 
 const failures = [];
-let linksChecked = 0;
+let referencesChecked = 0;
 
 for (const file of htmlFiles) {
-  const route =
-    "/" +
-    relative(distDir, file)
-      .split(sep)
-      .join("/")
-      .replace(/(^|\/)index\.html$/, "$1");
-  const html = readFileSync(file, "utf8");
+  const relFile = relative(distDir, file).split(sep).join("/");
+  const route = "/" + relFile.replace(/(^|\/)index\.html$/, "$1");
+  const raw = readFileSync(file, "utf8");
+  // Drop inline script bodies (JS strings are not markup — a "<h1>" or
+  // href="..." inside a script must not count), keeping <script src=...>
+  // tags so asset references are still checked.
+  const html = raw.replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/g, "$1$2");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
-  if (!/<html[^>]*\slang="/.test(html)) fail("missing <html lang>");
+  if (!/<html[^>]*\slang="[^"]+"/.test(html)) {
+    fail("missing or empty <html lang>");
+  }
 
   const title = html.match(/<title>([^<]*)<\/title>/);
   if (!title || !title[1].trim()) fail("missing or empty <title>");
@@ -85,12 +111,43 @@ for (const file of htmlFiles) {
   const h1Count = (html.match(/<h1[\s>]/g) ?? []).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
+  // Base for resolving relative references against this page's URL directory.
+  const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
+  const base =
+    "http://check.dist" + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
+
+  /** Check one raw reference (href/src value or srcset entry). */
+  const checkReference = (target, kind) => {
+    if (target.startsWith("//")) return; // protocol-relative → external
+    if (target.startsWith("#") || target.startsWith("?")) return; // same-document
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return; // http:, mailto:, data: …
+    let pathname;
+    if (target.startsWith("/")) {
+      pathname = target;
+    } else {
+      try {
+        pathname = new URL(target, base).pathname;
+      } catch {
+        fail(`unparseable ${kind}: ${target}`);
+        return;
+      }
+    }
+    referencesChecked += 1;
+    if (!targetResolves(pathname)) fail(`dead internal ${kind}: ${target}`);
+  };
+
+  // External URLs, in-page anchors and mailto: are out of scope — this is
+  // the deterministic internal link/assets check ("where reliable").
   for (const [, target] of html.matchAll(/\s(?:href|src)="([^"]+)"/g)) {
-    // External URLs, in-page anchors and mailto: are out of scope — this is
-    // the deterministic internal link/assets check ("where reliable").
-    if (!target.startsWith("/") || target.startsWith("//")) continue;
-    linksChecked += 1;
-    if (!targetResolves(target)) fail(`dead internal link: ${target}`);
+    checkReference(target, "link");
+  }
+
+  for (const [, srcset] of html.matchAll(/\ssrcset="([^"]+)"/g)) {
+    if (srcset.includes("data:")) continue; // inline data URIs are external
+    for (const entry of srcset.split(",")) {
+      const candidate = entry.trim().split(/\s+/)[0];
+      if (candidate) checkReference(candidate, "srcset target");
+    }
   }
 }
 
@@ -101,5 +158,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `check:dist passed — ${htmlFiles.length} page(s), ${linksChecked} internal link(s), 0 problems.`,
+  `check:dist passed — ${htmlFiles.length} page(s), ${referencesChecked} internal reference(s), 0 problems.`,
 );
