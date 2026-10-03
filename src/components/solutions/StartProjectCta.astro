@@ -1,0 +1,57 @@
+---
+/**
+ * StartProjectCta — approved CTA region ending the Solutions page sequence
+ * (spec 02 / MIS: "... → Engagement path → CTA").
+ *
+ * Sources: PRD primary CTA ("Start a Project" → /start-a-project) and
+ * DESIGN.md secondary action ("View Work" → /work). Links render only when
+ * the target route exists so no dead link ships; until then the region shows
+ * an honest pending note (route registry pattern, ENG-77).
+ */
+import Button from "../Button.astro";
+import { routeExists } from "../../config/routes";
+
+const startRouteExists = routeExists("/start-a-project");
+const workRouteExists = routeExists("/work");
+---
+
+<section class="cta" aria-label="Start a Project">
+  {startRouteExists || workRouteExists ? (
+    <div class="cta__actions">
+      {startRouteExists && (
+        <Button href="/start-a-project">Start a Project</Button>
+      )}
+      {workRouteExists && (
+        <Button href="/work" variant="secondary">
+          View Work
+        </Button>
+      )}
+    </div>
+  ) : (
+    <p class="cta__pending">
+      Start a Project — the project inquiry form is not yet published.
+    </p>
+  )}
+</section>
+
+<style>
+  .cta {
+    margin-block: var(--space-2xl) var(--space-4xl);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+  }
+
+  .cta__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+
+  .cta__pending {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+</style>

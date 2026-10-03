@@ -1,0 +1,157 @@
+---
+/**
+ * /solutions/[slug] — solution detail.
+ *
+ * Approved problem-first structure (spec 02 / MIS v1.0 "Solutions"):
+ * Problem → What we build → Typical applications → How it works →
+ * Capabilities → Related work → Engagement path → CTA.
+ *
+ * Every step renders its approved heading; sections whose content field is
+ * empty in the collection show an honest pending note (MIS evidence policy —
+ * no invented copy). Routes are generated from the solutions collection so
+ * page URLs stay equal to the approved V1 routes.
+ */
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import Link from "../../components/Link.astro";
+import MetadataLabel from "../../components/MetadataLabel.astro";
+import SolutionSection from "../../components/solutions/SolutionSection.astro";
+import RelatedWork from "../../components/solutions/RelatedWork.astro";
+import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
+
+export async function getStaticPaths() {
+  const solutions = await getCollection("solutions");
+  return solutions.map((entry) => ({
+    params: { slug: entry.data.slug },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<"solutions">;
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+
+const [projects, research] = await Promise.all([
+  getCollection("projects"),
+  getCollection("research"),
+]);
+
+/** Whether an optional content field carries approved content. */
+const hasText = (value: string | undefined): boolean =>
+  typeof value === "string" && value.trim().length > 0;
+
+const hasList = (value: string[] | undefined): boolean =>
+  Array.isArray(value) && value.length > 0;
+---
+
+<BaseLayout title={data.title} description={data.summary}>
+  <Container>
+    <header class="hero">
+      <MetadataLabel>
+        <Link href="/solutions">Solutions</Link>
+      </MetadataLabel>
+      <h1>{data.title}</h1>
+      {hasText(data.summary) && <p class="lead">{data.summary}</p>}
+      {hasText(data.status) && (
+        <p class="hero__status">
+          <MetadataLabel>{data.status}</MetadataLabel>
+        </p>
+      )}
+    </header>
+
+    <SolutionSection heading="Problem" hasContent={hasText(data.problem)}>
+      {hasText(data.problem) && <p>{data.problem}</p>}
+    </SolutionSection>
+
+    <SolutionSection
+      heading="What we build"
+      hasContent={hasText(data.what_we_build)}
+    >
+      {hasText(data.what_we_build) && <p>{data.what_we_build}</p>}
+    </SolutionSection>
+
+    <SolutionSection
+      heading="Typical applications"
+      hasContent={hasList(data.applications)}
+    >
+      {hasList(data.applications) && (
+        <ul class="section-list">
+          {data.applications?.map((application) => (
+            <li>{application}</li>
+          ))}
+        </ul>
+      )}
+    </SolutionSection>
+
+    <SolutionSection
+      heading="How it works"
+      hasContent={hasText(data.how_it_works)}
+    >
+      {hasText(data.how_it_works) && <p>{data.how_it_works}</p>}
+    </SolutionSection>
+
+    <SolutionSection
+      heading="Capabilities"
+      hasContent={hasList(data.capabilities)}
+    >
+      {hasList(data.capabilities) && (
+        <ul class="section-list">
+          {data.capabilities?.map((capability) => (
+            <li>{capability}</li>
+          ))}
+        </ul>
+      )}
+    </SolutionSection>
+
+    <SolutionSection heading="Related work" hasContent={true}>
+      <RelatedWork
+        related={data.related_work ?? []}
+        projects={projects}
+        researchCount={research.length}
+      />
+    </SolutionSection>
+
+    <SolutionSection
+      heading="Engagement path"
+      hasContent={hasText(data.engagement_path)}
+    >
+      {hasText(data.engagement_path) && <p>{data.engagement_path}</p>}
+    </SolutionSection>
+
+    <StartProjectCta />
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding-block: var(--space-3xl) var(--space-xl);
+  }
+
+  .hero h1 {
+    margin-top: var(--space-md);
+  }
+
+  .lead {
+    margin-top: var(--space-lg);
+    max-width: 60ch;
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+    color: var(--color-secondary);
+  }
+
+  .hero__status {
+    margin-top: var(--space-md);
+  }
+
+  .section-list {
+    padding-inline-start: var(--space-xl);
+  }
+
+  .section-list li + li {
+    margin-top: var(--space-sm);
+  }
+</style>
