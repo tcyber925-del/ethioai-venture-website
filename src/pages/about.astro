@@ -12,7 +12,11 @@
  * - PRD 01: evidence policy.
  * - Spec 02: "Evidence early. Customer problems before technology."
  * - Spec-driven rules: "Specification precedes implementation".
- * - Solution area labels: titles of the five approved solution entries.
+ * - Solution area labels/hrefs: derived at build time from the seeded
+ *   solutions collection itself (titles + slugs, ENG-76).
+ * - Geography step glosses (01–03): one-sentence expansions of the three
+ *   approved terms "Ethiopia-origin", "Africa-aware", "globally applicable"
+ *   (project brief Geography line) — no claims beyond the terms.
  *
  * No founder biography or photography exists in approved sources — the
  * founder section is kept strictly factual (flagged in the PR as pending
@@ -25,28 +29,27 @@ import MetadataLabel from "../components/MetadataLabel.astro";
 import Button from "../components/Button.astro";
 import Link from "../components/Link.astro";
 import { routeExists } from "../config/routes";
+import { getCollection } from "astro:content";
 
-const solutionAreas = [
-  { label: "AI Knowledge Systems", href: "/solutions/ai-knowledge-systems" },
-  { label: "Workflow Automation", href: "/solutions/workflow-automation" },
-  {
-    label: "AI Applications and Agents",
-    href: "/solutions/ai-applications-agents",
-  },
-  {
-    label: "AI Product Engineering",
-    href: "/solutions/ai-product-engineering",
-  },
-  { label: "Document Intelligence", href: "/solutions/document-intelligence" },
-];
+// Labels and hrefs derive from the seeded collection itself (ENG-76 is the
+// source of truth for titles/slugs) — no duplicated copy that can drift into
+// wrong labels or dead links. Sorted by slug for a deterministic order.
+const solutionAreas = (await getCollection("solutions"))
+  .sort((a, b) => a.data.slug.localeCompare(b.data.slug))
+  .map((entry) => ({
+    label: entry.data.title,
+    href: `/solutions/${entry.data.slug}`,
+  }));
 
 const startProjectExists = routeExists("/start-a-project");
 /**
  * Gate the five solution-area links on the /solutions *index* rather than on
  * each detail href: routeExists() only sees static page modules, and ENG-79
  * implements detail pages as a dynamic `solutions/[slug].astro` route — a
- * per-href check would never activate. The index existence is a safe proxy:
- * detail URLs are served by that dynamic route from the seeded slugs.
+ * per-href check would never activate. The index is a safe proxy because the
+ * one-issue-one-PR rule guarantees ENG-79 ships index + detail route in the
+ * same PR (they merge atomically), and detail URLs are served by that dynamic
+ * route from the seeded slugs.
  */
 const solutionsRouteExists = routeExists("/solutions");
 ---
@@ -70,7 +73,7 @@ const solutionsRouteExists = routeExists("/solutions");
         <p>
           Organizations have concrete AI, workflow, knowledge, and document
           problems. We build practical AI systems to solve them — practical
-          enterprise AI implementation, from problem to running system.
+          enterprise AI implementation.
         </p>
       </section>
 
@@ -232,7 +235,7 @@ const solutionsRouteExists = routeExists("/solutions");
   }
 
   .step h3 {
-    margin-block: var(--space-xs) var(--space-xs);
+    margin-block: var(--space-xs);
   }
 
   .step p {
