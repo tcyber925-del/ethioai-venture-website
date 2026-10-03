@@ -10,4 +10,15 @@ export default defineConfig([
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...astro.configs.recommended,
+  {
+    // Node globals for the deterministic build-check scripts (ENG-87).
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+      },
+    },
+  },
 ]);

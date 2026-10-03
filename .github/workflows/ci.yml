@@ -7,14 +7,17 @@ on:
 
 jobs:
   checks:
+    # Required status check on main ("Deterministic checks") — branch
+    # protection references this job by name; renaming it would silently
+    # un-gate merges (ENG-87).
     name: Deterministic checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -31,5 +34,11 @@ jobs:
       - name: Type checking
         run: npm run typecheck
 
+      - name: Content schema validation
+        run: npx astro sync
+
       - name: Build
         run: npm run build
+
+      - name: Static accessibility, SEO and link checks
+        run: npm run check:dist

@@ -35,7 +35,9 @@ considered ready for review:
 npm run format:check   # verify formatting (Prettier)
 npm run lint           # lint (ESLint, flat config)
 npm run typecheck      # TypeScript type check (astro check)
+npx astro sync         # content-collection schema validation
 npm run build          # production build
+npm run check:dist     # static accessibility/SEO checks + internal link validation
 ```
 
 Run everything at once:
@@ -50,9 +52,14 @@ To auto-fix formatting:
 npm run format
 ```
 
-The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`). Additional
-quality gates (content-schema validation, accessibility/SEO checks) are added by Linear
-**ENG-87** — this workflow intentionally contains only the bootstrap checks from **ENG-74**.
+The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
+required **Deterministic checks** status; `npm run verify` runs the full set locally in
+one go. `check:dist` inspects the generated output for static accessibility/SEO problems
+(`<html lang>`, non-empty `<title>` and meta description, viewport, exactly one `<h1>`
+per page) and validates that every internal `href`/`src` resolves to a built file —
+zero dead links. Responsive, interaction, performance and production-like QA stay
+manual — Linear **ENG-86**. Action versions (including SHA-pinned ones) are kept fresh
+by Dependabot (`.github/dependabot.yml`).
 
 ## Repository structure
 
