@@ -20,8 +20,10 @@
  *
  * No founder biography or photography exists in approved sources — the
  * founder section is kept strictly factual (flagged in the PR as pending
- * content). CTA and solution links use the build-time route registry so
- * they stay dead-link-free until G2/G3 pages land (auto-activate).
+ * content). CTA and solution links use the build-time route registry:
+ * rendered as links only while their target page module exists — the five
+ * solution links are live now (ENG-79 merged), the CTA stays inert until
+ * ENG-83.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Container from "../components/Container.astro";
