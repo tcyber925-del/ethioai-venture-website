@@ -452,3 +452,50 @@ t(
   inBody('<script data-x="a>b">let x = 1;</script><a href="/nope-after">x</a>'),
   1,
 );
+
+// ── Round 10: attribute-name positions only, tokenizer lookups ─────────────
+t(
+  "attribute-shaped href inside alt value is not a link",
+  inBody('<img alt="use href=/ghost1" src="/ok.png" width="1" height="1">'),
+  0,
+);
+t(
+  "attribute-shaped href inside content value is not a link",
+  PAGE.replace('content="d"', 'content="see href=/ghost3"'),
+  0,
+);
+t(
+  "attribute-shaped href inside data value is not a link",
+  inBody('<div data-x=" href=/ghost5 "></div>'),
+  0,
+);
+t(
+  "attribute-shaped srcset inside alt value is not a srcset",
+  inBody(
+    '<img alt="a srcset=/ghost2.png 1x" src="/ok.png" width="1" height="1">',
+  ),
+  0,
+);
+t(
+  "lookalike lang=zz inside html attr value can't rescue missing lang",
+  PAGE.replace('<html lang="en">', '<html data-x=" lang=zz">'),
+  1,
+);
+t(
+  "namespaced attr value with h1 doesn't inflate the count",
+  PAGE.replace(
+    "<h1>Page</h1>",
+    '<h1>Page</h1><div xml:lang="<h1>x</h1>"></div>',
+  ),
+  0,
+);
+t(
+  "namespaced dead reference still reds (count fixed, link genuinely dead)",
+  inBody('<svg><image xlink:href="<h1>x</h1>"></image></svg>'),
+  1,
+);
+t(
+  "unclosed container fails loudly (malformed, documented boundary)",
+  inBody("<template><h1>fake</h1>"),
+  1,
+);

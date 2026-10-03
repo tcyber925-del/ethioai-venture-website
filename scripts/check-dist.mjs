@@ -11,7 +11,9 @@
  * comments are stripped first, then inert/raw-text containers drop whole:
  * <style>/<template>/<textarea>/<noscript> for every check below, plus
  * <title> for all but its own check (RCDATA text; only the head's title
- * counts as the document title — an <svg><title> label doesn't). The
+ * counts as the document title — an <svg><title> label doesn't); an
+ * unclosed container is malformed markup Astro never emits — it fails
+ * loudly rather than being guessed out. The
  * html/title/meta/base open tags are matched quote-aware (`>` is legal
  * inside a quoted attribute value and must never split the match);
  * tag/attribute *names* are matched
@@ -30,9 +32,11 @@
  *     the count)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
- *     (the href pattern also matches SVG xlink:href) — matched ONLY inside
- *     parsed tag fragments, so prose/code samples that merely mention
- *     href="/…" can never red the gate; leading/trailing whitespace trimmed
+ *     (the href pattern also matches SVG xlink:href) — matched only at
+ *     real attribute-name positions inside parsed tag fragments
+ *     (quote-aware tokenizer), so neither prose/code samples nor
+ *     attribute-shaped text inside quoted values (alt="use href=/x")
+ *     can ever red the gate; leading/trailing whitespace trimmed
  *     (URL parsing strips it too), query/fragment stripped,
  *     percent-encoded paths and numeric HTML entities decoded, and
  *     root-relative paths get WHATWG normalization (tab/LF/CR stripped,
@@ -244,19 +248,63 @@ const openTags = (markup, name) =>
   ) ?? [];
 
 /**
- * Value of `attrName` in an open-tag string produced by openTags — the
- * tag is already whole, so this only splits value styles (double/single
- * quoted or unquoted). Undefined when the attribute is absent; `""` for
- * an explicitly empty value.
+ * Parse a whole open tag (from openTags/extractTags) into attribute
+ * records `{name, value}` — a quote-aware walk from after the tag name:
+ * names end at whitespace/`=`/`/`/`>`, values are read through their
+ * quote (or up to whitespace/`>` unquoted, same charset the reference
+ * checks accepted before). Matching happens at real attribute-name
+ * positions only, so attribute-shaped text inside a quoted value
+ * (`alt="use href=/ghost1"`, `data-x=" lang=zz"`) is content, not
+ * structure (review round 10). Boolean attributes carry
+ * `value: undefined`.
+ */
+function tagAttributes(tag) {
+  const attrs = [];
+  let i = 1; // skip "<"
+  while (i < tag.length && !/[\s/>]/.test(tag[i])) i++; // tag name
+  while (i < tag.length - 1) {
+    while (i < tag.length && /\s/.test(tag[i])) i++;
+    if (i >= tag.length || tag[i] === ">" || tag[i] === "/") break;
+    const nameStart = i;
+    while (i < tag.length && !/[\s=/>]/.test(tag[i])) i++;
+    const name = tag.slice(nameStart, i);
+    while (i < tag.length && /\s/.test(tag[i])) i++;
+    if (tag[i] !== "=") {
+      attrs.push({ name, value: undefined });
+      continue;
+    }
+    i++; // "="
+    while (i < tag.length && /\s/.test(tag[i])) i++;
+    let value;
+    const quote = tag[i];
+    if (quote === '"' || quote === "'") {
+      i++;
+      const valueStart = i;
+      while (i < tag.length && tag[i] !== quote) i++;
+      value = tag.slice(valueStart, i);
+      if (i < tag.length) i++; // closing quote
+    } else {
+      const valueStart = i;
+      while (i < tag.length && !/[\s"'<>=`]/.test(tag[i])) i++;
+      value = tag.slice(valueStart, i);
+    }
+    attrs.push({ name, value });
+  }
+  return attrs;
+}
+
+/**
+ * Value of `attrName` in an open-tag string — read through the attribute
+ * tokenizer, so lookalike text inside another attribute's quoted value
+ * (`data-x=" lang=zz"`) can never satisfy the lookup (review round 10).
+ * Undefined when the attribute is absent or boolean; `""` for an
+ * explicitly empty value.
  */
 const tagAttr = (tag, attrName) => {
-  const m = tag.match(
-    new RegExp(
-      `\\s${attrName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`,
-      "i",
-    ),
+  const attr = tagAttributes(tag).find(
+    (a) => a.name.toLowerCase() === attrName,
   );
-  return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+  return attr ? attr.value : undefined;
 };
 
 const failures = [];
@@ -344,9 +392,11 @@ for (const file of htmlFiles) {
   }
 
   // Blank attribute values before counting: a literal "<h1>" inside a
-  // value (title="…<h1>…") must neither fake nor hide the count.
+  // value (title="…<h1>…") must neither fake nor hide the count. The name
+  // charset includes ":" so namespaced attributes (xlink:href, xml:lang)
+  // blank too.
   const withoutAttrValues = stripped.replace(
-    /(\s[\w-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
+    /(\s[\w:-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
     "$1",
   );
   const h1Count = (withoutAttrValues.match(/<h1[\s/>]/gi) ?? []).length;
@@ -431,32 +481,30 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
-  // Attributes are matched only inside parsed tag fragments (extractTags),
-  // so text content can never red the gate; <base> tags are skipped —
-  // resolution prefixes are never fetch targets. `xlink:href` first so the
-  // colon-bearing legacy name matches as a whole.
+  // References are read through the attribute tokenizer (tagAttributes),
+  // so only real attribute-name positions count — prose in text nodes AND
+  // attribute-shaped text inside quoted values (`alt="use href=/x"`) can
+  // never red the gate. <base> tags are skipped — resolution prefixes are
+  // never fetch targets. xlink:href matches its exact name (colons fine).
   for (const tag of extractTags(stripped)) {
     if (/^<base\b/i.test(tag)) continue;
-    for (const m of tag.matchAll(
-      /\s(?:xlink:href|href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
-    )) {
-      checkReference(m[1] ?? m[2] ?? m[3], "link");
-    }
-
-    for (const m of tag.matchAll(
-      /\ssrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
-    )) {
-      const value = m[1] ?? m[2] ?? m[3];
-      let inDataUri = false;
-      for (const token of parseSrcset(value)) {
-        if (inDataUri) {
-          if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
-          inDataUri = false;
-        } else if (/^data:/i.test(token)) {
-          inDataUri = true;
-          continue;
+    for (const { name, value } of tagAttributes(tag)) {
+      if (value === undefined) continue;
+      const attr = name.toLowerCase();
+      if (attr === "href" || attr === "src" || attr === "xlink:href") {
+        checkReference(value, "link");
+      } else if (attr === "srcset") {
+        let inDataUri = false;
+        for (const token of parseSrcset(value)) {
+          if (inDataUri) {
+            if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
+            inDataUri = false;
+          } else if (/^data:/i.test(token)) {
+            inDataUri = true;
+            continue;
+          }
+          checkReference(token, "srcset target");
         }
-        checkReference(token, "srcset target");
       }
     }
   }

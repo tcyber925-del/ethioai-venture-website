@@ -60,7 +60,9 @@ required **Deterministic checks** status; `npm run verify` runs the identical se
 locally in one go. `check:dist` inspects the generated markup outside inline
 `<script>` bodies, HTML comments and inert/raw-text bodies —
 `<style>`/`<template>`/`<textarea>`/`<noscript>` for every check, plus
-`<title>` for all but its own check — for static accessibility/SEO problems
+`<title>` for all but its own check (an unclosed container — malformed
+markup Astro never emits — fails loudly rather than being guessed out) — for
+static accessibility/SEO problems
 (`<html lang>` with a value read off the document's first `<html>` tag,
 non-empty head `<title>` (an `<svg><title>` label doesn't count) and meta
 description, viewport, exactly one `<h1>` per page — attribute values are
@@ -71,8 +73,10 @@ forms, whitespace around `=`, tag and attribute names matched
 case-insensitively, and the html/title/meta/base open tags matched
 quote-aware — `>` inside a quoted attribute value never splits the match)
 and validates that every internal `href`/`src`/`srcset`
-reference (including SVG `xlink:href`) — matched only on parsed tag fragments,
-so prose or code samples that merely mention `href="/…"` never count as links —
+reference (including SVG `xlink:href`) — matched only at real
+attribute-name positions inside parsed tag fragments, so neither prose or
+code samples nor attribute-shaped text inside quoted values
+(`alt="use href=/x"`) ever count as links —
 root-relative or relative (resolved
 against `<base href>` when the document declares one; an offsite `<base>` sends
 both offsite, matching browser resolution, and fragment-only references become
