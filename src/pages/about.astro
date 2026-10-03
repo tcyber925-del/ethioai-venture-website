@@ -1,0 +1,263 @@
+---
+/**
+ * About — approved section sequence (spec 02 / MIS):
+ * Company → why we build → how we think → current focus → geography →
+ * founder → long-term direction → CTA.
+ *
+ * Copy sources (evidence rule — no claims beyond these):
+ * - Project brief "Frozen strategic direction": positioning, proposition,
+ *   commercial identity, long-term identity (AI Venture Studio), geography
+ *   line (Ethiopia-origin → Africa-aware → globally applicable).
+ * - MIS v1.0: primary audience, V1 purpose, founder (Tcyber), CTA route.
+ * - PRD 01: evidence policy.
+ * - Spec 02: "Evidence early. Customer problems before technology."
+ * - Spec-driven rules: "Specification precedes implementation".
+ * - Solution area labels: titles of the five approved solution entries.
+ *
+ * No founder biography or photography exists in approved sources — the
+ * founder section is kept strictly factual (flagged in the PR as pending
+ * content). CTA and solution links use the build-time route registry so
+ * they stay dead-link-free until G2/G3 pages land (auto-activate).
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Container from "../components/Container.astro";
+import MetadataLabel from "../components/MetadataLabel.astro";
+import Button from "../components/Button.astro";
+import Link from "../components/Link.astro";
+import { routeExists } from "../config/routes";
+
+const solutionAreas = [
+  { label: "AI Knowledge Systems", href: "/solutions/ai-knowledge-systems" },
+  { label: "Workflow Automation", href: "/solutions/workflow-automation" },
+  {
+    label: "AI Applications and Agents",
+    href: "/solutions/ai-applications-agents",
+  },
+  {
+    label: "AI Product Engineering",
+    href: "/solutions/ai-product-engineering",
+  },
+  { label: "Document Intelligence", href: "/solutions/document-intelligence" },
+];
+
+const startProjectExists = routeExists("/start-a-project");
+---
+
+<BaseLayout title="About">
+  <Container>
+    <div class="about">
+      <section class="section section--intro" aria-labelledby="about-title">
+        <MetadataLabel>About</MetadataLabel>
+        <h1 id="about-title">About EthioAI Venture</h1>
+        <p class="lede">Practical AI systems for real-world organizations.</p>
+        <p>
+          EthioAI Venture is an AI engineering and implementation studio. This
+          site is the studio's public front door, proof center, and engineering
+          and research surface.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="why-we-build">
+        <h2 id="why-we-build">Why we build</h2>
+        <p>
+          Organizations have concrete AI, workflow, knowledge, and document
+          problems. We build practical AI systems to solve them — practical
+          enterprise AI implementation, from problem to running system.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="how-we-think">
+        <h2 id="how-we-think">How we think</h2>
+        <ul class="principles">
+          <li>Evidence early. Customer problems before technology.</li>
+          <li>Specification precedes implementation.</li>
+          <li>
+            Claims must be supported by an artifact, demo, source, measurement,
+            user evidence or customer result. If evidence does not exist, we use
+            status and limitation language.
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" aria-labelledby="current-focus">
+        <h2 id="current-focus">Current focus</h2>
+        <p>
+          Our current focus is these five solution areas, each presented only
+          with real project evidence:
+        </p>
+        <ul class="focus-list">
+          {solutionAreas.map(({ label, href }) => (
+            <li>
+              {routeExists(href) ? (
+                <Link href={href}>{label}</Link>
+              ) : (
+                <span>{label}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="section" aria-labelledby="geography">
+        <h2 id="geography">Ethiopia → Africa → Global</h2>
+        <p>
+          The studio's geographic direction: Ethiopia-origin → Africa-aware →
+          globally applicable.
+        </p>
+        <ol class="steps">
+          <li class="step">
+            <MetadataLabel>01</MetadataLabel>
+            <h3>Ethiopia-origin</h3>
+            <p>The studio starts in Ethiopia.</p>
+          </li>
+          <li class="step">
+            <MetadataLabel>02</MetadataLabel>
+            <h3>Africa-aware</h3>
+            <p>Built with African contexts in mind.</p>
+          </li>
+          <li class="step">
+            <MetadataLabel>03</MetadataLabel>
+            <h3>Globally applicable</h3>
+            <p>Systems that apply beyond any single market.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section" aria-labelledby="founder">
+        <h2 id="founder">Founder</h2>
+        <p>
+          EthioAI Venture is a founder-led studio: the company is built and led
+          by its founder, Tcyber.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="long-term-direction">
+        <h2 id="long-term-direction">Long-term direction</h2>
+        <p>EthioAI Venture's long-term identity: an AI Venture Studio.</p>
+      </section>
+
+      <section class="section cta" aria-labelledby="start-a-project">
+        <h2 id="start-a-project">Start a Project</h2>
+        <p>Have a concrete AI, workflow, knowledge, or document problem?</p>
+        {startProjectExists ? (
+          <Button href="/start-a-project" variant="primary">
+            Start a Project
+          </Button>
+        ) : (
+          <span class="cta-pending">Start a Project</span>
+        )}
+      </section>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  .about {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+    padding-block: var(--space-2xl);
+  }
+
+  .section h1,
+  .section h2 {
+    margin-block: var(--space-sm) var(--space-md);
+  }
+
+  .section p {
+    max-width: 72ch;
+  }
+
+  .lede {
+    font-size: var(--text-body-lg-size);
+    font-weight: var(--text-body-lg-weight);
+    line-height: var(--text-body-lg-leading);
+    color: var(--color-secondary);
+  }
+
+  .principles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-inline-start: var(--space-lg);
+    /* same reading measure as .section p (72ch + marker gutter) */
+    max-width: calc(72ch + var(--space-lg));
+  }
+
+  .principles li::marker {
+    color: var(--color-tertiary);
+  }
+
+  .focus-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-lg);
+    margin-top: var(--space-md);
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .focus-list span {
+    color: var(--color-secondary);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-md);
+  }
+
+  .step h3 {
+    margin-block: var(--space-xs) var(--space-xs);
+  }
+
+  .step p {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+
+  .cta {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+  }
+
+  .cta p {
+    margin-bottom: var(--space-lg);
+  }
+
+  .cta-pending {
+    display: inline-block;
+    padding: 12px; /* aligned with the Button component's reserved space */
+    color: var(--color-secondary);
+    font-size: var(--text-body-size);
+    line-height: var(--text-body-leading);
+  }
+
+  @media (min-width: 768px) {
+    .about {
+      gap: var(--space-3xl);
+      padding-block: var(--space-3xl);
+    }
+
+    .steps {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .cta {
+      padding: var(--space-2xl);
+    }
+  }
+</style>
