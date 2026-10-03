@@ -1,0 +1,82 @@
+---
+/**
+ * ResearchCard — approved "research card" primitive (Spec 03 component list),
+ * used by the /research index.
+ *
+ * The research schema has no summary field, so the card previews the
+ * research question — schema fields only, never invented copy.
+ * Card titles render as h2 for a correct heading hierarchy under the
+ * page h1, using the approved h3 tokens for card-scale typography.
+ * Note: renders an <li> element — only valid as a direct child of a <ul>
+ * (the /research index entry list).
+ */
+import MetadataLabel from "../MetadataLabel.astro";
+import Link from "../Link.astro";
+
+interface Props {
+  href: string;
+  title: string;
+  topic?: string;
+  status?: string;
+  question?: string;
+}
+
+const { href, title, topic, status, question } = Astro.props;
+---
+
+<li class="research-card">
+  {(topic || status) && (
+    <p class="research-card__meta">
+      {topic && <MetadataLabel>{topic}</MetadataLabel>}
+      {status && <MetadataLabel>{status}</MetadataLabel>}
+    </p>
+  )}
+  <h2 class="research-card__title">
+    <Link href={href}>{title}</Link>
+  </h2>
+  {question && <p class="research-card__question">{question}</p>}
+</li>
+
+<style>
+  .research-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    list-style: none;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s ease;
+  }
+
+  .research-card:hover,
+  .research-card:focus-within {
+    border-color: var(--color-secondary);
+  }
+
+  .research-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-md);
+  }
+
+  .research-card__title {
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+    letter-spacing: var(--text-h3-tracking);
+  }
+
+  .research-card__question {
+    color: var(--color-secondary);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .research-card {
+      transition: none;
+    }
+  }
+</style>

@@ -1,0 +1,34 @@
+---
+/**
+ * StatusBadge — approved "status badge" primitive (spec 03 component list).
+ *
+ * Status is a validated free-text string, not an enum: the approved
+ * specifications reference a "status taxonomy" for the Work page but never
+ * enumerate values (see the status note in src/content.config.ts). The badge
+ * therefore renders the literal status string with a single neutral treatment
+ * and deliberately avoids per-status colors, which would imply an approved
+ * maturity scale that does not exist yet.
+ */
+interface Props {
+  status: string;
+}
+
+const { status } = Astro.props;
+---
+
+<span class="status-badge">{status}</span>
+
+<style>
+  .status-badge {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    color: var(--color-secondary);
+    font-size: var(--text-label-size);
+    font-weight: var(--text-label-weight);
+    line-height: var(--text-label-leading);
+    letter-spacing: var(--text-label-tracking);
+  }
+</style>

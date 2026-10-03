@@ -1,0 +1,34 @@
+---
+/**
+ * StatusBadge — evidence-status badge per the approved design system
+ * ("The design should make the status of work clear. Use explicit
+ * distinctions such as: Production, Case Study, Prototype, Experiment,
+ * Research, In Development. A prototype must never visually imply the
+ * maturity of a production system.").
+ * Deliberately neutral (surface + border, no color coding): maturity is
+ * communicated by the status word itself, never by a success-looking color.
+ * Approved label typography for low-emphasis metadata.
+ */
+interface Props {
+  status: string;
+}
+
+const { status } = Astro.props;
+---
+
+<span class="status-badge">{status}</span>
+
+<style>
+  .status-badge {
+    display: inline-block;
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    font-size: var(--text-label-size);
+    font-weight: var(--text-label-weight);
+    line-height: var(--text-label-leading);
+    letter-spacing: var(--text-label-tracking);
+    color: var(--color-secondary);
+  }
+</style>

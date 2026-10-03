@@ -1,0 +1,214 @@
+---
+/**
+ * /research/[slug] — dynamic research detail page (MIS route
+ * /research/[research]).
+ *
+ * Section sequence is frozen by Spec 02 / MIS:
+ * Question → Context → Investigation → Experiment → Result →
+ * What We Learned → What Comes Next.
+ *
+ * Evidence rules:
+ * - Sections render only when the entry carries that field; empty fields
+ *   render nothing (MIS: leave fields empty without evidence).
+ * - observations nests under Result, limitations under What We Learned
+ *   (schema fields without a dedicated frozen section).
+ * - Route slugs come from entry.data.slug (collection schema) so links from
+ *   solutions/work stay stable.
+ * - With 0 entries getStaticPaths returns [] and the build stays green.
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import MetadataLabel from "../../components/MetadataLabel.astro";
+import Link from "../../components/Link.astro";
+import Button from "../../components/Button.astro";
+import ResearchSection from "../../components/research/ResearchSection.astro";
+import { getCollection, type CollectionEntry } from "astro:content";
+
+export async function getStaticPaths() {
+  const entries = await getCollection("research");
+  return entries.map((entry) => ({
+    params: { slug: entry.data.slug },
+    props: { entry },
+  }));
+}
+
+interface Props {
+  entry: CollectionEntry<"research">;
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+
+/** Truncate a meta description on a word boundary — never mid-word.
+ *  A single token longer than the limit is cut as-is (no boundary exists). */
+function truncateDescription(text: string): string {
+  if (text.length <= 160) return text;
+  const cut = text.slice(0, 160);
+  const boundary = cut.lastIndexOf(" ");
+  return `${(boundary > 0 ? cut.slice(0, boundary) : cut).trimEnd()}…`;
+}
+
+/** Page description from approved fields only — never fabricated. */
+const rawDescription = [data.question, data.topic].find(
+  (value) => value !== undefined && value.trim() !== "",
+);
+const description = rawDescription
+  ? truncateDescription(rawDescription.trim())
+  : undefined;
+
+/** Guard the raw frontmatter href to http(s) only — same rule as sources. */
+const githubUrl =
+  data.github && /^https?:\/\//.test(data.github) ? data.github : undefined;
+
+const sources = data.sources ?? [];
+---
+
+<BaseLayout title={data.title} description={description}>
+  <Container>
+    <header class="detail-header">
+      <p class="detail-header__back">
+        <Link href="/research">All research</Link>
+      </p>
+      <MetadataLabel>Research</MetadataLabel>
+      <h1>{data.title}</h1>
+      {(data.topic || data.status) && (
+        <p class="detail-header__meta">
+          {data.topic && <MetadataLabel>{data.topic}</MetadataLabel>}
+          {data.status && <MetadataLabel>{data.status}</MetadataLabel>}
+        </p>
+      )}
+      {githubUrl && (
+        <p class="detail-header__github">
+          <Link href={githubUrl}>GitHub repository</Link>
+        </p>
+      )}
+    </header>
+
+    {data.question && (
+      <ResearchSection id="question" title="Question">
+        <p>{data.question}</p>
+      </ResearchSection>
+    )}
+    {data.context && (
+      <ResearchSection id="context" title="Context">
+        <p>{data.context}</p>
+      </ResearchSection>
+    )}
+    {data.investigation && (
+      <ResearchSection id="investigation" title="Investigation">
+        <p>{data.investigation}</p>
+      </ResearchSection>
+    )}
+    {data.experiments && (
+      <ResearchSection id="experiment" title="Experiment">
+        <p>{data.experiments}</p>
+      </ResearchSection>
+    )}
+    {(data.results || data.observations) && (
+      <ResearchSection id="result" title="Result">
+        {data.results && <p>{data.results}</p>}
+        {data.observations && (
+          <>
+            <h3>Observations</h3>
+            <p>{data.observations}</p>
+          </>
+        )}
+      </ResearchSection>
+    )}
+    {(data.learnings || data.limitations) && (
+      <ResearchSection id="learnings" title="What We Learned">
+        {data.learnings && <p>{data.learnings}</p>}
+        {data.limitations && (
+          <>
+            <h3>Limitations</h3>
+            <p>{data.limitations}</p>
+          </>
+        )}
+      </ResearchSection>
+    )}
+    {data.next && (
+      <ResearchSection id="next" title="What Comes Next">
+        <p>{data.next}</p>
+      </ResearchSection>
+    )}
+
+    {sources.length > 0 && (
+      <section class="detail-sources" aria-labelledby="sources-heading">
+        <h2 id="sources-heading">Sources</h2>
+        <ul>
+          {sources.map((source) => (
+            <li>
+              {/^https?:\/\//.test(source) ? (
+                <Link href={source}>{source}</Link>
+              ) : (
+                source
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <!-- Critical journey 3: Research → Detail → CTA (approved primary CTA). -->
+    <div class="detail-cta">
+      <Button href="/start-a-project" variant="primary">
+        Start a Project
+      </Button>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  .detail-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-width: 70ch;
+    padding-block: var(--space-2xl) var(--space-xl);
+  }
+
+  .detail-header__back {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .detail-header__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-md);
+  }
+
+  .detail-header__github {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .detail-sources {
+    max-width: 70ch;
+    padding-block: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .detail-sources h2 {
+    margin-bottom: var(--space-md);
+  }
+
+  .detail-sources ul {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-left: var(--space-xl);
+    list-style: disc;
+  }
+
+  /* Long source URLs wrap instead of overflowing narrow viewports. */
+  .detail-sources li {
+    overflow-wrap: anywhere;
+  }
+
+  .detail-cta {
+    max-width: 70ch;
+    padding-block: var(--space-2xl) var(--space-4xl);
+    border-top: 1px solid var(--color-border);
+  }
+</style>

@@ -1,0 +1,184 @@
+---
+/**
+ * StatusFilter — the "status taxonomy" step of the approved Work page
+ * sequence (spec 02 / MIS: "Project index → status taxonomy → project detail").
+ *
+ * No approved status enum exists (see src/content.config.ts), so the chips are
+ * derived at render time from the status strings actually present in the
+ * projects collection and stay generic text chips — no invented status values,
+ * colors or maturity semantics.
+ *
+ * Progressive enhancement: the block renders `hidden` and is un-hidden by the
+ * inline script below while the parser is still running, so
+ *   - a no-JS visitor sees the full, unfiltered list and no inert controls,
+ *   - a JS visitor never sees the filter pop in and shift the layout.
+ * The result count is server-rendered, so the live region only announces
+ * after an actual filter interaction, not on page load.
+ */
+interface Props {
+  statuses: string[];
+  total: number;
+}
+
+const { statuses, total } = Astro.props;
+const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "projects"}.`;
+---
+
+{statuses.length > 0 && (
+  <div class="filter" data-status-filter-root hidden>
+    <p class="filter__label" id="status-filter-label">
+      Filter by status
+    </p>
+    <div
+      class="filter__options"
+      role="group"
+      aria-labelledby="status-filter-label"
+    >
+      <button
+        type="button"
+        class="filter__chip"
+        data-filter-status="*"
+        aria-pressed="true"
+      >
+        All statuses
+      </button>
+      {statuses.map((status) => (
+        <button
+          type="button"
+          class="filter__chip"
+          data-filter-status={status}
+          aria-pressed="false"
+        >
+          {status}
+        </button>
+      ))}
+    </div>
+    <p class="filter__count" role="status" data-filter-count>
+      {countText}
+    </p>
+  </div>
+)}
+
+<script is:inline>
+  // Runs during parsing (before first paint) so revealing the filter cannot
+  // shift the layout. Without JS the block stays hidden.
+  // Accepted trade-off: if the bundled module below fails to load while this
+  // script runs, the chips stay visible but inert — worse than a load-time
+  // layout shift, and only in a broken-asset scenario.
+  const statusFilterRoot = document.querySelector("[data-status-filter-root]");
+  if (statusFilterRoot) statusFilterRoot.hidden = false;
+</script>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-status-filter-root]");
+
+  if (root) {
+    // Fallback in case the inline reveal above did not run.
+    root.hidden = false;
+
+    const chips = Array.from(
+      root.querySelectorAll<HTMLButtonElement>("[data-filter-status]"),
+    );
+    const cards = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-project-status]"),
+    );
+    const count = root.querySelector<HTMLElement>("[data-filter-count]");
+
+    const apply = (value: string) => {
+      let visible = 0;
+
+      for (const card of cards) {
+        const match = value === "*" || card.dataset.projectStatus === value;
+        card.hidden = !match;
+        if (match) visible += 1;
+      }
+
+      for (const chip of chips) {
+        chip.setAttribute(
+          "aria-pressed",
+          String(chip.dataset.filterStatus === value),
+        );
+      }
+
+      if (count) {
+        count.textContent = `Showing ${visible} of ${cards.length} ${
+          cards.length === 1 ? "project" : "projects"
+        }.`;
+      }
+    };
+
+    // Only after interaction: the count is already server-rendered, and
+    // writing to a live region on load would announce unsolicited.
+    for (const chip of chips) {
+      chip.addEventListener("click", () => {
+        apply(chip.dataset.filterStatus ?? "*");
+      });
+    }
+  }
+</script>
+
+<style>
+  .filter[hidden] {
+    display: none;
+  }
+
+  .filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm) var(--space-md);
+    padding-block: var(--space-md);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .filter__label {
+    font-size: var(--text-label-size);
+    font-weight: var(--text-label-weight);
+    line-height: var(--text-label-leading);
+    letter-spacing: var(--text-label-tracking);
+    color: var(--color-muted);
+  }
+
+  .filter__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .filter__chip {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    color: var(--color-secondary);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .filter__chip:hover {
+    border-color: var(--color-secondary);
+    color: var(--color-primary);
+  }
+
+  .filter__chip[aria-pressed="true"] {
+    border-color: var(--color-tertiary);
+    color: var(--color-tertiary);
+  }
+
+  .filter__count {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .filter__chip {
+      transition: none;
+    }
+  }
+</style>
