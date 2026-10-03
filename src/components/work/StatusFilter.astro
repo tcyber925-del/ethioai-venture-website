@@ -26,11 +26,13 @@ const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "pro
 
 {statuses.length > 0 && (
   <div class="filter" data-status-filter-root hidden>
-    <p class="filter__label">Filter by status</p>
+    <p class="filter__label" id="status-filter-label">
+      Filter by status
+    </p>
     <div
       class="filter__options"
       role="group"
-      aria-label="Filter projects by status"
+      aria-labelledby="status-filter-label"
     >
       <button
         type="button"
@@ -60,6 +62,9 @@ const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "pro
 <script is:inline>
   // Runs during parsing (before first paint) so revealing the filter cannot
   // shift the layout. Without JS the block stays hidden.
+  // Accepted trade-off: if the bundled module below fails to load while this
+  // script runs, the chips stay visible but inert — worse than a load-time
+  // layout shift, and only in a broken-asset scenario.
   const statusFilterRoot = document.querySelector("[data-status-filter-root]");
   if (statusFilterRoot) statusFilterRoot.hidden = false;
 </script>
