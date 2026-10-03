@@ -347,3 +347,108 @@ t(
 t("uppercase .HTML page is checked (not exempt)", PAGE, 1, {
   "LEGACY.HTML": "<html><head><title>legacy</title></head><body></body></html>",
 });
+
+// ── Round 9: quote-aware open-tag matchers, container scoping, <noscript> ─
+t(
+  "quote > inside html attr doesn't hide lang",
+  PAGE.replace('<html lang="en">', '<html data-x="a>b" lang="en">'),
+  0,
+);
+t(
+  "quote > inside html attr with lang absent fails",
+  PAGE.replace('<html lang="en">', '<html data-x="a>b">'),
+  1,
+);
+t(
+  "literal <html lang> in content can't rescue bare html",
+  PAGE.replace('<html lang="en">', '<html><p><html lang="en">'),
+  1,
+);
+t(
+  "quote > inside meta attr doesn't hide description",
+  PAGE.replace(
+    '<meta name="description" content="d">',
+    '<meta data-x="a>b" name="description" content="d">',
+  ),
+  0,
+);
+t(
+  "empty description behind quote > fails",
+  PAGE.replace(
+    '<meta name="description" content="d">',
+    '<meta data-x="a>b" name="description" content="">',
+  ),
+  1,
+);
+t(
+  "content-before-name behind quote > passes",
+  PAGE.replace(
+    '<meta name="description" content="d">',
+    '<meta data-x="a>b" content="d" name="description">',
+  ),
+  0,
+);
+t(
+  "quote > inside base attr still detected",
+  inBody('<base data-x="a>b" href="/sub/"><a href="y.png">x</a>'),
+  0,
+  { "sub/index.html": SUB_PAGE, "sub/y.png": "x" },
+);
+t(
+  "empty title behind quote > fails",
+  PAGE.replace("<title>Page</title>", '<title data-x="a>b"></title>'),
+  1,
+);
+t(
+  "non-empty title behind quote > passes",
+  PAGE.replace("<title>Page</title>", '<title data-x="a>b">Page</title>'),
+  0,
+);
+t(
+  "fake empty title inside <style> doesn't count",
+  PAGE.replace(
+    "<title>Page</title>",
+    '<style>.x{content:"<title></title>"}</style><title>Page</title>',
+  ),
+  0,
+);
+t(
+  "fake empty meta inside <template> doesn't count",
+  PAGE.replace(
+    '<meta name="description" content="d">',
+    '<template><meta name="description" content=""></template>' +
+      '<meta name="description" content="d">',
+  ),
+  0,
+);
+t(
+  "svg <title> in body can't rescue missing document title",
+  PAGE.replace("<title>Page</title>", "").replace(
+    "<h1>Page</h1>",
+    "<h1>Page</h1><svg><title>diagram</title></svg>",
+  ),
+  1,
+);
+t(
+  "h1 inside <noscript> doesn't count",
+  inBody("<noscript><h1>NS</h1></noscript>"),
+  0,
+);
+t(
+  "dead link only inside <noscript> ignored",
+  inBody('<noscript><a href="/nope-ns/">x</a></noscript>'),
+  0,
+);
+t(
+  "description only inside <noscript> fails",
+  PAGE.replace(
+    '<meta name="description" content="d">',
+    '<noscript><meta name="description" content="d"></noscript>',
+  ),
+  1,
+);
+t(
+  "quote > in script open tag doesn't disable later scanning",
+  inBody('<script data-x="a>b">let x = 1;</script><a href="/nope-after">x</a>'),
+  1,
+);

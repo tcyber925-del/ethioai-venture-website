@@ -9,7 +9,9 @@ Public website for **EthioAI Venture** — a static-first [Astro](https://astro.
 
 ## Prerequisites
 
-- Node.js `>= 20`
+- Node.js `>= 22.18` (`engines` floor — the wired test suite imports a
+  `.ts` file, which Node executes natively only since 22.18's unflagged
+  type stripping; CI runs the latest 22.x)
 - npm (bundled with Node.js)
 
 ## Setup
@@ -56,15 +58,19 @@ npm run format
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go. `check:dist` inspects the generated markup outside inline
-`<script>` bodies, HTML comments and `<style>`/`<template>`/`<textarea>`/`<title>`
-bodies for static accessibility/SEO problems
-(`<html lang>` with a value, non-empty `<title>` and meta description, viewport,
-exactly one `<h1>` per page — attribute values are blanked first and
-inert/raw-text containers excluded, so a literal `<h1>` inside a value, a
-`<template>`, `<textarea>`, `<style>` or `<title>` can't fake or hide the count;
-quoted or unquoted HTML5 attribute
+`<script>` bodies, HTML comments and inert/raw-text bodies —
+`<style>`/`<template>`/`<textarea>`/`<noscript>` for every check, plus
+`<title>` for all but its own check — for static accessibility/SEO problems
+(`<html lang>` with a value read off the document's first `<html>` tag,
+non-empty head `<title>` (an `<svg><title>` label doesn't count) and meta
+description, viewport, exactly one `<h1>` per page — attribute values are
+blanked first and inert/raw-text containers excluded, so a literal `<h1>`
+inside a value, `<template>`, `<textarea>`, `<style>`, `<title>` or
+`<noscript>` can't fake or hide the count; quoted or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
-case-insensitively) and validates that every internal `href`/`src`/`srcset`
+case-insensitively, and the html/title/meta/base open tags matched
+quote-aware — `>` inside a quoted attribute value never splits the match)
+and validates that every internal `href`/`src`/`srcset`
 reference (including SVG `xlink:href`) — matched only on parsed tag fragments,
 so prose or code samples that merely mention `href="/…"` never count as links —
 root-relative or relative (resolved

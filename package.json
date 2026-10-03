@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Public website for EthioAI Venture — static-first Astro + TypeScript.",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "astro dev",

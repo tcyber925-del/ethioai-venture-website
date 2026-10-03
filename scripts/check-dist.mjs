@@ -8,20 +8,26 @@
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
  * Per generated page (rendered markup — inline <script> bodies and HTML
- * comments are stripped first, then <style>/<template>/<textarea>/<title>
- * bodies drop whole: never rendered as headings or live markup;
+ * comments are stripped first, then inert/raw-text containers drop whole:
+ * <style>/<template>/<textarea>/<noscript> for every check below, plus
+ * <title> for all but its own check (RCDATA text; only the head's title
+ * counts as the document title — an <svg><title> label doesn't). The
+ * html/title/meta/base open tags are matched quote-aware (`>` is legal
+ * inside a quoted attribute value and must never split the match);
  * tag/attribute *names* are matched
  * case-insensitively, whitespace around `=` is tolerated, and values accept
  * quoted *and* unquoted HTML5 forms, so verbatim files copied from public/
  * are checked the same as Astro output):
- *   - non-empty <html lang>
+ *   - non-empty <html lang> (read off the document's first <html> tag — a
+ *     stray literal `<html lang=…>` in content can't rescue a bare one)
  *   - non-empty <title> (tag may carry whitespace/attributes)
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash —
  *     attribute values are blanked first and inert/raw-text containers are
  *     excluded, so a literal "<h1>" inside an attribute value, <template>,
- *     <textarea>, <style> or <title> can neither fake nor hide the count)
+ *     <textarea>, <style>, <title> or <noscript> can neither fake nor hide
+ *     the count)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
  *     (the href pattern also matches SVG xlink:href) — matched ONLY inside
@@ -54,7 +60,9 @@
  *
  * Local reproduction: npm run build && npm run check:dist
  * Regression battery: npm test (tests/check-dist.test.mjs via node:test —
- * wired into `npm run verify` and the CI job together with the route suite).
+ * wired into `npm run verify` and the CI job together with the route suite;
+ * the suite's type-stripped .ts import needs Node >= 22.18 — the engines
+ * floor, so every documented command works across the declared range).
  * Exits non-zero on any problem (CI gate).
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
@@ -224,6 +232,33 @@ function extractTags(markup) {
   return tags;
 }
 
+/**
+ * All `<name …>` open tags in `markup`, matched quote-aware — quoted
+ * attribute values may legally contain `>`, so a naive `[^>]*` would cut
+ * the tag short and hide (or fabricate) everything after the `>`
+ * (review round 9).
+ */
+const openTags = (markup, name) =>
+  markup.match(
+    new RegExp(`<${name}(?=[\\s>])(?:"[^"]*"|'[^']*'|[^>"'])*>`, "gi"),
+  ) ?? [];
+
+/**
+ * Value of `attrName` in an open-tag string produced by openTags — the
+ * tag is already whole, so this only splits value styles (double/single
+ * quoted or unquoted). Undefined when the attribute is absent; `""` for
+ * an explicitly empty value.
+ */
+const tagAttr = (tag, attrName) => {
+  const m = tag.match(
+    new RegExp(
+      `\\s${attrName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`,
+      "i",
+    ),
+  );
+  return m ? (m[1] ?? m[2] ?? m[3]) : undefined;
+};
+
 const failures = [];
 let referencesChecked = 0;
 
@@ -232,44 +267,72 @@ for (const file of htmlFiles) {
   const route = "/" + relFile.replace(/(^|\/)index\.html$/i, "$1");
   const raw = readFileSync(file, "utf8");
   // Rendered markup only: inline <script> bodies (JS strings are not markup)
-  // — keeping <script src=...> tags so asset references are still checked —
-  // and HTML comments (commented-out markup must not count) are stripped
-  // before any string-based check.
+  // — keeping <script src=...> tags so asset references are still checked;
+  // the open tag is matched quote-aware, so `>` inside a quoted attribute
+  // can't split it and orphan an unclosed quote that would swallow the rest
+  // of the document during tag extraction — and HTML comments
+  // (commented-out markup must not count) are stripped before any
+  // string-based check.
   const html = raw
-    .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2")
+    .replace(
+      /(<script(?=[\s>])(?:"[^"]*"|'[^']*'|[^>"'])*>)[\s\S]*?(<\/script>)/gi,
+      "$1$2",
+    )
     .replace(/<!--[\s\S]*?-->/g, "");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
-  const lang = html.match(
-    /<html[^>]*\slang\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
+  // Inert/raw-text containers drop whole bodies for every check below —
+  // <template> never renders, <textarea> and <title> hold RCDATA text,
+  // <style> holds CSS strings (its url() stays out of scope), and
+  // <noscript> only renders when scripting is off (these checks model the
+  // normal rendering). <title>'s own presence check needs the tag itself,
+  // so it runs on `titleSrc` (containers minus <title>); everything else
+  // uses `stripped` (all of them, <title> included).
+  const titleSrc = html.replace(
+    /<(style|template|textarea|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+    "",
   );
-  if (!lang || !(lang[1] ?? lang[2] ?? lang[3]).trim()) {
+  const stripped = html.replace(
+    /<(style|template|textarea|title|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+    "",
+  );
+
+  const htmlTag = openTags(stripped, "html")[0];
+  const lang = htmlTag && tagAttr(htmlTag, "lang");
+  if (!lang || !lang.trim()) {
     fail("missing or empty <html lang>");
   }
 
   // <title> is RCDATA: inner markup is literal text, so the emptiness test
-  // runs on the raw content (a "Page<h1>x</h1>" title is not empty) — and
-  // the match may span any content up to the first "</title>", like parsers.
-  const title = html.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
-  if (!title || !title[1].trim()) fail("missing or empty <title>");
+  // runs on the raw content (a "Page<h1>x</h1>" title is not empty). Only
+  // the head's own title counts — an <svg><title> in the body is a diagram
+  // label, not the document title — and the open tag is matched
+  // quote-aware (`>` inside a quoted attribute never splits it).
+  const bodyAt = titleSrc.search(/<body\b/i);
+  const headSrc = bodyAt === -1 ? titleSrc : titleSrc.slice(0, bodyAt);
+  const titleTag = openTags(headSrc, "title")[0];
+  const titleStart = titleTag
+    ? headSrc.indexOf(titleTag) + titleTag.length
+    : -1;
+  const titleRest = titleStart > 0 ? headSrc.slice(titleStart) : "";
+  const titleClose = titleRest.match(/<\/title>/i);
+  const titleText = titleClose ? titleRest.slice(0, titleClose.index) : "";
+  if (!titleText.trim()) fail("missing or empty <title>");
 
   // Either attribute order; quoted with either style (apostrophes allowed
   // inside differently-quoted values) or unquoted HTML5 values — for BOTH
   // the name= and content= attributes, with optional whitespace around =.
+  // Attributes are read off quote-aware <meta> tags (so `>` inside a
+  // quoted value never splits the match) on the container-stripped source
+  // (a fake <meta> inside <style>/<template> can't satisfy the check).
   const metaContent = (name) => {
-    const NAME = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const contentAtt = `content\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`;
-    const nameAtt = `name\\s*=\\s*(?:"${NAME}"|'${NAME}'|${NAME}(?=[\\s>/]|$))`;
-    const nameFirst = html.match(
-      new RegExp(`<meta[^>]*${nameAtt}[^>]*${contentAtt}`, "i"),
-    );
-    if (nameFirst) return nameFirst[1] ?? nameFirst[2] ?? nameFirst[3];
-    const contentFirst = html.match(
-      new RegExp(`<meta[^>]*${contentAtt}[^>]*${nameAtt}`, "i"),
-    );
-    return contentFirst
-      ? (contentFirst[1] ?? contentFirst[2] ?? contentFirst[3])
-      : null;
+    for (const tag of openTags(stripped, "meta")) {
+      const n = tagAttr(tag, "name");
+      if (n !== undefined && n.toLowerCase() === name) {
+        return tagAttr(tag, "content") ?? null;
+      }
+    }
+    return null;
   };
 
   const desc = metaContent("description");
@@ -280,19 +343,9 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
-  // Rendered-markup source for the checks below: inert/raw-text containers
-  // drop their whole bodies — <template> is never rendered, <textarea> and
-  // <title> hold text (RCDATA), <style> holds CSS strings (its url() stays
-  // out of scope) — so content inside them can neither fake nor hide an
-  // <h1> nor contribute reference attributes.
-  const renderable = html.replace(
-    /<(style|template|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-    "",
-  );
-
   // Blank attribute values before counting: a literal "<h1>" inside a
   // value (title="…<h1>…") must neither fake nor hide the count.
-  const withoutAttrValues = renderable.replace(
+  const withoutAttrValues = stripped.replace(
     /(\s[\w-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
     "$1",
   );
@@ -301,25 +354,22 @@ for (const file of htmlFiles) {
 
   // Base for resolving relative references: <base href> when the document
   // declares one (verbatim public/ files), else the page's URL directory.
-  // The <base> tag itself is then excluded from link scanning — it is a
+  // The <base> tag itself is excluded from link scanning below — it is a
   // resolution prefix, not a fetch target (the browser never requests it).
   const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
   let pageBase =
     CHECK_ORIGIN + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
-  const baseTag = renderable.match(
-    /<base[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
-  );
+  const baseTag = openTags(stripped, "base")[0];
+  const baseHref = baseTag ? tagAttr(baseTag, "href") : undefined;
   let baseOffsite = false;
-  if (baseTag) {
-    const href = baseTag[1] ?? baseTag[2] ?? baseTag[3];
+  if (baseHref !== undefined) {
     try {
-      pageBase = new URL(href, pageBase).href;
+      pageBase = new URL(baseHref, pageBase).href;
       baseOffsite = new URL(pageBase).origin !== CHECK_ORIGIN;
     } catch {
       // unparsable <base href> — fall back to the page directory
     }
   }
-  const scanHtml = renderable.replace(/<base\b[^>]*>/gi, "");
 
   /** Check one raw reference (href/src value or srcset entry). */
   const checkReference = (rawTarget, kind) => {
@@ -348,7 +398,10 @@ for (const file of htmlFiles) {
     // Fragment/query-only references are same-document fetches — unless the
     // document declares <base>, which browsers resolve them against
     // (href="#x" → <base>/#x), making them checkable paths.
-    if ((target.startsWith("#") || target.startsWith("?")) && !baseTag) {
+    if (
+      (target.startsWith("#") || target.startsWith("?")) &&
+      baseHref === undefined
+    ) {
       return;
     }
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return; // http:, mailto:, data: …
@@ -379,9 +432,11 @@ for (const file of htmlFiles) {
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
   // Attributes are matched only inside parsed tag fragments (extractTags),
-  // so text content can never red the gate. `xlink:href` first so the
+  // so text content can never red the gate; <base> tags are skipped —
+  // resolution prefixes are never fetch targets. `xlink:href` first so the
   // colon-bearing legacy name matches as a whole.
-  for (const tag of extractTags(scanHtml)) {
+  for (const tag of extractTags(stripped)) {
+    if (/^<base\b/i.test(tag)) continue;
     for (const m of tag.matchAll(
       /\s(?:xlink:href|href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
     )) {
