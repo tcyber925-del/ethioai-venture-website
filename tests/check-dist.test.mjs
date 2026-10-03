@@ -3,9 +3,11 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–8):
- * quoted/unquoted/whitespace attribute forms, script/comment/inert-container
- * stripping, tag-context-only link scanning (prose mentioning href="/…"
+ * Every case encodes a verdict proven in PR #12's review rounds (1–12):
+ * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
+ * lookups, token-walk-only script/comment/inert-container stripping
+ * (attribute values can never open a strip), tag-context-only link
+ * scanning (prose mentioning href="/…"
  * must not count), percent/entity decoding, WHATWG path normalization,
  * <base> resolution (relative, offsite, fragment-under-base), data:-srcset
  * skipping (base64 and raw payloads), external/same-document skips, and the
@@ -537,4 +539,45 @@ t(
   "text-level second h1 isn't masked by prose-shaped blanking",
   inBody('<p>kw = "<h1>second</h1>"</p>'),
   1,
+);
+
+// ── Round 12: the strip passes themselves are token-walk scoped ────────────
+t(
+  "template-shaped text in attr value can't open a strip (false red)",
+  PAGE.replace(
+    "<title>Page</title>",
+    '<title>Page</title><meta name="x" content="<template>">',
+  ).replace("</body>", "<template><p>t</p></template></body>"),
+  0,
+);
+t(
+  "template-shaped text in attr value can't eat a live dead link",
+  inBody(
+    '<div data-x="<template>"></div><a href="/nope-eaten">x</a>' +
+      "<template><p>t</p></template>",
+  ),
+  1,
+);
+t(
+  "comment-shaped text in attr value can't eat a live dead link",
+  inBody('<div data-x="<!--"></div><a href="/nope-c">x</a><!-- real -->'),
+  1,
+);
+t(
+  "script-shaped text in attr value can't eat a live dead link",
+  inBody(
+    '<div data-x="<script>"></div><a href="/nope-s">x</a>' +
+      "<script>var y;</script>",
+  ),
+  1,
+);
+t(
+  "unclosed comment runs to EOF (like parsers)",
+  inBody('<!-- <a href="/gone/">x</a>'),
+  0,
+);
+t(
+  "self-closing <script/> still opens (raw body dropped)",
+  inBody("<script/>const x='<h1>fake</h1>';</script>"),
+  0,
 );

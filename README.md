@@ -58,10 +58,13 @@ npm run format
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go. `check:dist` inspects the generated markup outside inline
-`<script>` bodies, HTML comments and inert/raw-text bodies —
+`<script>` bodies, HTML comments (unclosed ones run to EOF, like parsers) and
+inert/raw-text bodies —
 `<style>`/`<template>`/`<textarea>`/`<noscript>` for every check, plus
-`<title>` for all but its own check (an unclosed container — malformed
-markup Astro never emits — fails loudly rather than being guessed out) — for
+`<title>` for all but its own check (every drop comes from one quote-aware
+token walk, so markup-shaped text inside a quoted attribute value can never
+open or close a strip; an unclosed _container_ — malformed markup Astro never
+emits — fails loudly rather than being guessed out) — for
 static accessibility/SEO problems
 (`<html lang>` with a value read off the document's first `<html>` tag,
 non-empty head `<title>` (an `<svg><title>` label doesn't count) and meta

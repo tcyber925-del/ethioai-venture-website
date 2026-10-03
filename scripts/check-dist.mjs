@@ -7,12 +7,17 @@
  * automated regression protection only — manual visual, responsive,
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
- * Per generated page (rendered markup — inline <script> bodies and HTML
- * comments are stripped first, then inert/raw-text containers drop whole:
+ * Per generated page (rendered markup — every drop runs over one
+ * quote-aware token walk, never a raw regex over the document: text
+ * inside a quoted attribute value can never open or close a strip.
+ * Inline <script> bodies drop (the tags stay so src= is checked;
+ * `<script/>` still opens — HTML ignores the flag for these elements),
+ * HTML comments drop whole (an unclosed `<!--` runs to EOF, like
+ * parsers), then inert/raw-text containers drop whole:
  * <style>/<template>/<textarea>/<noscript> for every check below, plus
  * <title> for all but its own check (RCDATA text; only the head's title
  * counts as the document title — an <svg><title> label doesn't); an
- * unclosed container is malformed markup Astro never emits — it fails
+ * unclosed <container> is malformed markup Astro never emits — it fails
  * loudly rather than being guessed out. Every structural lookup —
  * lang/title/meta/base and the <h1> count — runs over quote-aware tag
  * fragments (extractTags): `>` inside a quoted attribute value never
@@ -207,6 +212,28 @@ const looksLikeUrl = (token) =>
   (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
 /**
+ * End index (one past `>`) of the tag opening at `start`, quote-aware: a
+ * `>` inside a quoted attribute value does not end the tag. -1 when the
+ * tag never terminates (malformed markup at EOF).
+ */
+function tagEndFrom(markup, start) {
+  let i = start + 1;
+  let quote = null;
+  while (i < markup.length) {
+    const ch = markup[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === ">") {
+      return i + 1;
+    }
+    i++;
+  }
+  return -1;
+}
+
+/**
  * Extract the document's tag fragments as `{raw, start, end}` —
  * quote-aware (a `>` inside a quoted attribute value does not end the
  * tag). A tag opens at `<` followed by a
@@ -223,26 +250,10 @@ function extractTags(markup) {
   const open = /<(?=[a-z!/?])/gi;
   let m;
   while ((m = open.exec(markup)) !== null) {
-    let i = m.index + 1;
-    let quote = null;
-    while (i < markup.length) {
-      const ch = markup[i];
-      if (quote) {
-        if (ch === quote) quote = null;
-      } else if (ch === '"' || ch === "'") {
-        quote = ch;
-      } else if (ch === ">") {
-        break;
-      }
-      i++;
-    }
-    if (i >= markup.length) break;
-    tags.push({
-      raw: markup.slice(m.index, i + 1),
-      start: m.index,
-      end: i + 1,
-    });
-    open.lastIndex = i + 1;
+    const end = tagEndFrom(markup, m.index);
+    if (end === -1) break;
+    tags.push({ raw: markup.slice(m.index, end), start: m.index, end });
+    open.lastIndex = end;
   }
   return tags;
 }
@@ -257,6 +268,171 @@ const tagsNamed = (tags, name) => {
   const re = new RegExp(`^<${name}(?=[\\s>/])`, "i");
   return tags.filter((t) => re.test(t.raw));
 };
+
+/** Elements whose content is literal text (raw text / RCDATA) — self-
+ * closing flags are ignored for them by HTML, so `<script/>` still opens. */
+const RAWTEXT_NAMES = new Set([
+  "script",
+  "style",
+  "textarea",
+  "title",
+  "noscript",
+]);
+
+/**
+ * One quote-aware forward pass over the raw page markup yielding drop
+ * regions `{s, e, always?|drop}` (review round 12): the pre-processing
+ * strips run over THIS walk, never raw regexes over the document — text
+ * inside a quoted attribute value (`content="<template>"`) can never open
+ * a false strip boundary that eats the markup up to a later real close.
+ *   - comments drop whole (an unclosed `<!--` runs to EOF, like parsers);
+ *   - `<script>` tags stay (src= is reference-checked) but the raw body
+ *     drops (to EOF when unclosed, like parsers);
+ *   - raw-text elements (`style`/`textarea`/`title`/`noscript`) drop whole
+ *     to their first close (or EOF when unclosed);
+ *   - `<template>` nests: drops whole only when a matching close exists at
+ *     depth 0 over real tag fragments; an unclosed one produces no region
+ *     (malformed markup fails loudly — documented boundary).
+ * An incomplete tag at EOF drops with the rest of the document (parsers
+ * emit nothing for it).
+ */
+function markupDropEvents(raw) {
+  const events = [];
+  const len = raw.length;
+
+  const tagNameAt = (lt, tagEnd) => {
+    let s = lt + 1;
+    if (raw[s] === "/") s++;
+    let e = s;
+    while (e < tagEnd && !/[\s/>]/.test(raw[e])) e++;
+    return raw.slice(s, e).toLowerCase();
+  };
+
+  // Raw-text body: literal until the first `</name` (self-closing flags
+  // ignored — `<script/>` still opens).
+  const findRawClose = (from, name) => {
+    const re = new RegExp(`</${name}(?=[\\s>/])`, "gi");
+    re.lastIndex = from;
+    const m = re.exec(raw);
+    if (!m) return null;
+    const end = tagEndFrom(raw, m.index);
+    return { start: m.index, end: end === -1 ? len : end };
+  };
+
+  // Matching close of a markup container (`<template>` nests): depth over
+  // real tag fragments only — raw-text bodies and comments are skipped
+  // whole, so a `</template>` inside a script string or comment can't
+  // close it.
+  const findMarkupClose = (from, name) => {
+    let depth = 1;
+    let j = from;
+    while (j < len) {
+      const lt = raw.indexOf("<", j);
+      if (lt === -1) return null;
+      if (raw.startsWith("<!--", lt)) {
+        const c = raw.indexOf("-->", lt + 4);
+        if (c === -1) return null; // unclosed comment swallows the rest
+        j = c + 3;
+        continue;
+      }
+      const nxt = raw[lt + 1] ?? "";
+      if (!/^[a-z!?/]/i.test(nxt)) {
+        j = lt + 1;
+        continue;
+      }
+      const tagEnd = tagEndFrom(raw, lt);
+      if (tagEnd === -1) return null;
+      const nm = tagNameAt(lt, tagEnd);
+      if (raw[lt + 1] !== "/" && RAWTEXT_NAMES.has(nm)) {
+        const close = findRawClose(tagEnd, nm);
+        if (!close) return null;
+        j = close.end;
+        continue;
+      }
+      if (nm === name) {
+        if (raw[lt + 1] === "/") {
+          if (--depth === 0) return { start: lt, end: tagEnd };
+        } else {
+          depth++;
+        }
+      }
+      j = tagEnd;
+    }
+    return null;
+  };
+
+  let i = 0;
+  while (i < len) {
+    const lt = raw.indexOf("<", i);
+    if (lt === -1) break;
+    if (raw.startsWith("<!--", lt)) {
+      const c = raw.indexOf("-->", lt + 4);
+      const e = c === -1 ? len : c + 3; // unclosed → EOF, like parsers
+      events.push({ s: lt, e, always: true });
+      i = e;
+      continue;
+    }
+    const nxt = raw[lt + 1] ?? "";
+    if (!/^[a-z!?/]/i.test(nxt)) {
+      i = lt + 1; // literal `<` in text (a < b)
+      continue;
+    }
+    const tagEnd = tagEndFrom(raw, lt);
+    if (tagEnd === -1) {
+      events.push({ s: lt, e: len, always: true }); // EOF in tag
+      break;
+    }
+    const name = tagNameAt(lt, tagEnd);
+    const isClose = raw[lt + 1] === "/";
+    if (!isClose && name === "script") {
+      const close = findRawClose(tagEnd, name);
+      events.push({ s: tagEnd, e: close ? close.start : len, always: true });
+      i = close ? close.end : len;
+      continue;
+    }
+    if (!isClose && RAWTEXT_NAMES.has(name)) {
+      const close = findRawClose(tagEnd, name);
+      events.push({ s: lt, e: close ? close.end : len, drop: name });
+      i = close ? close.end : len;
+      continue;
+    }
+    if (!isClose && name === "template") {
+      const close = findMarkupClose(tagEnd, name);
+      if (close) events.push({ s: lt, e: close.end, drop: name });
+      i = close ? close.end : tagEnd;
+      continue;
+    }
+    i = tagEnd; // ordinary tag (open/close/doctype/pi)
+  }
+  return events;
+}
+
+/** Rebuild the markup minus the regions the token walk selected for
+ * `dropTags` — regions come from the walk alone, so attribute values can
+ * never open or close a strip (review round 12). */
+function applyDropEvents(raw, events, dropTags) {
+  const out = [];
+  let pos = 0;
+  for (const ev of events) {
+    if (ev.always || dropTags.has(ev.drop)) {
+      out.push(raw.slice(pos, ev.s));
+      pos = ev.e;
+    }
+  }
+  out.push(raw.slice(pos));
+  return out.join("");
+}
+
+/** Drop sets per source: `titleSrc` keeps <title> (its presence check
+ * needs the tag); `stripped` drops every inert/raw-text container. */
+const TITLE_SRC_DROPS = new Set(["style", "template", "textarea", "noscript"]);
+const STRIPPED_DROPS = new Set([
+  "style",
+  "template",
+  "textarea",
+  "title",
+  "noscript",
+]);
 
 /**
  * Parse a whole open tag (from extractTags) into attribute
@@ -325,36 +501,25 @@ for (const file of htmlFiles) {
   const relFile = relative(distDir, file).split(sep).join("/");
   const route = "/" + relFile.replace(/(^|\/)index\.html$/i, "$1");
   const raw = readFileSync(file, "utf8");
-  // Rendered markup only: inline <script> bodies (JS strings are not markup)
-  // — keeping <script src=...> tags so asset references are still checked;
-  // the open tag is matched quote-aware, so `>` inside a quoted attribute
-  // can't split it and orphan an unclosed quote that would swallow the rest
-  // of the document during tag extraction — and HTML comments
-  // (commented-out markup must not count) are stripped before any
-  // string-based check.
-  const html = raw
-    .replace(
-      /(<script(?=[\s>])(?:"[^"]*"|'[^']*'|[^>"'])*>)[\s\S]*?(<\/script>)/gi,
-      "$1$2",
-    )
-    .replace(/<!--[\s\S]*?-->/g, "");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
-  // Inert/raw-text containers drop whole bodies for every check below —
-  // <template> never renders, <textarea> and <title> hold RCDATA text,
-  // <style> holds CSS strings (its url() stays out of scope), and
-  // <noscript> only renders when scripting is off (these checks model the
-  // normal rendering). <title>'s own presence check needs the tag itself,
-  // so it runs on `titleSrc` (containers minus <title>); everything else
-  // uses `stripped` (all of them, <title> included).
-  const titleSrc = html.replace(
-    /<(style|template|textarea|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-    "",
-  );
-  const stripped = html.replace(
-    /<(style|template|textarea|title|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
-    "",
-  );
+  // Rendered markup only, rebuilt by the quote-aware token walk — never
+  // raw regexes over the document (review round 12: a `<template>`/
+  // `<script>`/`<!--` inside a quoted attribute value can't open a false
+  // strip boundary that eats live markup up to a later real close). Inline
+  // <script> bodies drop (the tags stay so src= is checked; JS strings
+  // are not markup), HTML comments drop whole (commented-out markup must
+  // not count; unclosed → EOF, like parsers), then inert/raw-text
+  // containers drop whole for every check below — <template> never
+  // renders, <textarea> and <title> hold RCDATA text, <style> holds CSS
+  // strings (its url() stays out of scope), and <noscript> only renders
+  // when scripting is off (these checks model the normal rendering).
+  // <title>'s own presence check needs the tag itself, so it runs on
+  // `titleSrc` (containers minus <title>); everything else uses
+  // `stripped` (all of them, <title> included).
+  const dropEvents = markupDropEvents(raw);
+  const titleSrc = applyDropEvents(raw, dropEvents, TITLE_SRC_DROPS);
+  const stripped = applyDropEvents(raw, dropEvents, STRIPPED_DROPS);
 
   // Every structural lookup below runs over these tag fragments — never
   // raw strings — so markup inside another attribute's quoted value
