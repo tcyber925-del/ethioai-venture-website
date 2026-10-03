@@ -57,13 +57,16 @@ required **Deterministic checks** status; `npm run verify` runs the identical se
 locally in one go. `check:dist` inspects the generated markup outside inline
 `<script>` bodies and HTML comments for static accessibility/SEO problems
 (`<html lang>` with a value, non-empty `<title>` and meta description, viewport,
-exactly one `<h1>` per page; quoted or unquoted HTML5 attribute forms, tag and
-attribute names matched case-insensitively) and validates that every internal
-`href`/`src`/`srcset` reference — root-relative or relative, query/fragment
-stripped, percent-encoded paths decoded (`data:` URIs in `srcset` skipped;
-absolute scheme-bearing URLs such as canonical/OG links are external and not
-validated) — resolves to a built file: zero dead internal links. CSS-internal
-`url()`
+exactly one `<h1>` per page; quoted or unquoted HTML5 attribute forms, whitespace
+around `=`, tag and attribute names matched case-insensitively) and validates
+that every internal `href`/`src`/`srcset` reference — root-relative or relative
+(resolved against `<base href>` when the document declares one), query/fragment
+stripped, percent-encoded paths decoded — resolves to a built file: zero dead
+internal links. Two documented skips, both specified in the script header:
+`data:` payloads in `srcset` (checking resumes only at path-prefixed tokens, so
+payload text can never red the gate — the cost is that a bare-relative entry
+mixed after a `data:` URI is not validated) and absolute scheme-bearing URLs
+such as canonical/OG links (external, not validated). CSS-internal `url()`
 references are not yet validated. Responsive, interaction, performance and
 production-like QA stay manual — Linear **ENG-86**.
 

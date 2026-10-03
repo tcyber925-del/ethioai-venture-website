@@ -9,22 +9,29 @@
  *
  * Per generated page (rendered markup — inline <script> bodies and HTML
  * comments are stripped first; tag/attribute *names* are matched
- * case-insensitively and values accept quoted *and* unquoted HTML5 forms, so
- * verbatim files copied from public/ are checked the same as Astro output):
+ * case-insensitively, whitespace around `=` is tolerated, and values accept
+ * quoted *and* unquoted HTML5 forms, so verbatim files copied from public/
+ * are checked the same as Astro output):
  *   - non-empty <html lang>
  *   - non-empty <title> (tag may carry whitespace/attributes)
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
- *   - exactly one <h1>
+ *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference —
  *     query/fragment stripped, percent-encoded paths decoded — resolves to a
- *     built file (zero dead links). Absolute URLs (scheme-bearing) are
- *     treated as external and not validated — that is what keeps canonical/
- *     OG absolute URLs from false-failing. srcset data: URIs are skipped
- *     (payload fragments resume checking only when they look like a URL).
- *     CSS-internal url() references are not validated either (would require
- *     parsing stylesheets); that stays in ENG-86's manual asset checks.
+ *     built file (zero dead links). Relative references resolve against
+ *     <base href> when the document declares one (hand-written public/ files),
+ *     else the page's URL directory; a base pointing offsite makes them
+ *     external, and the <base> tag itself is not link-checked (resolution
+ *     prefix, not a fetch target). Absolute URLs (scheme-bearing) are treated as external and
+ *     not validated — that is what keeps canonical/OG absolute URLs from
+ *     false-failing. srcset data: URIs are skipped: checking resumes only at
+ *     path-prefixed tokens (root/dot/scheme — see looksLikeUrl), so payload
+ *     text can never red the gate; the trade-off is that a bare-relative
+ *     entry mixed after a data: URI isn't validated. CSS-internal url()
+ *     references are not validated either (would require parsing
+ *     stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -34,6 +41,7 @@ import { join, posix, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const distDir = fileURLToPath(new URL("../dist", import.meta.url));
+const CHECK_ORIGIN = "http://check.dist";
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -139,17 +147,16 @@ function parseSrcset(value) {
 }
 
 /**
- * Heuristic used only while skipping a srcset `data:` URI: does this token
- * look like a URL/path (root-relative, dot-relative, scheme-bearing or an
- * extension-bearing filename)? Payload/descriptor fragments (`10'><path`,
- * `0`, `1x`) don't. Failing to resume only *under*-checks the remainder of
- * that one srcset value — it can never red the gate on valid markup; a false
- * resume is limited to bare `word.ext`-shaped payload text.
+ * Heuristic used only while skipping a srcset `data:` URI: resume checking
+ * at a token that is *path-prefixed* — root-relative, dot-relative or
+ * scheme-bearing. Payload/descriptor fragments (`10'><path`, `b.png`,
+ * `1x`) never qualify, so raw payload text can only ever *under*-check the
+ * rest of that one value (documented trade-off — a bare-relative entry
+ * mixed after a data: URI is not validated); it can never red the gate on
+ * valid markup.
  */
 const looksLikeUrl = (token) =>
-  /^(?:https?:)?\/\//.test(token) ||
-  /^\.{0,2}\//.test(token) ||
-  /^[^\s"'<>=`]+\.[a-z][a-z0-9]{0,7}(?:[?#]\S*)?$/i.test(token);
+  /^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token);
 
 const failures = [];
 let referencesChecked = 0;
@@ -168,7 +175,7 @@ for (const file of htmlFiles) {
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
   const lang = html.match(
-    /<html[^>]*\slang=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
+    /<html[^>]*\slang\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
   );
   if (!lang || !(lang[1] ?? lang[2] ?? lang[3]).trim()) {
     fail("missing or empty <html lang>");
@@ -179,11 +186,11 @@ for (const file of htmlFiles) {
 
   // Either attribute order; quoted with either style (apostrophes allowed
   // inside differently-quoted values) or unquoted HTML5 values — for BOTH
-  // the name= and content= attributes.
+  // the name= and content= attributes, with optional whitespace around =.
   const metaContent = (name) => {
     const NAME = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const contentAtt = `content=(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`;
-    const nameAtt = `name=(?:"${NAME}"|'${NAME}'|${NAME}(?=[\\s>/]|$))`;
+    const contentAtt = `content\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`;
+    const nameAtt = `name\\s*=\\s*(?:"${NAME}"|'${NAME}'|${NAME}(?=[\\s>/]|$))`;
     const nameFirst = html.match(
       new RegExp(`<meta[^>]*${nameAtt}[^>]*${contentAtt}`, "i"),
     );
@@ -204,13 +211,28 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
-  const h1Count = (html.match(/<h1[\s>]/gi) ?? []).length;
+  const h1Count = (html.match(/<h1[\s/>]/gi) ?? []).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
-  // Base for resolving relative references against this page's URL directory.
+  // Base for resolving relative references: <base href> when the document
+  // declares one (verbatim public/ files), else the page's URL directory.
+  // The <base> tag itself is then excluded from link scanning — it is a
+  // resolution prefix, not a fetch target (the browser never requests it).
   const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
-  const base =
-    "http://check.dist" + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
+  let pageBase =
+    CHECK_ORIGIN + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
+  const baseTag = html.match(
+    /<base[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
+  );
+  if (baseTag) {
+    const href = baseTag[1] ?? baseTag[2] ?? baseTag[3];
+    try {
+      pageBase = new URL(href, pageBase).href;
+    } catch {
+      // unparsable <base href> — fall back to the page directory
+    }
+  }
+  const scanHtml = html.replace(/<base\b[^>]*>/gi, "");
 
   /** Check one raw reference (href/src value or srcset entry). */
   const checkReference = (target, kind) => {
@@ -219,10 +241,13 @@ for (const file of htmlFiles) {
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return; // http:, mailto:, data: …
     let pathname;
     if (target.startsWith("/")) {
-      pathname = target;
+      pathname = target; // root-relative ignores <base>
     } else {
       try {
-        pathname = new URL(target, base).pathname;
+        const resolved = new URL(target, pageBase);
+        // <base> pointing offsite: the browser would fetch it externally.
+        if (resolved.origin !== CHECK_ORIGIN) return;
+        pathname = resolved.pathname;
       } catch {
         fail(`unparseable ${kind}: ${target}`);
         return;
@@ -234,14 +259,14 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
-  for (const m of html.matchAll(
-    /\s(?:href|src)=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
+  for (const m of scanHtml.matchAll(
+    /\s(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
   )) {
     checkReference(m[1] ?? m[2] ?? m[3], "link");
   }
 
-  for (const m of html.matchAll(
-    /\ssrcset=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
+  for (const m of scanHtml.matchAll(
+    /\ssrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
   )) {
     const value = m[1] ?? m[2] ?? m[3];
     let inDataUri = false;
