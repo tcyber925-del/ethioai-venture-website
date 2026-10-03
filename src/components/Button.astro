@@ -5,7 +5,15 @@
  * hover #0A4948. Secondary: surface background, primary text.
  * Renders an anchor when `href` is provided, a native button otherwise.
  * The primary CTA label/route per MIS: "Start a Project" -> /start-a-project.
+ *
+ * Dead-link guard (same rule as the shell nav, see config/routes.ts): when
+ * `href` points at an internal route whose page module does not exist yet
+ * (e.g. /start-a-project before ENG-83), the button renders as inert styled
+ * text instead of a link, and becomes a real link automatically once the
+ * route is added. External URLs and anchors are left untouched.
  */
+import { routeExists } from "../config/routes";
+
 interface Props {
   variant?: "primary" | "secondary";
   href?: string;
@@ -19,16 +27,24 @@ const {
   type = "button",
   class: className = "",
 } = Astro.props;
+
+const isInternalRoute = href !== undefined && href.startsWith("/");
+const isLiveLink =
+  href !== undefined && (!isInternalRoute || routeExists(href));
 ---
 
-{href ? (
+{href === undefined ? (
+  <button type={type} class:list={["btn", `btn--${variant}`, className]}>
+    <slot />
+  </button>
+) : isLiveLink ? (
   <a href={href} class:list={["btn", `btn--${variant}`, className]}>
     <slot />
   </a>
 ) : (
-  <button type={type} class:list={["btn", `btn--${variant}`, className]}>
+  <span class:list={["btn", `btn--${variant}`, className]} data-inert>
     <slot />
-  </button>
+  </span>
 )}
 
 <style>
@@ -62,6 +78,19 @@ const {
 
   .btn--secondary:hover {
     border-color: var(--color-secondary);
+  }
+
+  /* Inert (route not built yet): no pointer, no hover feedback. */
+  .btn[data-inert] {
+    cursor: default;
+  }
+
+  .btn--primary[data-inert]:hover {
+    background-color: var(--color-tertiary);
+  }
+
+  .btn--secondary[data-inert]:hover {
+    border-color: var(--color-border);
   }
 
   @media (prefers-reduced-motion: reduce) {

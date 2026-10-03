@@ -2,12 +2,351 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Container from "../components/Container.astro";
 import MetadataLabel from "../components/MetadataLabel.astro";
+import Button from "../components/Button.astro";
+import Link from "../components/Link.astro";
+import Section from "../components/home/Section.astro";
+import StatusBadge from "../components/home/StatusBadge.astro";
+import { getCollection } from "astro:content";
+import { routeExists } from "../config/routes";
+
+/*
+ * Homepage — ENG-78.
+ *
+ * Required sequence (MIS v1.0 "Page contracts / Homepage" + spec 02):
+ *   Hero → Problem/Value → What We Build → Selected Work → How We Approach
+ *   Projects → Research & Products → Engineering Depth → Ethiopia/Africa/
+ *   Global → Founder → CTA
+ *
+ * MIS requirements: one clear H1 (hero); primary CTA to /start-a-project;
+ * secondary navigation to proof surfaces; consume reusable content instead
+ * of duplicating project/solution data; no unsupported metrics or social
+ * proof (MIS "Evidence and content policy" — copy below only restates
+ * approved positioning and verifiable repository facts).
+ *
+ * Internal links follow the shell's dead-link rule (ENG-77 routes.ts):
+ * rendered inert until the target page module exists, auto-linked after.
+ */
+const solutions = (await getCollection("solutions")).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+const projects = (await getCollection("projects")).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+const research = (await getCollection("research")).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
 ---
 
 <BaseLayout title="EthioAI Venture">
-  <Container>
-    <MetadataLabel>AI engineering studio</MetadataLabel>
-    <h1>EthioAI Venture</h1>
-    <p>Practical AI systems for real-world organizations.</p>
-  </Container>
+  <!-- 1. Hero — one clear H1 (MIS) -->
+  <section class="hero" id="hero">
+    <Container>
+      <MetadataLabel>AI engineering studio</MetadataLabel>
+      <h1>EthioAI Venture</h1>
+      <p class="hero__lede">
+        Practical AI systems for real-world organizations.
+      </p>
+      <div class="hero__actions">
+        <Button variant="primary" href="/start-a-project">
+          Start a Project
+        </Button>
+        <Button variant="secondary" href="/work">
+          View work
+        </Button>
+      </div>
+    </Container>
+  </section>
+
+  <!-- 2. Problem/Value -->
+  <Section
+    id="problem-value"
+    eyebrow="Problem and value"
+    title="Customer problems before technology"
+  >
+    <p>
+      We work with organizations that have concrete AI, workflow, knowledge or
+      document problems. The goal is not AI for its own sake — it is a working
+      system that solves the problem and holds up in real use.
+    </p>
+  </Section>
+
+  <!-- 3. What We Build — consumes the solutions collection -->
+  <Section id="what-we-build" eyebrow="Solutions" title="What we build">
+    <p>
+      We build practical AI systems across {solutions.length} focused areas:
+    </p>
+    <ul class="card-grid">
+      {solutions.map(({ data }) => (
+        <li class="card">
+          {routeExists(`/solutions/${data.slug}`) ? (
+            <Link href={`/solutions/${data.slug}`}>{data.title}</Link>
+          ) : (
+            <span class="card__text">{data.title}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <!-- 4. Selected Work — consumes the projects collection -->
+  <Section
+    id="selected-work"
+    eyebrow="Evidence"
+    title="Selected work"
+    variant="surface"
+  >
+    <ul class="card-grid">
+      {projects.map(({ data }) => (
+        <li class="card">
+          {routeExists(`/work/${data.slug}`) ? (
+            <Link href={`/work/${data.slug}`}>{data.title}</Link>
+          ) : (
+            <span class="card__text">{data.title}</span>
+          )}
+          {data.status && (
+            <p class="card__status">
+              <StatusBadge status={data.status} />
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  </Section>
+
+  <!-- 5. How We Approach Projects -->
+  <Section id="approach" eyebrow="Approach" title="How we approach projects">
+    <ul class="approach-list">
+      <li>
+        <h3>Start from the problem</h3>
+        <p>
+          We begin with the concrete workflow, knowledge or document problem —
+          not with technology for its own sake.
+        </p>
+      </li>
+      <li>
+        <h3>Build working systems</h3>
+        <p>
+          We implement practical AI systems that real organizations can use:
+          shipped as working software, described honestly.
+        </p>
+      </li>
+      <li>
+        <h3>Show the evidence</h3>
+        <p>
+          Proof before marketing: we state what exists, what it does and where
+          its limits are — including when something is still in development.
+        </p>
+      </li>
+    </ul>
+  </Section>
+
+  <!-- 6. Research & Products — consumes the research collection (empty today) -->
+  <Section
+    id="research-products"
+    eyebrow="Research"
+    title="Research and products"
+  >
+    {research.length > 0 ? (
+      <ul class="card-grid">
+        {research.map(({ data }) => (
+          <li class="card">
+            {routeExists(`/research/${data.slug}`) ? (
+              <Link href={`/research/${data.slug}`}>{data.title}</Link>
+            ) : (
+              <span class="card__text">{data.title}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p>
+        Research and product notes are being prepared and will be published here
+        as they are ready.
+      </p>
+    )}
+  </Section>
+
+  <!-- 7. Engineering Depth — verifiable repository facts only -->
+  <Section
+    id="engineering-depth"
+    eyebrow="How it is built"
+    title="Engineering depth"
+  >
+    <p>
+      This site is itself an engineering artifact: static-first, typed, checked
+      automatically and documented end to end.
+    </p>
+    <dl class="tech-list">
+      <div>
+        <dt>
+          <code>Astro</code> + <code>TypeScript</code>
+        </dt>
+        <dd>Static-first build with no backend and no client-side secrets.</dd>
+      </div>
+      <div>
+        <dt>Typed content collections</dt>
+        <dd>
+          Solutions, projects and research are validated against the approved
+          schema at build time.
+        </dd>
+      </div>
+      <div>
+        <dt>Automated CI</dt>
+        <dd>
+          Formatting, linting, type checks and a production build run on every
+          change.
+        </dd>
+      </div>
+      <div>
+        <dt>Documented decisions</dt>
+        <dd>
+          Specifications live in Notion; work is tracked and reviewed issue by
+          issue.
+        </dd>
+      </div>
+    </dl>
+  </Section>
+
+  <!-- 8. Ethiopia/Africa/Global -->
+  <Section
+    id="geography"
+    eyebrow="Geography"
+    title="Ethiopia → Africa → global"
+  >
+    <p>
+      EthioAI Venture is based in Ethiopia and builds toward a long-term
+      direction: solve real problems here, grow across Africa, and compete on
+      the global stage.
+    </p>
+  </Section>
+
+  <!-- 9. Founder -->
+  <Section id="founder" eyebrow="Leadership" title="Founder-led">
+    <p>
+      EthioAI Venture is founder-led, with a long-term direction as a venture
+      studio that builds and ships practical AI systems. The full company story,
+      current focus and long-term direction will live on the About page.
+    </p>
+  </Section>
+
+  <!-- 10. CTA -->
+  <Section
+    id="cta"
+    eyebrow="Next step"
+    title="Start a project"
+    variant="surface"
+  >
+    <p>
+      Tell us about the problem you are trying to solve. We will start there.
+    </p>
+    <p class="cta__actions">
+      <Button variant="primary" href="/start-a-project">
+        Start a Project
+      </Button>
+    </p>
+  </Section>
 </BaseLayout>
+
+<style>
+  /* Hero — generous whitespace, quiet technical confidence */
+  .hero {
+    padding-block: var(--space-3xl);
+  }
+
+  .hero h1 {
+    margin-top: var(--space-sm);
+  }
+
+  .hero__lede {
+    margin-top: var(--space-lg);
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+    max-width: 36rem;
+  }
+
+  .hero__actions {
+    margin-top: var(--space-xl);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+  }
+
+  @media (min-width: 768px) {
+    .hero {
+      padding-block: var(--space-5xl);
+    }
+  }
+
+  /* Card grid — used sparingly (solutions, selected work, research) */
+  .card-grid {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-md);
+    /* auto-fill (not auto-fit): a lone card keeps its track width instead
+       of stretching across the whole row. */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  }
+
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+  }
+
+  .card :global(a),
+  .card__text {
+    font-size: var(--text-body-lg-size);
+    font-weight: 600;
+  }
+
+  .card__status {
+    margin-top: var(--space-md);
+  }
+
+  /* Approach — editorial three-column list, stacks on mobile */
+  .approach-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-xl);
+  }
+
+  .approach-list p {
+    margin-top: var(--space-sm);
+    color: var(--color-secondary);
+  }
+
+  @media (min-width: 1024px) {
+    .approach-list {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  /* Engineering depth — definition list; mono reserved for technical ids */
+  .tech-list {
+    margin-top: var(--space-xl);
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .tech-list dt {
+    font-weight: 600;
+  }
+
+  .tech-list dt code {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-size);
+    font-weight: var(--text-mono-weight);
+  }
+
+  .tech-list dd {
+    margin-top: var(--space-xs);
+    color: var(--color-secondary);
+  }
+
+  .cta__actions {
+    margin-top: var(--space-xl);
+  }
+</style>
