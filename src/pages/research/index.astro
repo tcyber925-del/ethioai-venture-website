@@ -9,7 +9,6 @@
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Container from "../../components/Container.astro";
-import MetadataLabel from "../../components/MetadataLabel.astro";
 import ResearchCard from "../../components/research/ResearchCard.astro";
 import { getCollection } from "astro:content";
 
@@ -24,7 +23,6 @@ const entries = (await getCollection("research")).sort((a, b) =>
 >
   <Container>
     <header class="page-header">
-      <MetadataLabel>Research</MetadataLabel>
       <h1>Research</h1>
       <p class="page-header__lead">
         Each entry follows the same sequence: question, context, investigation,

@@ -39,10 +39,15 @@ interface Props {
 const { entry } = Astro.props;
 const { data } = entry;
 
-/** Page description from approved fields only — never fabricated. */
-const description = [data.question, data.topic]
-  .find((value) => value !== undefined && value.trim() !== "")
-  ?.slice(0, 160);
+/** Page description from approved fields only — never fabricated.
+ *  Truncated on a word boundary so it never cuts mid-word. */
+const rawDescription = [data.question, data.topic].find(
+  (value) => value !== undefined && value.trim() !== "",
+);
+const description =
+  rawDescription && rawDescription.length > 160
+    ? `${rawDescription.slice(0, 160).replace(/\s+\S*$/, "")}…`
+    : rawDescription;
 
 const sources = data.sources ?? [];
 ---
@@ -183,6 +188,11 @@ const sources = data.sources ?? [];
     gap: var(--space-sm);
     padding-left: var(--space-xl);
     list-style: disc;
+  }
+
+  /* Long source URLs wrap instead of overflowing narrow viewports. */
+  .detail-sources li {
+    overflow-wrap: anywhere;
   }
 
   .detail-cta {

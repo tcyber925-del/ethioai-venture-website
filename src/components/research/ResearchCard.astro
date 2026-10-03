@@ -48,7 +48,8 @@ const { href, title, topic, status, question } = Astro.props;
     transition: border-color 0.15s ease;
   }
 
-  .research-card:hover {
+  .research-card:hover,
+  .research-card:focus-within {
     border-color: var(--color-secondary);
   }
 
