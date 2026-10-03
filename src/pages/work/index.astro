@@ -26,7 +26,7 @@ const statuses = [
       .map((project) => project.data.status)
       .filter((status): status is string => status !== undefined),
   ),
-].sort();
+].sort((a, b) => a.localeCompare(b));
 ---
 
 <BaseLayout title="Work">
