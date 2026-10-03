@@ -1,0 +1,58 @@
+---
+/**
+ * SolutionSection — one step of the approved problem-first solution detail
+ * sequence.
+ *
+ * Sources: spec 02 (IA/UX & Page Specification) and MIS v1.0 "Solutions":
+ * Problem → What we build → Typical applications → How it works →
+ * Capabilities → Related work → Engagement path → CTA.
+ *
+ * The heading always renders so the approved structure stays visible. When the
+ * backing content field has no approved value, the section shows an honest
+ * pending note instead of invented copy (MIS evidence policy: leave the field
+ * empty or use truthful status language — never fabricate).
+ */
+interface Props {
+  /** Approved section heading (verbatim from the spec sequence). */
+  heading: string;
+  /** False when the backing content field is empty in the collection. */
+  hasContent?: boolean;
+  /** Honest note rendered while the field has no approved content. */
+  pendingNote?: string;
+}
+
+const {
+  heading,
+  hasContent = true,
+  pendingNote = "Content for this section is not yet published.",
+} = Astro.props;
+---
+
+<section class="solution-section">
+  <h2>{heading}</h2>
+  {hasContent ? (
+    <div class="solution-section__body">
+      <slot />
+    </div>
+  ) : (
+    <p class="pending-note">{pendingNote}</p>
+  )}
+</section>
+
+<style>
+  .solution-section {
+    padding-block: var(--space-2xl);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .solution-section__body {
+    margin-top: var(--space-lg);
+  }
+
+  .pending-note {
+    margin-top: var(--space-lg);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+</style>

@@ -1,0 +1,138 @@
+---
+/**
+ * RelatedWork — body of the approved "Related work" step on solution pages.
+ *
+ * Evidence rules:
+ * - Links resolve only from declared relations (solution.related_work →
+ *   project entries). No relation is invented; EthioBio is not linked from a
+ *   solution unless the solution entry declares it.
+ * - Links to routes that do not exist yet fall back to plain text or an
+ *   honest note, so no dead link ships (route registry pattern, ENG-77).
+ * - The research collection is currently empty; that state is reported
+ *   honestly instead of fabricated entries.
+ */
+import type { CollectionEntry } from "astro:content";
+import Link from "../Link.astro";
+import MetadataLabel from "../MetadataLabel.astro";
+import { routeExists } from "../../config/routes";
+
+interface Props {
+  /** related_work slugs declared on the solution entry. */
+  related: string[];
+  /** Project entries, used to resolve declared slugs. */
+  projects: CollectionEntry<"projects">[];
+  /** Published research entries (0 while the collection is empty). */
+  researchCount: number;
+}
+
+const { related, projects, researchCount } = Astro.props;
+
+const workRouteExists = routeExists("/work");
+const researchRouteExists = routeExists("/research");
+
+const relatedItems = related.map((slug) => {
+  const project = projects.find((entry) => entry.data.slug === slug);
+  return {
+    slug,
+    title: project?.data.title ?? slug,
+    status: project?.data.status,
+    resolvable: Boolean(project),
+  };
+});
+---
+
+<div class="related">
+  <div class="related__group">
+    <MetadataLabel class="related__label">Work</MetadataLabel>
+    {relatedItems.length > 0 ? (
+      <ul class="related__list">
+        {relatedItems.map(({ slug, title, status, resolvable }) => (
+          <li class="related__item">
+            {!resolvable ? (
+              <code class="related__id">{slug}</code>
+            ) : workRouteExists ? (
+              <Link href={`/work/${slug}`}>{title}</Link>
+            ) : (
+              <span class="related__plain">{title}</span>
+            )}
+            {status && (
+              <MetadataLabel class="related__status">{status}</MetadataLabel>
+            )}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="pending-note">
+        No related work is linked to this solution yet.
+      </p>
+    )}
+    {workRouteExists && (
+      <p class="related__all">
+        <Link href="/work">All work</Link>
+      </p>
+    )}
+  </div>
+
+  <div class="related__group">
+    <MetadataLabel class="related__label">Research</MetadataLabel>
+    {researchCount === 0 ? (
+      <p class="pending-note">No research entries are published yet.</p>
+    ) : researchRouteExists ? (
+      <p>
+        <Link href="/research">All research</Link>
+      </p>
+    ) : (
+      <p class="pending-note">Research pages are not yet published.</p>
+    )}
+  </div>
+</div>
+
+<style>
+  .related {
+    display: grid;
+    gap: var(--space-xl);
+  }
+
+  .related__group {
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .related__list {
+    display: grid;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .related__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-sm);
+  }
+
+  .related__plain {
+    color: var(--color-secondary);
+  }
+
+  /* Unresolved declared slug: shown as the identifier it is, never as a
+     title (DESIGN.md: monospace is reserved for technical identifiers). */
+  .related__id {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-size);
+    line-height: var(--text-mono-leading);
+    color: var(--color-secondary);
+  }
+
+  .related__all {
+    margin-top: var(--space-md);
+  }
+
+  .pending-note {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+</style>

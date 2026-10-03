@@ -1,0 +1,53 @@
+---
+/**
+ * SolutionCard — solution card for the /solutions index.
+ *
+ * Sources: visual design system "Components" (solution cards) and DESIGN.md
+ * card spec: surface background, on-surface text, lg radius, 24px padding.
+ * Title uses the approved Link semantics; summary/status render only when the
+ * entry carries approved content.
+ */
+import Link from "../Link.astro";
+import MetadataLabel from "../MetadataLabel.astro";
+
+interface Props {
+  title: string;
+  href: string;
+  summary?: string;
+  status?: string;
+}
+
+const { title, href, summary, status } = Astro.props;
+---
+
+<article class="solution-card">
+  <h3 class="solution-card__title">
+    <Link href={href}>{title}</Link>
+  </h3>
+  {status && (
+    <p class="solution-card__status">
+      <MetadataLabel>{status}</MetadataLabel>
+    </p>
+  )}
+  {summary && <p class="solution-card__summary">{summary}</p>}
+</article>
+
+<style>
+  .solution-card {
+    height: 100%;
+    background: var(--color-surface);
+    color: var(--color-on-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+  }
+
+  .solution-card__status {
+    margin-top: var(--space-sm);
+  }
+
+  .solution-card__summary {
+    margin-top: var(--space-md);
+    color: var(--color-secondary);
+  }
+</style>

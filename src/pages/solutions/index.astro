@@ -1,0 +1,110 @@
+---
+/**
+ * /solutions — solution index.
+ *
+ * Sources: spec 02 (IA/UX), MIS v1.0 "Solutions" and PRD primary CTA.
+ * Content comes from the solutions collection (ENG-76); nothing is invented.
+ * Lead copy reuses the approved core proposition from site config.
+ */
+import { getCollection } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import SolutionCard from "../../components/solutions/SolutionCard.astro";
+import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
+import { site } from "../../config/site";
+
+/**
+ * Presentation order: MIS v1.0 "V1 routes" lists the five approved solution
+ * routes in this order. Entries outside the approved list sort last by title
+ * so ordering stays deterministic as content grows.
+ */
+const solutionOrder = [
+  "ai-knowledge-systems",
+  "workflow-automation",
+  "ai-applications-agents",
+  "ai-product-engineering",
+  "document-intelligence",
+];
+
+const rank = (slug: string): number => {
+  const index = solutionOrder.indexOf(slug);
+  return index === -1 ? solutionOrder.length : index;
+};
+
+const solutions = (await getCollection("solutions")).sort(
+  (a, b) =>
+    rank(a.data.slug) - rank(b.data.slug) ||
+    a.data.title.localeCompare(b.data.title),
+);
+---
+
+<BaseLayout title="Solutions">
+  <Container>
+    <header class="hero">
+      <h1>Solutions</h1>
+      <p class="lead">{site.description}.</p>
+    </header>
+
+    <section class="solutions" aria-labelledby="solutions-heading">
+      <h2 id="solutions-heading">All solutions</h2>
+      <ul class="solution-grid">
+        {solutions.map(({ data }) => (
+          <li>
+            <SolutionCard
+              title={data.title}
+              href={`/solutions/${data.slug}`}
+              summary={data.summary}
+              status={data.status}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <StartProjectCta />
+  </Container>
+</BaseLayout>
+
+<style>
+  .hero {
+    padding-block: var(--space-3xl) var(--space-xl);
+  }
+
+  .lead {
+    margin-top: var(--space-md);
+    max-width: 60ch;
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+    color: var(--color-secondary);
+  }
+
+  .solutions {
+    padding-block: var(--space-2xl);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .solutions h2 {
+    margin-bottom: var(--space-xl);
+  }
+
+  .solution-grid {
+    display: grid;
+    gap: var(--space-lg);
+    grid-template-columns: 1fr;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 768px) {
+    .solution-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .solution-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>
