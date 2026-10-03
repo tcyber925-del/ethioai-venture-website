@@ -39,15 +39,26 @@ interface Props {
 const { entry } = Astro.props;
 const { data } = entry;
 
-/** Page description from approved fields only — never fabricated.
- *  Truncated on a word boundary so it never cuts mid-word. */
+/** Truncate a meta description on a word boundary — never mid-word.
+ *  A single token longer than the limit is cut as-is (no boundary exists). */
+function truncateDescription(text: string): string {
+  if (text.length <= 160) return text;
+  const cut = text.slice(0, 160);
+  const boundary = cut.lastIndexOf(" ");
+  return `${(boundary > 0 ? cut.slice(0, boundary) : cut).trimEnd()}…`;
+}
+
+/** Page description from approved fields only — never fabricated. */
 const rawDescription = [data.question, data.topic].find(
   (value) => value !== undefined && value.trim() !== "",
 );
-const description =
-  rawDescription && rawDescription.length > 160
-    ? `${rawDescription.slice(0, 160).replace(/\s+\S*$/, "")}…`
-    : rawDescription;
+const description = rawDescription
+  ? truncateDescription(rawDescription.trim())
+  : undefined;
+
+/** Guard the raw frontmatter href to http(s) only — same rule as sources. */
+const githubUrl =
+  data.github && /^https?:\/\//.test(data.github) ? data.github : undefined;
 
 const sources = data.sources ?? [];
 ---
@@ -66,9 +77,9 @@ const sources = data.sources ?? [];
           {data.status && <MetadataLabel>{data.status}</MetadataLabel>}
         </p>
       )}
-      {data.github && (
+      {githubUrl && (
         <p class="detail-header__github">
-          <Link href={data.github}>GitHub repository</Link>
+          <Link href={githubUrl}>GitHub repository</Link>
         </p>
       )}
     </header>
@@ -139,11 +150,11 @@ const sources = data.sources ?? [];
     )}
 
     <!-- Critical journey 3: Research → Detail → CTA (approved primary CTA). -->
-    <section class="detail-cta" aria-label="Start a project">
+    <div class="detail-cta">
       <Button href="/start-a-project" variant="primary">
         Start a Project
       </Button>
-    </section>
+    </div>
   </Container>
 </BaseLayout>
 
