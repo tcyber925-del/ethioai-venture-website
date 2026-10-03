@@ -8,15 +8,20 @@
  * projects collection and stay generic text chips — no invented status values,
  * colors or maturity semantics.
  *
- * Progressive enhancement: the block renders `hidden` and is revealed by the
- * script below, so a no-JS visitor sees the full, unfiltered list and no
- * inert controls.
+ * Progressive enhancement: the block renders `hidden` and is un-hidden by the
+ * inline script below while the parser is still running, so
+ *   - a no-JS visitor sees the full, unfiltered list and no inert controls,
+ *   - a JS visitor never sees the filter pop in and shift the layout.
+ * The result count is server-rendered, so the live region only announces
+ * after an actual filter interaction, not on page load.
  */
 interface Props {
   statuses: string[];
+  total: number;
 }
 
-const { statuses } = Astro.props;
+const { statuses, total } = Astro.props;
+const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "projects"}.`;
 ---
 
 {statuses.length > 0 && (
@@ -46,14 +51,24 @@ const { statuses } = Astro.props;
         </button>
       ))}
     </div>
-    <p class="filter__count" role="status" data-filter-count />
+    <p class="filter__count" role="status" data-filter-count>
+      {countText}
+    </p>
   </div>
 )}
+
+<script is:inline>
+  // Runs during parsing (before first paint) so revealing the filter cannot
+  // shift the layout. Without JS the block stays hidden.
+  const statusFilterRoot = document.querySelector("[data-status-filter-root]");
+  if (statusFilterRoot) statusFilterRoot.hidden = false;
+</script>
 
 <script>
   const root = document.querySelector<HTMLElement>("[data-status-filter-root]");
 
   if (root) {
+    // Fallback in case the inline reveal above did not run.
     root.hidden = false;
 
     const chips = Array.from(
@@ -87,13 +102,13 @@ const { statuses } = Astro.props;
       }
     };
 
+    // Only after interaction: the count is already server-rendered, and
+    // writing to a live region on load would announce unsolicited.
     for (const chip of chips) {
       chip.addEventListener("click", () => {
         apply(chip.dataset.filterStatus ?? "*");
       });
     }
-
-    apply("*");
   }
 </script>
 
@@ -129,7 +144,7 @@ const { statuses } = Astro.props;
   .filter__chip {
     padding: var(--space-xs) var(--space-sm);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background-color: var(--color-surface);
     color: var(--color-secondary);
     font-size: var(--text-body-sm-size);
