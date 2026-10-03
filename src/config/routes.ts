@@ -18,6 +18,8 @@
  *   matching file exists — build slugs from the same `src/content`
  *   collection the detail page reads (homepage cards do), or a slug outside
  *   the collection could render as a live link whose page is never emitted.
+ *   Detail pages must also emit params from the entry's `data.slug` (as the
+ *   homepage links do), not a divergent identifier such as `entry.id`.
  *   File shape is checked; `getStaticPaths` output is not visible at build
  *   time from here.
  * - A nav index route (`/work`, `/solutions`, …) needs its index page
@@ -40,7 +42,10 @@ function filePattern(file: string): RegExp {
   let pattern = "";
   for (const segment of file.split("/")) {
     if (segment.startsWith("[...")) {
-      pattern += "(?:/.+)?";
+      // A rest segment at the root (`[...slug].astro`) must match any path;
+      // after a literal segment it makes the separator and tail optional
+      // (`docs/[...slug]` matches `docs`, `docs/a/b`).
+      pattern += pattern === "" ? ".*" : "(?:/.+)?";
     } else {
       pattern += (pattern === "" ? "" : "/") + segmentPattern(segment);
     }

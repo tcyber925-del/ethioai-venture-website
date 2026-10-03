@@ -49,6 +49,15 @@ const projects = (await getCollection("projects")).sort((a, b) =>
 const research = (await getCollection("research")).sort((a, b) =>
   a.data.title.localeCompare(b.data.title),
 );
+
+/* Built in frontmatter: Astro trims whitespace between text and an inline
+ * expression, which rendered "across5 focused areas" (review finding). */
+let solutionsIntro = "We build practical AI systems:";
+if (solutions.length === 1) {
+  solutionsIntro = "We build practical AI systems across 1 focused area:";
+} else if (solutions.length > 1) {
+  solutionsIntro = `We build practical AI systems across ${solutions.length} focused areas:`;
+}
 ---
 
 <BaseLayout title="EthioAI Venture">
@@ -86,13 +95,7 @@ const research = (await getCollection("research")).sort((a, b) =>
 
   <!-- 3. What We Build — consumes the solutions collection -->
   <Section id="what-we-build" eyebrow="Solutions" title="What we build">
-    <p>
-      We build practical AI systems across
-      {solutions.length === 1
-        ? "1 focused area"
-        : `${solutions.length} focused areas`}
-      :
-    </p>
+    <p>{solutionsIntro}</p>
     <ul class="card-grid" role="list">
       {solutions.map(({ data }) => (
         <li class="card">
