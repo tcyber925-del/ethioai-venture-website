@@ -12,6 +12,13 @@
  *   because G2 detail pages are built with `getStaticPaths`
  * - a rest segment (`docs/[...slug]`) matches its parent path too (`docs`)
  * - `?query` and `#hash` suffixes are ignored when matching
+ * - non-internal refs (external URLs, `mailto:`, `#anchors`) are not
+ *   existence-checked: there is no page module to look up, so they report
+ *   as available and callers render them live
+ *
+ * The pure matching logic lives in `route-patterns.ts` (no Vite APIs) with a
+ * regression suite in `tests/` — run `node --test`. `routeExists`
+ * itself needs `import.meta.glob`, so it stays here.
  *
  * Contracts for callers (shared with Header.astro / Footer.astro):
  * - A collection route (`/work/...`, `/solutions/...`) activates only when a
@@ -26,41 +33,23 @@
  *   (`work/index.astro`); dynamic children do not imply it. Every open G2
  *   PR ships one (PRs #8 and #10).
  */
+import {
+  isInternalSitePath,
+  normalizeRoutePath,
+  routeMatchesFile,
+} from "./route-patterns";
+
 const pageModules = import.meta.glob("../pages/**/*.astro");
-
-/** One path segment → regex source: `[param]` matches any single segment,
- * literals are regex-escaped. Rest segments are handled by `filePattern`. */
-function segmentPattern(segment: string): string {
-  if (segment.startsWith("[")) return "[^/]+";
-  return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Page file path → full-route regex. A `[...param]` segment makes the
- * preceding separator and everything after optional, so
- * `docs/[...slug].astro` matches both `docs` and `docs/a/b`. */
-function filePattern(file: string): RegExp {
-  let pattern = "";
-  for (const segment of file.split("/")) {
-    if (segment.startsWith("[...")) {
-      // A rest segment at the root (`[...slug].astro`) must match any path;
-      // after a literal segment it makes the separator and tail optional
-      // (`docs/[...slug]` matches `docs`, `docs/a/b`).
-      pattern += pattern === "" ? ".*" : "(?:/.+)?";
-    } else {
-      pattern += (pattern === "" ? "" : "/") + segmentPattern(segment);
-    }
-  }
-  return new RegExp(`^${pattern}$`);
-}
 
 /** Whether a route resolves to an existing page module at build time. */
 export function routeExists(route: string): boolean {
-  const path = route.split(/[?#]/)[0].replace(/^\//, "").replace(/\/$/, "");
+  if (!isInternalSitePath(route)) return true;
+  const path = normalizeRoutePath(route);
   if (path === "") return true;
   const candidates = [`../pages/${path}.astro`, `../pages/${path}/index.astro`];
   if (candidates.some((candidate) => candidate in pageModules)) return true;
   return Object.keys(pageModules).some((key) => {
     const file = key.replace(/^\.\.\/pages\//, "").replace(/\.astro$/, "");
-    return filePattern(file).test(path);
+    return routeMatchesFile(path, file);
   });
 }
