@@ -41,6 +41,14 @@ const solutionAreas = [
 ];
 
 const startProjectExists = routeExists("/start-a-project");
+/**
+ * Gate the five solution-area links on the /solutions *index* rather than on
+ * each detail href: routeExists() only sees static page modules, and ENG-79
+ * implements detail pages as a dynamic `solutions/[slug].astro` route — a
+ * per-href check would never activate. The index existence is a safe proxy:
+ * detail URLs are served by that dynamic route from the seeded slugs.
+ */
+const solutionsRouteExists = routeExists("/solutions");
 ---
 
 <BaseLayout title="About">
@@ -81,14 +89,11 @@ const startProjectExists = routeExists("/start-a-project");
 
       <section class="section" aria-labelledby="current-focus">
         <h2 id="current-focus">Current focus</h2>
-        <p>
-          Our current focus is these five solution areas, each presented only
-          with real project evidence:
-        </p>
-        <ul class="focus-list">
+        <p>Our current focus is these five solution areas:</p>
+        <ul class="focus-list" role="list">
           {solutionAreas.map(({ label, href }) => (
             <li>
-              {routeExists(href) ? (
+              {solutionsRouteExists ? (
                 <Link href={href}>{label}</Link>
               ) : (
                 <span>{label}</span>
@@ -104,19 +109,28 @@ const startProjectExists = routeExists("/start-a-project");
           The studio's geographic direction: Ethiopia-origin → Africa-aware →
           globally applicable.
         </p>
-        <ol class="steps">
+        {/* role="list": restores list semantics Safari/VoiceOver drop when
+            list-style is none; step numbers are visual only (hidden from SR
+            so list position isn't double-announced). */}
+        <ol class="steps" role="list">
           <li class="step">
-            <MetadataLabel>01</MetadataLabel>
+            <span aria-hidden="true">
+              <MetadataLabel>01</MetadataLabel>
+            </span>
             <h3>Ethiopia-origin</h3>
             <p>The studio starts in Ethiopia.</p>
           </li>
           <li class="step">
-            <MetadataLabel>02</MetadataLabel>
+            <span aria-hidden="true">
+              <MetadataLabel>02</MetadataLabel>
+            </span>
             <h3>Africa-aware</h3>
             <p>Built with African contexts in mind.</p>
           </li>
           <li class="step">
-            <MetadataLabel>03</MetadataLabel>
+            <span aria-hidden="true">
+              <MetadataLabel>03</MetadataLabel>
+            </span>
             <h3>Globally applicable</h3>
             <p>Systems that apply beyond any single market.</p>
           </li>
@@ -240,7 +254,7 @@ const startProjectExists = routeExists("/start-a-project");
 
   .cta-pending {
     display: inline-block;
-    padding: 12px; /* aligned with the Button component's reserved space */
+    padding: 12px; /* matches the Button component spec — Button.astro: padding 12px */
     color: var(--color-secondary);
     font-size: var(--text-body-size);
     line-height: var(--text-body-leading);
