@@ -33,7 +33,9 @@ import { getCollection } from "astro:content";
 
 // Labels and hrefs derive from the seeded collection itself (ENG-76 is the
 // source of truth for titles/slugs) — no duplicated copy that can drift into
-// wrong labels or dead links. Sorted by slug for a deterministic order.
+// wrong labels or dead links. Sorted by slug: neither MIS nor spec 02
+// mandates an item order for the current-focus list (they fix only the
+// section sequence), so slug order is the deterministic choice.
 const solutionAreas = (await getCollection("solutions"))
   .sort((a, b) => a.data.slug.localeCompare(b.data.slug))
   .map((entry) => ({
@@ -43,7 +45,7 @@ const solutionAreas = (await getCollection("solutions"))
 
 const startProjectExists = routeExists("/start-a-project");
 /**
- * Gate the five solution-area links on the /solutions *index* rather than on
+ * Gate the solution-area links on the /solutions *index* rather than on
  * each detail href: routeExists() only sees static page modules, and ENG-79
  * implements detail pages as a dynamic `solutions/[slug].astro` route — a
  * per-href check would never activate. The index is a safe proxy because the
