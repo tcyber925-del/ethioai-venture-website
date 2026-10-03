@@ -1,0 +1,78 @@
+---
+/**
+ * ProjectCard — approved "project card" primitive (spec 03 component list),
+ * styled with the approved card spec from DESIGN.md (surface background,
+ * lg radius, 24px padding, subtle border, low elevation).
+ *
+ * Only fields with approved source data render; empty fields stay empty
+ * (MIS evidence policy). The root element carries `data-project-status` so
+ * the Work index can filter cards client-side over the status strings
+ * actually present in seed data (no approved status enum exists yet).
+ */
+import Link from "../Link.astro";
+import MetadataLabel from "../MetadataLabel.astro";
+import StatusBadge from "./StatusBadge.astro";
+
+interface Props {
+  title: string;
+  slug: string;
+  status?: string;
+  category?: string;
+  summary?: string;
+}
+
+const { title, slug, status, category, summary } = Astro.props;
+---
+
+<li class="project-card" data-project-status={status ?? ""}>
+  <div class="project-card__meta">
+    {category && <MetadataLabel>{category}</MetadataLabel>}
+    {status && <StatusBadge status={status} />}
+  </div>
+  <h3 class="project-card__title">
+    <Link href={`/work/${slug}`}>{title}</Link>
+  </h3>
+  {summary && <p class="project-card__summary">{summary}</p>}
+</li>
+
+<style>
+  .project-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+    transition: border-color 0.15s ease;
+  }
+
+  .project-card:hover {
+    border-color: var(--color-secondary);
+  }
+
+  .project-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .project-card__title {
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+  }
+
+  .project-card__summary {
+    color: var(--color-secondary);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .project-card {
+      transition: none;
+    }
+  }
+</style>

@@ -1,0 +1,108 @@
+---
+/**
+ * /work — project index (spec 02 / MIS approved sequence:
+ * "Project index → status taxonomy → project detail").
+ *
+ * Cards come from the `projects` collection; the status filter chips are
+ * derived at render time from the status strings actually present in that
+ * data. No status enum is defined in the approved specifications, so no
+ * taxonomy values are invented here (see src/content.config.ts).
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import MetadataLabel from "../../components/MetadataLabel.astro";
+import ProjectCard from "../../components/work/ProjectCard.astro";
+import StatusFilter from "../../components/work/StatusFilter.astro";
+import { getCollection } from "astro:content";
+
+const projects = (await getCollection("projects")).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+
+/** Status values actually present in seed data — never an invented enum. */
+const statuses = [
+  ...new Set(
+    projects
+      .map((project) => project.data.status)
+      .filter((status): status is string => typeof status === "string"),
+  ),
+].sort();
+---
+
+<BaseLayout title="Work">
+  <Container>
+    <header class="work-header">
+      <MetadataLabel>Selected work</MetadataLabel>
+      <h1>Work</h1>
+    </header>
+
+    <StatusFilter statuses={statuses} />
+
+    <section class="work-list" aria-labelledby="work-list-heading">
+      <h2 id="work-list-heading" class="work-list__title">
+        Projects
+      </h2>
+      {projects.length > 0 ? (
+        <ul class="project-grid">
+          {projects.map((project) => (
+            <ProjectCard
+              title={project.data.title}
+              slug={project.data.slug}
+              status={project.data.status}
+              category={project.data.category}
+              summary={project.data.summary}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p class="work-list__empty">No projects published yet.</p>
+      )}
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .work-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-block: var(--space-3xl) var(--space-xl);
+  }
+
+  .work-list {
+    padding-block: var(--space-xl) var(--space-3xl);
+  }
+
+  .work-list__title {
+    margin-bottom: var(--space-lg);
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+    letter-spacing: var(--text-h3-tracking);
+  }
+
+  .work-list__empty {
+    color: var(--color-muted);
+  }
+
+  .project-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 768px) {
+    .project-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .project-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+</style>
