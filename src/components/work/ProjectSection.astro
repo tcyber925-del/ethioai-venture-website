@@ -1,0 +1,52 @@
+---
+/**
+ * ProjectSection — one step of the approved project detail sequence
+ * (spec 02 / MIS: Problem → What We Built → Architecture → Technical
+ * Implementation → Evidence → Limitations → What We Learned → Next →
+ * Related Work → CTA).
+ *
+ * Renders a labelled <section> with an h2 and the section body. The page
+ * decides the body text; when no approved content exists it passes the
+ * explicit "no content" note (MIS evidence policy: state absence honestly
+ * rather than fabricating copy). The optional slot adds structured content
+ * (lists, links, images) after the body.
+ */
+interface Props {
+  id: string;
+  title: string;
+  body?: string;
+}
+
+const { id, title, body } = Astro.props;
+---
+
+<section class="section" id={id} aria-labelledby={`${id}-heading`}>
+  <h2 id={`${id}-heading`}>{title}</h2>
+  <div class="section__body">
+    {body && <p>{body}</p>}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    padding-block: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .section h2 {
+    margin-bottom: var(--space-md);
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+    letter-spacing: var(--text-h3-tracking);
+  }
+
+  .section__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-width: 72ch;
+    color: var(--color-secondary);
+  }
+</style>

@@ -1,0 +1,91 @@
+---
+/**
+ * /research — research index (MIS V1 route, Spec 02).
+ *
+ * Evidence rule: the research collection has 0 approved seed entries, so the
+ * index renders an honest, quiet empty state — no fabricated entries, metrics
+ * or findings. When approved entries land in src/content/research, the list
+ * renders automatically (sorted by title; the schema has no date field).
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import ResearchCard from "../../components/research/ResearchCard.astro";
+import { getCollection } from "astro:content";
+
+const entries = (await getCollection("research")).sort((a, b) =>
+  a.data.title.localeCompare(b.data.title),
+);
+---
+
+<BaseLayout
+  title="Research"
+  description="Research entries from EthioAI Venture — question, context, investigation, experiment, result, what we learned, what comes next."
+>
+  <Container>
+    <header class="page-header">
+      <h1>Research</h1>
+      <p class="page-header__lead">
+        Each entry follows the same sequence: question, context, investigation,
+        experiment, result, what we learned, and what comes next.
+      </p>
+    </header>
+
+    {entries.length === 0 ? (
+      <div class="empty-state">
+        <p>No research has been published yet.</p>
+      </div>
+    ) : (
+      <ul class="entry-list">
+        {entries.map((entry) => (
+          <ResearchCard
+            href={`/research/${entry.data.slug}`}
+            title={entry.data.title}
+            topic={entry.data.topic}
+            status={entry.data.status}
+            question={entry.data.question}
+          />
+        ))}
+      </ul>
+    )}
+  </Container>
+</BaseLayout>
+
+<style>
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-width: 70ch;
+    padding-block: var(--space-4xl) var(--space-2xl);
+  }
+
+  .page-header__lead {
+    color: var(--color-secondary);
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+  }
+
+  .empty-state {
+    max-width: 70ch;
+    margin-bottom: var(--space-4xl);
+    padding: var(--space-xl);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-secondary);
+  }
+
+  .entry-list {
+    display: grid;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-4xl);
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 768px) {
+    .entry-list {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
