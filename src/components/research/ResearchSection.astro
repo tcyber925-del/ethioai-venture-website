@@ -1,0 +1,44 @@
+---
+/**
+ * ResearchSection — one stage of the approved research detail sequence
+ * (MIS / Spec 02: Question → Context → Investigation → Experiment →
+ * Result → What We Learned → What Comes Next).
+ *
+ * The detail page renders a section only when its content field carries
+ * approved content; empty fields render nothing (MIS evidence policy:
+ * leave fields empty when no evidence exists).
+ */
+interface Props {
+  /** Unique heading id used by aria-labelledby. */
+  id: string;
+  /** Approved section title from the frozen sequence. */
+  title: string;
+}
+
+const { id, title } = Astro.props;
+---
+
+<section class="research-section" aria-labelledby={id}>
+  <h2 id={id}>{title}</h2>
+  <div class="research-section__body">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .research-section {
+    max-width: 70ch;
+    padding-block: var(--space-xl);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .research-section h2 {
+    margin-bottom: var(--space-md);
+  }
+
+  .research-section__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+</style>
