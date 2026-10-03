@@ -8,19 +8,20 @@
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
  * Per generated page (rendered markup — inline <script> bodies and HTML
- * comments are stripped first; attributes are matched with either quote
- * style):
+ * comments are stripped first; attribute values match quoted *and* unquoted
+ * HTML5 forms):
  *   - non-empty <html lang>
- *   - non-empty <title>
+ *   - non-empty <title> (tag may carry whitespace/attributes)
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1>
  * Across pages:
  *   - every internal href/src/srcset reference — root-relative or relative,
  *     query/fragment stripped, percent-encoded paths decoded — resolves to a
- *     built file (zero dead links). CSS-internal url() references are not
- *     validated (would require parsing stylesheets); that stays in ENG-86's
- *     manual asset checks.
+ *     built file (zero dead links). srcset data: URIs are skipped (payload
+ *     fragments resume checking only when they look like a URL/path).
+ *     CSS-internal url() references are not validated (would require parsing
+ *     stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -86,6 +87,19 @@ function targetResolves(pathname) {
   return candidates.some((c) => isFile(join(distDir, c)));
 }
 
+/**
+ * Heuristic used only while skipping a srcset `data:` URI: does this comma
+ * fragment look like a URL/path (root-relative, dot-relative, scheme-bearing
+ * or an extension-bearing filename)? Payload/descriptor fragments
+ * (`10'><path`, `0`, `1x`) don't. Failing to resume only *under*-checks the
+ * remainder of that one srcset value — it can never red the gate on valid
+ * markup; a false resume is limited to bare `word.ext`-shaped payload text.
+ */
+const looksLikeUrl = (token) =>
+  /^(?:https?:)?\/\//.test(token) ||
+  /^\.{0,2}\//.test(token) ||
+  /^[^\s"'<>=`]+\.[a-z][a-z0-9]{0,7}(?:[?#]\S*)?$/i.test(token);
+
 const failures = [];
 let referencesChecked = 0;
 
@@ -102,28 +116,32 @@ for (const file of htmlFiles) {
     .replace(/<!--[\s\S]*?-->/g, "");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
-  const lang = html.match(/<html[^>]*\slang=(?:"([^"]*)"|'([^']*)')/);
-  if (!lang || !(lang[1] ?? lang[2]).trim()) {
+  const lang = html.match(
+    /<html[^>]*\slang=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/,
+  );
+  if (!lang || !(lang[1] ?? lang[2] ?? lang[3]).trim()) {
     fail("missing or empty <html lang>");
   }
 
-  const title = html.match(/<title>([^<]*)<\/title>/);
+  const title = html.match(/<title(?:\s[^>]*)?>([^<]*)<\/title>/);
   if (!title || !title[1].trim()) fail("missing or empty <title>");
 
-  // Either attribute order, either quote style.
+  // Either attribute order; quoted with either style (apostrophes allowed
+  // inside differently-quoted values) or unquoted HTML5 values.
   const metaContent = (name) => {
-    const m =
-      html.match(
-        new RegExp(
-          `<meta[^>]*name=["']${name}["'][^>]*content=["']([^"']*)["']`,
-        ),
-      ) ??
-      html.match(
-        new RegExp(
-          `<meta[^>]*content=["']([^"']*)["'][^>]*name=["']${name}["']`,
-        ),
-      );
-    return m ? m[1] : null;
+    const NAME = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const contentAtt = `content=(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`;
+    const nameAtt = `name=(?:"${NAME}"|'${NAME}')`;
+    const nameFirst = html.match(
+      new RegExp(`<meta[^>]*${nameAtt}[^>]*${contentAtt}`),
+    );
+    if (nameFirst) return nameFirst[1] ?? nameFirst[2] ?? nameFirst[3];
+    const contentFirst = html.match(
+      new RegExp(`<meta[^>]*${contentAtt}[^>]*${nameAtt}`),
+    );
+    return contentFirst
+      ? (contentFirst[1] ?? contentFirst[2] ?? contentFirst[3])
+      : null;
   };
 
   const desc = metaContent("description");
@@ -164,29 +182,28 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
-  for (const m of html.matchAll(/\s(?:href|src)=(?:"([^"]+)"|'([^']+)')/g)) {
-    checkReference(m[1] ?? m[2], "link");
+  for (const m of html.matchAll(
+    /\s(?:href|src)=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/g,
+  )) {
+    checkReference(m[1] ?? m[2] ?? m[3], "link");
   }
 
-  for (const m of html.matchAll(/\ssrcset=(?:"([^"]+)"|'([^']+)')/g)) {
-    const value = m[1] ?? m[2];
-    let skipFragment = false;
+  for (const m of html.matchAll(
+    /\ssrcset=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/g,
+  )) {
+    const value = m[1] ?? m[2] ?? m[3];
+    let inDataUri = false;
     for (const entry of value.split(",")) {
-      const trimmed = entry.trim();
-      if (skipFragment) {
-        // This fragment is the payload/descriptor of a data: URI started in
-        // the previous fragment (valid data: URIs always contain a comma).
-        skipFragment = false;
+      const token = entry.trim().split(/\s+/)[0];
+      if (!token) continue;
+      if (inDataUri) {
+        if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
+        inDataUri = false;
+      } else if (/^data:/i.test(token)) {
+        inDataUri = true;
         continue;
       }
-      if (!trimmed) continue;
-      if (/^data:/i.test(trimmed)) {
-        // No whitespace → the payload continues into the next fragment.
-        if (!/\s/.test(trimmed)) skipFragment = true;
-        continue;
-      }
-      const token = trimmed.split(/\s+/)[0];
-      if (token) checkReference(token, "srcset target");
+      checkReference(token, "srcset target");
     }
   }
 }
