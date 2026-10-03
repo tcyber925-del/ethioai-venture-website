@@ -57,18 +57,24 @@ required **Deterministic checks** status; `npm run verify` runs the identical se
 locally in one go. `check:dist` inspects the generated markup outside inline
 `<script>` bodies and HTML comments for static accessibility/SEO problems
 (`<html lang>` with a value, non-empty `<title>` and meta description, viewport,
-exactly one `<h1>` per page; quoted or unquoted HTML5 attribute forms, whitespace
-around `=`, tag and attribute names matched case-insensitively) and validates
-that every internal `href`/`src`/`srcset` reference — root-relative or relative
-(resolved against `<base href>` when the document declares one), query/fragment
-stripped, percent-encoded paths decoded — resolves to a built file: zero dead
-internal links. Two documented skips, both specified in the script header:
-`data:` payloads in `srcset` (checking resumes only at path-prefixed tokens, so
-payload text can never red the gate — the cost is that a bare-relative entry
-mixed after a `data:` URI is not validated) and absolute scheme-bearing URLs
-such as canonical/OG links (external, not validated). CSS-internal `url()`
-references are not yet validated. Responsive, interaction, performance and
-production-like QA stay manual — Linear **ENG-86**.
+exactly one `<h1>` per page — attribute values are blanked first so a literal
+`<h1>` inside a value can't fake the count; quoted or unquoted HTML5 attribute
+forms, whitespace around `=`, tag and attribute names matched
+case-insensitively) and validates that every internal `href`/`src`/`srcset`
+reference — root-relative or relative (resolved against `<base href>` when the
+document declares one; an offsite `<base>` sends both offsite, matching browser
+resolution), leading/trailing whitespace trimmed, query/fragment stripped,
+percent-encoded paths and numeric HTML entities decoded — resolves to a built
+file: zero dead internal links. Documented skips, all specified in the script
+header: `data:` payloads in `srcset` (checking resumes only at path-prefixed
+markup-free tokens, so base64/percent-encoded payloads cannot red the gate —
+the residual is a raw unencoded payload fragment that is itself a clean path
+token, plus bare-relative entries after a `data:` URI, both under-checked
+rather than red-flagged), references carrying an undecodable named HTML entity
+(the full entity table would be a dependency), and absolute scheme-bearing
+URLs such as canonical/OG links (external, not validated). CSS-internal
+`url()` references are not yet validated. Responsive, interaction,
+performance and production-like QA stay manual — Linear **ENG-86**.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a

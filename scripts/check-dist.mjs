@@ -16,22 +16,33 @@
  *   - non-empty <title> (tag may carry whitespace/attributes)
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
- *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash)
+ *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash —
+ *     attribute values are blanked first so a literal "<h1>" inside a value
+ *     can neither fake nor hide the count)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference —
- *     query/fragment stripped, percent-encoded paths decoded — resolves to a
- *     built file (zero dead links). Relative references resolve against
+ *     leading/trailing whitespace trimmed (URL parsing strips it too),
+ *     query/fragment stripped, percent-encoded paths and numeric HTML
+ *     entities decoded — resolves to a built file (zero dead links).
+ *     References still carrying an undecodable named HTML entity
+ *     (&eacute; … — the full entity table would be a dependency) are
+ *     skipped, never red-flagged. Relative references resolve against
  *     <base href> when the document declares one (hand-written public/ files),
- *     else the page's URL directory; a base pointing offsite makes them
- *     external, and the <base> tag itself is not link-checked (resolution
- *     prefix, not a fetch target). Absolute URLs (scheme-bearing) are treated as external and
+ *     else the page's URL directory; the <base> tag itself is not
+ *     link-checked (resolution prefix, not a fetch target), and an offsite
+ *     <base> sends BOTH relative and root-relative references offsite —
+ *     browsers resolve against the document's base URL — so they are not
+ *     validated. Absolute URLs (scheme-bearing) are treated as external and
  *     not validated — that is what keeps canonical/OG absolute URLs from
  *     false-failing. srcset data: URIs are skipped: checking resumes only at
- *     path-prefixed tokens (root/dot/scheme — see looksLikeUrl), so payload
- *     text can never red the gate; the trade-off is that a bare-relative
- *     entry mixed after a data: URI isn't validated. CSS-internal url()
- *     references are not validated either (would require parsing
- *     stylesheets); that stays in ENG-86's manual asset checks.
+ *     path-prefixed tokens free of markup characters (root/dot/scheme —
+ *     see looksLikeUrl), so base64/percent-encoded payloads cannot red the
+ *     gate; documented residual: a RAW unencoded payload fragment that is
+ *     itself a clean path token can still resume checking (checking beyond
+ *     it is under-checked; so is a bare-relative entry mixed after a data:
+ *     URI). CSS-internal url() references are not validated either (would
+ *     require parsing stylesheets); that stays in ENG-86's manual asset
+ *     checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -67,7 +78,9 @@ if (!existsSync(distDir)) {
   process.exit(1);
 }
 
-const htmlFiles = walk(distDir).filter((f) => f.endsWith(".html"));
+const htmlFiles = walk(distDir).filter((f) =>
+  f.toLowerCase().endsWith(".html"),
+);
 if (htmlFiles.length === 0) {
   console.error("check:dist failed — no HTML files in dist/.");
   process.exit(1);
@@ -149,21 +162,25 @@ function parseSrcset(value) {
 /**
  * Heuristic used only while skipping a srcset `data:` URI: resume checking
  * at a token that is *path-prefixed* — root-relative, dot-relative or
- * scheme-bearing. Payload/descriptor fragments (`10'><path`, `b.png`,
- * `1x`) never qualify, so raw payload text can only ever *under*-check the
- * rest of that one value (documented trade-off — a bare-relative entry
- * mixed after a data: URI is not validated); it can never red the gate on
- * valid markup.
+ * scheme-bearing — and carries no markup characters (`<`/`>` never occur in
+ * a real unencoded URL, but litter raw SVG payloads). Payload/descriptor
+ * fragments (`10'><path`, `b.png`, `/gone.png'>`, `1x`) never qualify, so
+ * base64/percent-encoded payloads cannot red the gate; documented residual:
+ * a RAW unencoded payload fragment that is itself a clean path token (e.g.
+ * `, /gone.png ` inside a style attribute) can still resume and red — it
+ * must name a missing file to do so, and encoded payloads never contain
+ * such tokens. Failing to resume only ever under-checks the rest of a value.
  */
 const looksLikeUrl = (token) =>
-  /^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token);
+  !/[<>]/.test(token) &&
+  (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
 const failures = [];
 let referencesChecked = 0;
 
 for (const file of htmlFiles) {
   const relFile = relative(distDir, file).split(sep).join("/");
-  const route = "/" + relFile.replace(/(^|\/)index\.html$/, "$1");
+  const route = "/" + relFile.replace(/(^|\/)index\.html$/i, "$1");
   const raw = readFileSync(file, "utf8");
   // Rendered markup only: inline <script> bodies (JS strings are not markup)
   // — keeping <script src=...> tags so asset references are still checked —
@@ -211,7 +228,13 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
-  const h1Count = (html.match(/<h1[\s/>]/gi) ?? []).length;
+  // Blank attribute values before counting: a literal "<h1>" inside a
+  // value (title="…<h1>…") must neither fake nor hide the count.
+  const withoutAttrValues = html.replace(
+    /(\s[\w-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
+    "$1",
+  );
+  const h1Count = (withoutAttrValues.match(/<h1[\s/>]/gi) ?? []).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
   // Base for resolving relative references: <base href> when the document
@@ -224,10 +247,12 @@ for (const file of htmlFiles) {
   const baseTag = html.match(
     /<base[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
   );
+  let baseOffsite = false;
   if (baseTag) {
     const href = baseTag[1] ?? baseTag[2] ?? baseTag[3];
     try {
       pageBase = new URL(href, pageBase).href;
+      baseOffsite = new URL(pageBase).origin !== CHECK_ORIGIN;
     } catch {
       // unparsable <base href> — fall back to the page directory
     }
@@ -235,13 +260,37 @@ for (const file of htmlFiles) {
   const scanHtml = html.replace(/<base\b[^>]*>/gi, "");
 
   /** Check one raw reference (href/src value or srcset entry). */
-  const checkReference = (target, kind) => {
+  const checkReference = (rawTarget, kind) => {
+    // Quoted attribute values may carry stray whitespace/newlines — URL
+    // parsing strips it too (`href="/about "` requests /about).
+    let target = rawTarget.trim();
+    if (target.includes("&")) {
+      const cp = (n) =>
+        Number.isFinite(n) && n >= 0 && n <= 0x10ffff
+          ? String.fromCodePoint(n)
+          : "\uFFFD";
+      target = target
+        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => cp(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_, dec) => cp(Number(dec)))
+        .replace(
+          /&(amp|lt|gt|quot|apos);/g,
+          (m, n) =>
+            ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[n] ?? m,
+        );
+      // Any other named entity (&eacute; …) needs the full HTML entity
+      // table — a dependency — so skip the reference instead of
+      // red-flagging a path this check cannot decode reliably.
+      if (/&[a-z][a-z0-9]+;/i.test(target)) return;
+    }
     if (target.startsWith("//")) return; // protocol-relative → external
     if (target.startsWith("#") || target.startsWith("?")) return; // same-document
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return; // http:, mailto:, data: …
     let pathname;
     if (target.startsWith("/")) {
-      pathname = target; // root-relative ignores <base>
+      // Browsers resolve root-relative references against the document's
+      // base URL — an offsite <base> sends them offsite too.
+      if (baseOffsite) return;
+      pathname = target; // same-origin root path — <base> path doesn't apply
     } else {
       try {
         const resolved = new URL(target, pageBase);
