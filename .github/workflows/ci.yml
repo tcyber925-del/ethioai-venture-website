@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege token for the check job (mirrors opencode-review.yml);
+# the steps only read the checkout.
+permissions:
+  contents: read
+
 jobs:
   checks:
     # Required status check on main ("Deterministic checks") — branch

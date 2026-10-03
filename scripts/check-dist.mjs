@@ -20,7 +20,8 @@
  *     attribute values are blanked first so a literal "<h1>" inside a value
  *     can neither fake nor hide the count)
  * Across pages:
- *   - every internal root-relative or relative href/src/srcset reference —
+ *   - every internal root-relative or relative href/src/srcset reference
+ *     (the href pattern also matches SVG xlink:href) —
  *     leading/trailing whitespace trimmed (URL parsing strips it too),
  *     query/fragment stripped, percent-encoded paths and numeric HTML
  *     entities decoded — resolves to a built file (zero dead links).
@@ -35,14 +36,15 @@
  *     validated. Absolute URLs (scheme-bearing) are treated as external and
  *     not validated — that is what keeps canonical/OG absolute URLs from
  *     false-failing. srcset data: URIs are skipped: checking resumes only at
- *     path-prefixed tokens free of markup characters (root/dot/scheme —
- *     see looksLikeUrl), so base64/percent-encoded payloads cannot red the
- *     gate; documented residual: a RAW unencoded payload fragment that is
- *     itself a clean path token can still resume checking (checking beyond
- *     it is under-checked; so is a bare-relative entry mixed after a data:
- *     URI). CSS-internal url() references are not validated either (would
- *     require parsing stylesheets); that stays in ENG-86's manual asset
- *     checks.
+ *     path-prefixed tokens carrying neither quotes nor markup characters
+ *     (root/dot/scheme — see looksLikeUrl), so base64/percent-encoded
+ *     payloads cannot red the gate; documented residual: a RAW unencoded
+ *     payload fragment that is itself a clean, quote-free path token can
+ *     still resume and red — it must name a missing file to do so, and
+ *     encoded payloads never contain such tokens (a bare-relative entry
+ *     mixed after a data: URI is under-checked instead). CSS-internal
+ *     url() references are not validated either (would require parsing
+ *     stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -162,17 +164,18 @@ function parseSrcset(value) {
 /**
  * Heuristic used only while skipping a srcset `data:` URI: resume checking
  * at a token that is *path-prefixed* — root-relative, dot-relative or
- * scheme-bearing — and carries no markup characters (`<`/`>` never occur in
- * a real unencoded URL, but litter raw SVG payloads). Payload/descriptor
- * fragments (`10'><path`, `b.png`, `/gone.png'>`, `1x`) never qualify, so
- * base64/percent-encoded payloads cannot red the gate; documented residual:
- * a RAW unencoded payload fragment that is itself a clean path token (e.g.
- * `, /gone.png ` inside a style attribute) can still resume and red — it
- * must name a missing file to do so, and encoded payloads never contain
- * such tokens. Failing to resume only ever under-checks the rest of a value.
+ * scheme-bearing — and carries neither quote nor markup characters (`<`,
+ * `>`, `'`, `"` never occur in a real unencoded srcset URL, but all litter
+ * raw payload text). Payload/descriptor fragments (`10'><path`, `b.png`,
+ * `/gone.png'`, `/gone.png'>`, `1x`) never qualify, so base64/percent-encoded
+ * payloads cannot red the gate; documented residual: a RAW unencoded payload
+ * fragment that is itself a clean path token (e.g. `, /gone.png ` inside a
+ * style attribute) can still resume and red — it must name a missing file to
+ * do so, and encoded payloads never contain such tokens. Failing to resume
+ * only ever under-checks the rest of a value.
  */
 const looksLikeUrl = (token) =>
-  !/[<>]/.test(token) &&
+  !/[<>'"]/.test(token) && // markup/quote fragments never resume
   (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
 const failures = [];
@@ -283,7 +286,12 @@ for (const file of htmlFiles) {
       if (/&[a-z][a-z0-9]+;/i.test(target)) return;
     }
     if (target.startsWith("//")) return; // protocol-relative → external
-    if (target.startsWith("#") || target.startsWith("?")) return; // same-document
+    // Fragment/query-only references are same-document fetches — unless the
+    // document declares <base>, which browsers resolve them against
+    // (href="#x" → <base>/#x), making them checkable paths.
+    if ((target.startsWith("#") || target.startsWith("?")) && !baseTag) {
+      return;
+    }
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return; // http:, mailto:, data: …
     let pathname;
     if (target.startsWith("/")) {
@@ -308,8 +316,9 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
+  // `xlink:href` first so the colon-bearing legacy name matches as a whole.
   for (const m of scanHtml.matchAll(
-    /\s(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
+    /\s(?:xlink:href|href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
   )) {
     checkReference(m[1] ?? m[2] ?? m[3], "link");
   }

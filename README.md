@@ -61,20 +61,23 @@ exactly one `<h1>` per page — attribute values are blanked first so a literal
 `<h1>` inside a value can't fake the count; quoted or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
 case-insensitively) and validates that every internal `href`/`src`/`srcset`
-reference — root-relative or relative (resolved against `<base href>` when the
-document declares one; an offsite `<base>` sends both offsite, matching browser
-resolution), leading/trailing whitespace trimmed, query/fragment stripped,
-percent-encoded paths and numeric HTML entities decoded — resolves to a built
-file: zero dead internal links. Documented skips, all specified in the script
-header: `data:` payloads in `srcset` (checking resumes only at path-prefixed
-markup-free tokens, so base64/percent-encoded payloads cannot red the gate —
+reference (including SVG `xlink:href`) — root-relative or relative (resolved
+against `<base href>` when the document declares one; an offsite `<base>` sends
+both offsite, matching browser resolution, and fragment-only references become
+checkable paths under a declared `<base>`), leading/trailing whitespace
+trimmed, query/fragment stripped, percent-encoded paths and numeric HTML
+entities decoded — resolves to a built file: zero dead internal links.
+Documented skips, all specified in the script header: `data:` payloads in
+`srcset` (checking resumes only at path-prefixed tokens carrying neither
+quotes nor markup, so base64/percent-encoded payloads cannot red the gate —
 the residual is a raw unencoded payload fragment that is itself a clean path
-token, plus bare-relative entries after a `data:` URI, both under-checked
-rather than red-flagged), references carrying an undecodable named HTML entity
-(the full entity table would be a dependency), and absolute scheme-bearing
-URLs such as canonical/OG links (external, not validated). CSS-internal
-`url()` references are not yet validated. Responsive, interaction,
-performance and production-like QA stay manual — Linear **ENG-86**.
+token naming a missing file, which **can** red; bare-relative entries after a
+`data:` URI are under-checked instead), references carrying an undecodable
+named HTML entity (the full entity table would be a dependency), and absolute
+scheme-bearing URLs such as canonical/OG links (external, not validated).
+CSS-internal `url()` references are not yet validated. Responsive,
+interaction, performance and production-like QA stay manual — Linear
+**ENG-86**.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a
