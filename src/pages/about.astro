@@ -94,8 +94,11 @@ const solutionsRouteExists = routeExists("/solutions");
 
       <section class="section" aria-labelledby="current-focus">
         <h2 id="current-focus">Current focus</h2>
-        {/* count derives from the collection — no numeral that can drift */}
-        <p>Our current focus is these {solutionAreas.length} solution areas:</p>
+        {/* count derives from the collection — no numeral that can drift;
+            rendered only while the collection is non-empty */}
+        {solutionAreas.length > 0 && (
+          <p>Our current focus: these {solutionAreas.length} solution areas:</p>
+        )}
         <ul class="focus-list" role="list">
           {solutionAreas.map(({ label, href }) => (
             <li>
@@ -110,10 +113,19 @@ const solutionsRouteExists = routeExists("/solutions");
       </section>
 
       <section class="section" aria-labelledby="geography">
-        <h2 id="geography">Ethiopia → Africa → Global</h2>
+        {/* Arrows are decorative: aria-hidden so the section's accessible
+            name announces cleanly ("Ethiopia Africa Global"). WCAG 2.5.3
+            label-in-name binds controls, not headings; same pattern as the
+            aria-hidden step numbers below. The padding spaces live INSIDE
+            the spans so JSX newline-stripping can't eat them. */}
+        <h2 id="geography">
+          Ethiopia <span aria-hidden="true"> → </span> Africa
+          <span aria-hidden="true"> → </span> Global
+        </h2>
         <p>
-          The studio's geographic direction: Ethiopia-origin → Africa-aware →
-          globally applicable.
+          The studio's geographic direction: Ethiopia-origin
+          <span aria-hidden="true"> → </span> Africa-aware
+          <span aria-hidden="true"> → </span> globally applicable.
         </p>
         {/* role="list": restores list semantics Safari/VoiceOver drop when
             list-style is none; step numbers are visual only (hidden from SR
