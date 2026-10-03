@@ -21,11 +21,13 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run OpenCode review
-        uses: anomalyco/opencode/github@latest
+        # SHA-pinned (ENG-87) — `latest` peels to the github-vX action line;
+        # Dependabot keeps this current.
+        uses: anomalyco/opencode/github@77fc88c8ade8e5a620ebbe1197f3a572d29ae91a # github-v1.2.19
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
