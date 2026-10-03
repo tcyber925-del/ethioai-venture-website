@@ -54,7 +54,7 @@ const solutionsRouteExists = routeExists("/solutions");
 <BaseLayout title="About">
   <Container>
     <div class="about">
-      <section class="section section--intro" aria-labelledby="about-title">
+      <section class="section" aria-labelledby="about-title">
         <MetadataLabel>About</MetadataLabel>
         <h1 id="about-title">About EthioAI Venture</h1>
         <p class="lede">Practical AI systems for real-world organizations.</p>
@@ -254,7 +254,6 @@ const solutionsRouteExists = routeExists("/solutions");
 
   .cta-pending {
     display: inline-block;
-    padding: 12px; /* matches the Button component spec — Button.astro: padding 12px */
     color: var(--color-secondary);
     font-size: var(--text-body-size);
     line-height: var(--text-body-leading);
