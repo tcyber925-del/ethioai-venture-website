@@ -12,7 +12,8 @@
  * inside a quoted attribute value can never open or close a strip.
  * Inline <script> bodies drop (the tags stay so src= is checked;
  * `<script/>` still opens — HTML ignores the flag for these elements),
- * HTML comments drop whole (an unclosed `<!--` runs to EOF, like
+ * HTML comments drop whole (the abrupt `<!-->`/`<!--->` forms and `--!>`
+ * close at their `>`; an unclosed `<!--` runs to EOF — all like
  * parsers), then inert/raw-text containers drop whole:
  * <style>/<template>/<textarea>/<noscript> for every check below, plus
  * <title> for all but its own check (RCDATA text; only the head's title
@@ -38,7 +39,10 @@
  *     literal <h1> in TEXT still counts (parsers promote it); inert/raw-text
  *     containers are excluded, so a literal "<h1>" inside an attribute
  *     value, <template>, <textarea>, <style>, <title> or <noscript> can
- *     neither fake nor hide the count)
+ *     neither fake nor hide the count; headings inside <svg>/<math> are
+ *     foreign-namespace — not HTMLHeadingElements — so they don't count,
+ *     except inside HTML integration points (<foreignobject>/<desc>) where
+ *     the parser is parsing HTML again)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
  *     (the href pattern also matches SVG xlink:href) — matched only at
@@ -51,7 +55,8 @@
  *     root-relative paths get WHATWG normalization (tab/LF/CR stripped,
  *     "\" mapped to "/") — resolves to a built file (zero dead links).
  *     References still carrying an undecodable named HTML entity
- *     (&eacute; … — the full entity table would be a dependency) are
+ *     (&eacute; … — the full entity table would be a dependency, and
+ *     browsers decode legacy no-semicolon forms too) are
  *     skipped, never red-flagged. Relative references resolve against
  *     <base href> when the document declares one (hand-written public/ files),
  *     else the page's URL directory; the <base> tag itself is not
@@ -212,22 +217,55 @@ const looksLikeUrl = (token) =>
   (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
 /**
- * End index (one past `>`) of the tag opening at `start`, quote-aware: a
- * `>` inside a quoted attribute value does not end the tag. -1 when the
- * tag never terminates (malformed markup at EOF).
+ * End index (one past `>`) of the tag opening at `start` — an
+ * attribute-state machine mirroring the HTML tokenizer (review round
+ * 13): quote state opens only for a quote at attribute-VALUE position
+ * (after `=`); quotes in tag/attribute names and inside unquoted values
+ * are ordinary characters (browsers append them and end the tag at `>`),
+ * so `content=it's` can never open a phantom quote that swallows the
+ * rest of the document. `>` inside a quoted value does not end the tag.
+ * -1 when the tag never terminates (malformed markup at EOF).
  */
 function tagEndFrom(markup, start) {
   let i = start + 1;
-  let quote = null;
+  let state = "name"; // name | attr | before-value | dq | sq | unq
   while (i < markup.length) {
     const ch = markup[i];
-    if (quote) {
-      if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === ">") {
-      return i + 1;
+    if (state === "dq") {
+      if (ch === '"') state = "attr";
+      i++;
+      continue;
     }
+    if (state === "sq") {
+      if (ch === "'") state = "attr";
+      i++;
+      continue;
+    }
+    if (state === "unq") {
+      // Unquoted values end at `>` or whitespace; quotes, `<`, `=` … are
+      // appended (parse errors in browsers, but never quote-openers).
+      if (ch === ">") return i + 1;
+      if (/\s/.test(ch)) state = "attr";
+      i++;
+      continue;
+    }
+    // name | attr | before-value
+    if (ch === ">") return i + 1;
+    if (/\s/.test(ch)) {
+      if (state === "name") state = "attr";
+      i++;
+      continue;
+    }
+    if (state === "before-value") {
+      if (ch === '"') state = "dq";
+      else if (ch === "'") state = "sq";
+      else state = "unq";
+      i++;
+      continue;
+    }
+    if (ch === "=" && state === "attr") state = "before-value";
+    // any other character (incl. quotes and `=` outside attribute position)
+    // is part of the tag/attribute name — state stays (name/attr)
     i++;
   }
   return -1;
@@ -308,6 +346,18 @@ function markupDropEvents(raw) {
     return raw.slice(s, e).toLowerCase();
   };
 
+  // Comment close (round 13): `<!-->` and `<!--->` end at their `>` —
+  // parsers' abrupt-closing empty forms — otherwise the first `-->` or
+  // `--!>` closes; -1 when genuinely unterminated (runs to EOF).
+  const commentEnd = (lt) => {
+    if (raw[lt + 4] === ">") return lt + 5;
+    if (raw[lt + 4] === "-" && raw[lt + 5] === ">") return lt + 6;
+    const re = /--!?>/g;
+    re.lastIndex = lt + 4;
+    const m = re.exec(raw);
+    return m ? m.index + m[0].length : -1;
+  };
+
   // Raw-text body: literal until the first `</name` (self-closing flags
   // ignored — `<script/>` still opens).
   const findRawClose = (from, name) => {
@@ -330,9 +380,9 @@ function markupDropEvents(raw) {
       const lt = raw.indexOf("<", j);
       if (lt === -1) return null;
       if (raw.startsWith("<!--", lt)) {
-        const c = raw.indexOf("-->", lt + 4);
+        const c = commentEnd(lt);
         if (c === -1) return null; // unclosed comment swallows the rest
-        j = c + 3;
+        j = c;
         continue;
       }
       const nxt = raw[lt + 1] ?? "";
@@ -366,8 +416,8 @@ function markupDropEvents(raw) {
     const lt = raw.indexOf("<", i);
     if (lt === -1) break;
     if (raw.startsWith("<!--", lt)) {
-      const c = raw.indexOf("-->", lt + 4);
-      const e = c === -1 ? len : c + 3; // unclosed → EOF, like parsers
+      const c = commentEnd(lt);
+      const e = c === -1 ? len : c; // unclosed → EOF, like parsers
       events.push({ s: lt, e, always: true });
       i = e;
       continue;
@@ -581,8 +631,36 @@ for (const file of htmlFiles) {
   // a literal <h1> in TEXT — which parsers promote to a real heading —
   // still counts, matching DOM semantics (review round 11; replaces the
   // old whole-string value-blanking pass, which hid text-level <h1>s
-  // behind prose that merely looked like `name = "…"`).
-  const h1Count = pageTags.filter((t) => /^<h1[\s/>]/i.test(t.raw)).length;
+  // behind prose that merely looked like `name = "…"`). Headings inside
+  // <svg>/<math> live in a foreign namespace — not HTMLHeadingElements —
+  // so they don't count, except inside HTML integration points
+  // (<foreignobject>/<desc>), where the parser is parsing HTML again
+  // (review round 13); a self-closing <svg/>-style flag is honored
+  // (never the false-red direction). Documented residual: an SVG <title>
+  // body drops as raw text, so heading-shaped markup inside one isn't
+  // counted — it can only under-count, never red.
+  let h1Count = 0;
+  const nsStack = []; // "foreign" (svg/math) | "island" (html inside foreign)
+  for (const t of pageTags) {
+    const s = t.raw;
+    if (/^<(?:svg|math)(?=[\s>/])/i.test(s) && !/\/>\s*$/.test(s)) {
+      nsStack.push("foreign");
+      continue;
+    }
+    if (/^<\/(?:svg|math)(?=[\s>])/i.test(s)) {
+      if (nsStack.at(-1) === "foreign") nsStack.pop();
+      continue;
+    }
+    if (/^<(?:foreignobject|desc)(?=[\s>/])/i.test(s) && !/\/>\s*$/.test(s)) {
+      if (nsStack.at(-1) === "foreign") nsStack.push("island");
+      continue;
+    }
+    if (/^<\/(?:foreignobject|desc)(?=[\s>])/i.test(s)) {
+      if (nsStack.at(-1) === "island") nsStack.pop();
+      continue;
+    }
+    if (/^<h1[\s/>]/i.test(s) && nsStack.at(-1) !== "foreign") h1Count++;
+  }
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
   // Base for resolving relative references: <base href> when the document
@@ -614,18 +692,30 @@ for (const file of htmlFiles) {
         Number.isFinite(n) && n >= 0 && n <= 0x10ffff
           ? String.fromCodePoint(n)
           : "\uFFFD";
+      // The trailing `;` is optional for every form browsers decode: legacy
+      // numeric refs (`&#233`, `&#xE9`) and legacy named refs (`&amp`) are
+      // consumed without it (review round 13); the five name→char mappings
+      // stay exact, and `;?` never lets a name followed by `=` or an
+      // alphanumeric be consumed (browsers keep those literal — `&session=x`).
       target = target
-        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => cp(parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_, dec) => cp(Number(dec)))
+        .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => cp(parseInt(hex, 16)))
+        .replace(/&#(\d+);?/g, (_, dec) => cp(Number(dec)))
         .replace(
           /&(amp|lt|gt|quot|apos);/g,
           (m, n) =>
             ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[n] ?? m,
+        )
+        .replace(
+          /&(amp|lt|gt|quot|apos)(?![a-z0-9=])/g,
+          (m, n) =>
+            ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[n] ?? m,
         );
-      // Any other named entity (&eacute; …) needs the full HTML entity
-      // table — a dependency — so skip the reference instead of
+      // Any other named entity (&eacute; …) needs the full HTML entity table
+      // — a dependency — so a reference still carrying one (with or without
+      // the trailing `;`: browsers decode legacy no-semicolon forms when the
+      // name isn't followed by `=` or alphanumerics) is skipped instead of
       // red-flagging a path this check cannot decode reliably.
-      if (/&[a-z][a-z0-9]+;/i.test(target)) return;
+      if (/&[a-z][a-z0-9]+;?(?![a-z0-9=])/i.test(target)) return;
     }
     if (target.startsWith("//")) return; // protocol-relative → external
     // Fragment/query-only references are same-document fetches — unless the

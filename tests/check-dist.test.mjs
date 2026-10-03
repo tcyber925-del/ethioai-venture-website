@@ -581,3 +581,69 @@ t(
   inBody("<script/>const x='<h1>fake</h1>';</script>"),
   0,
 );
+
+// ── Round 13: tokenizer-state quote tracking, comment closes, entities,
+//    foreign-namespace headings ─────────────────────────────────────────────
+t(
+  "unquoted value with apostrophe can't open a phantom quote (desc meta)",
+  PAGE.replace('content="d"', "content=it's"),
+  0,
+);
+t(
+  "unquoted value with apostrophe keeps later h1 outside the tag",
+  PAGE.replace("<h1>Page</h1>", "<img alt=don't><h1>Page</h1>"),
+  0,
+);
+t(
+  "phantom quote with no later quote still scans the dead link",
+  "<!doctype html><html lang=en><head><meta charset=utf-8>" +
+    "<title>P</title><meta name=description content=d>" +
+    "<meta name=viewport content=width></head>" +
+    "<body><h1>P</h1><img alt=don't><a href=/dead-after>x</a></body></html>",
+  1,
+);
+t(
+  "named entity without semicolon is skipped, not red-flagged",
+  inBody('<a href="/caf&eacute">x</a>'),
+  0,
+  { "café/index.html": SUB_PAGE },
+);
+t(
+  "numeric entity without semicolon decodes to the real path",
+  inBody('<a href="/caf&#233">x</a>'),
+  0,
+  { "café/index.html": SUB_PAGE },
+);
+t(
+  "abrupt <!--> comment closes at its > (h1 still counts)",
+  PAGE.replace("<h1>Page</h1>", "<!--><h1>Page</h1>"),
+  0,
+);
+t(
+  "abrupt <!---> comment closes at its > (h1 still counts)",
+  PAGE.replace("<h1>Page</h1>", "<!---><h1>Page</h1>"),
+  0,
+);
+t(
+  "svg heading is foreign-namespace, doesn't count",
+  inBody("<svg><h1>x</h1></svg>"),
+  0,
+);
+t(
+  "math heading is foreign-namespace, doesn't count",
+  inBody("<math><h1>x</h1></math>"),
+  0,
+);
+t(
+  "page whose only heading is an svg h1 fails",
+  PAGE.replace("<h1>Page</h1>", "<svg><h1>x</h1></svg>"),
+  1,
+);
+t(
+  "h1 inside svg foreignObject (HTML integration point) counts",
+  PAGE.replace(
+    "<h1>Page</h1>",
+    "<svg><foreignObject><h1>y</h1></foreignObject></svg>",
+  ),
+  0,
+);

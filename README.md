@@ -58,7 +58,8 @@ npm run format
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go. `check:dist` inspects the generated markup outside inline
-`<script>` bodies, HTML comments (unclosed ones run to EOF, like parsers) and
+`<script>` bodies, HTML comments (the abrupt `<!-->`/`<!--->` forms and `--!>`
+close at their `>`, unclosed ones run to EOF — like parsers) and
 inert/raw-text bodies —
 `<style>`/`<template>`/`<textarea>`/`<noscript>` for every check, plus
 `<title>` for all but its own check (every drop comes from one quote-aware
@@ -73,7 +74,9 @@ lookup runs over quote-aware tag fragments: values and attribute-shaped
 prose can't fake a check, while a literal `<h1>` in text (which parsers
 promote to a real heading) still counts, and inert/raw-text containers are
 excluded, so a literal `<h1>` inside a value, `<template>`, `<textarea>`,
-`<style>`, `<title>` or `<noscript>` can't fake or hide the count; quoted
+`<style>`, `<title>` or `<noscript>` can't fake or hide the count; headings
+inside `<svg>`/`<math>` are foreign-namespace and don't count — inside HTML
+integration points (`<foreignobject>`/`<desc>`) they do; quoted
 or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
 case-insensitively — `>` inside a quoted attribute value never splits a
@@ -97,7 +100,9 @@ quotes nor markup, so base64/percent-encoded payloads cannot red the gate —
 the residual is a raw unencoded payload fragment that is itself a clean path
 token naming a missing file, which **can** red; bare-relative entries after a
 `data:` URI are under-checked instead), references carrying an undecodable
-named HTML entity (the full entity table would be a dependency), and absolute
+named HTML entity (the full entity table would be a dependency — and the
+skip applies with or without the trailing `;`, since browsers decode legacy
+no-semicolon forms too), and absolute
 scheme-bearing URLs such as canonical/OG links (external, not validated).
 CSS-internal `url()` references are not yet validated. Responsive,
 interaction, performance and production-like QA stay manual — Linear
