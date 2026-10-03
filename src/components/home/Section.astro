@@ -1,0 +1,65 @@
+---
+/**
+ * Section — consistent homepage/main-page section rhythm per the approved
+ * layout language ("structured spaciousness": centered container, clear
+ * separation between major sections, spacing decreasing with hierarchy).
+ * Eyebrow uses the approved MetadataLabel typography; headings fall back to
+ * the global h2 scale. `variant="surface"` applies the tonal-contrast
+ * hierarchy tool (surface on neutral) — use sparingly, not every section.
+ */
+import Container from "../Container.astro";
+import MetadataLabel from "../MetadataLabel.astro";
+
+interface Props {
+  id: string;
+  eyebrow?: string;
+  title?: string;
+  variant?: "default" | "surface";
+}
+
+const { id, eyebrow, title, variant = "default" } = Astro.props;
+---
+
+<section
+  id={id}
+  class:list={["section", variant === "surface" && "section--surface"]}
+>
+  <Container>
+    {eyebrow && <MetadataLabel>{eyebrow}</MetadataLabel>}
+    {title && <h2 class="section__title">{title}</h2>}
+    <div class="section__body">
+      <slot />
+    </div>
+  </Container>
+</section>
+
+<style>
+  .section {
+    padding-block: var(--space-2xl);
+  }
+
+  .section--surface {
+    background-color: var(--color-surface);
+    border-block: 1px solid var(--color-border);
+  }
+
+  .section__title {
+    margin-top: var(--space-sm);
+  }
+
+  .section__body {
+    margin-top: var(--space-lg);
+  }
+
+  /* Editorial line length: prose paragraphs stay readable (~60ch) while
+     grids and lists keep the full container width. */
+  .section__body > :global(p) {
+    max-width: 60ch;
+  }
+
+  @media (min-width: 768px) {
+    .section {
+      padding-block: var(--space-4xl);
+    }
+  }
+</style>
