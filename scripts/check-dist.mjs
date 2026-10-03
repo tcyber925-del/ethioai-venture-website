@@ -39,10 +39,11 @@
  *     literal <h1> in TEXT still counts (parsers promote it); inert/raw-text
  *     containers are excluded, so a literal "<h1>" inside an attribute
  *     value, <template>, <textarea>, <style>, <title> or <noscript> can
- *     neither fake nor hide the count; headings inside <svg>/<math> are
- *     foreign-namespace — not HTMLHeadingElements — so they don't count,
- *     except inside HTML integration points (<foreignobject>/<desc>) where
- *     the parser is parsing HTML again)
+ *     neither fake nor hide the count; an <svg>/<math> <h1> counts too —
+ *     h1–h6 are breakout elements in foreign content, so the parser pops
+ *     out and the heading lands as a real HTMLHeadingElement, and an SVG
+ *     <title> is an HTML integration point (its content is scanned as
+ *     markup, not dropped as raw text))
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
  *     (the href pattern also matches SVG xlink:href) — matched only at
@@ -411,6 +412,7 @@ function markupDropEvents(raw) {
     return null;
   };
 
+  let foreignDepth = 0; // <svg>/<math> nesting — gates the <title> rule
   let i = 0;
   while (i < len) {
     const lt = raw.indexOf("<", i);
@@ -440,6 +442,13 @@ function markupDropEvents(raw) {
       i = close ? close.end : len;
       continue;
     }
+    if (!isClose && name === "title" && foreignDepth > 0) {
+      // An SVG <title> is an HTML integration point — its content is
+      // markup, not RCDATA (review round 14) — so scan it like an
+      // ordinary tag instead of dropping the body as raw text.
+      i = tagEnd;
+      continue;
+    }
     if (!isClose && RAWTEXT_NAMES.has(name)) {
       const close = findRawClose(tagEnd, name);
       events.push({ s: lt, e: close ? close.end : len, drop: name });
@@ -451,6 +460,15 @@ function markupDropEvents(raw) {
       if (close) events.push({ s: lt, e: close.end, drop: name });
       i = close ? close.end : tagEnd;
       continue;
+    }
+    // svg/math open/close tracks foreign depth for the <title> rule above;
+    // a self-closing flag is honored (never the false-red direction).
+    if (name === "svg" || name === "math") {
+      if (isClose) {
+        if (foreignDepth > 0) foreignDepth--;
+      } else if (!/\/>\s*$/.test(raw.slice(lt, tagEnd))) {
+        foreignDepth++;
+      }
     }
     i = tagEnd; // ordinary tag (open/close/doctype/pi)
   }
@@ -629,38 +647,14 @@ for (const file of htmlFiles) {
   // Count <h1> at fragment positions only: a literal "<h1>" inside an
   // attribute value or attribute-shaped prose can't fake the count, while
   // a literal <h1> in TEXT — which parsers promote to a real heading —
-  // still counts, matching DOM semantics (review round 11; replaces the
-  // old whole-string value-blanking pass, which hid text-level <h1>s
-  // behind prose that merely looked like `name = "…"`). Headings inside
-  // <svg>/<math> live in a foreign namespace — not HTMLHeadingElements —
-  // so they don't count, except inside HTML integration points
-  // (<foreignobject>/<desc>), where the parser is parsing HTML again
-  // (review round 13); a self-closing <svg/>-style flag is honored
-  // (never the false-red direction). Documented residual: an SVG <title>
-  // body drops as raw text, so heading-shaped markup inside one isn't
-  // counted — it can only under-count, never red.
-  let h1Count = 0;
-  const nsStack = []; // "foreign" (svg/math) | "island" (html inside foreign)
-  for (const t of pageTags) {
-    const s = t.raw;
-    if (/^<(?:svg|math)(?=[\s>/])/i.test(s) && !/\/>\s*$/.test(s)) {
-      nsStack.push("foreign");
-      continue;
-    }
-    if (/^<\/(?:svg|math)(?=[\s>])/i.test(s)) {
-      if (nsStack.at(-1) === "foreign") nsStack.pop();
-      continue;
-    }
-    if (/^<(?:foreignobject|desc)(?=[\s>/])/i.test(s) && !/\/>\s*$/.test(s)) {
-      if (nsStack.at(-1) === "foreign") nsStack.push("island");
-      continue;
-    }
-    if (/^<\/(?:foreignobject|desc)(?=[\s>])/i.test(s)) {
-      if (nsStack.at(-1) === "island") nsStack.pop();
-      continue;
-    }
-    if (/^<h1[\s/>]/i.test(s) && nsStack.at(-1) !== "foreign") h1Count++;
-  }
+  // still counts, matching DOM semantics (review round 11). No namespace
+  // exclusion: h1–h6 are *breakout* elements in foreign content — the
+  // parser pops out of <svg>/<math> and reprocesses the token with HTML
+  // rules, so an <svg><h1> lands as a real HTMLHeadingElement sibling of
+  // the (emptied) svg (review round 14, reversing round 13's exclusion —
+  // parse5-confirmed), and HTML integration points
+  // (<foreignobject>/<desc>) parse HTML all along.
+  const h1Count = pageTags.filter((t) => /^<h1[\s/>]/i.test(t.raw)).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
   // Base for resolving relative references: <base href> when the document
@@ -670,7 +664,13 @@ for (const file of htmlFiles) {
   const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
   let pageBase =
     CHECK_ORIGIN + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
-  const baseTag = tagsNamed(pageTags, "base")[0];
+  // WHATWG §2.4.3: the base URL comes from the first <base> that HAS an
+  // href attribute — an href-less <base> before it is skipped (review
+  // round 14); a document whose bases all lack href behaves as if none
+  // was declared (baseHref stays undefined).
+  const baseTag = tagsNamed(pageTags, "base").find(
+    (t) => tagAttr(t.raw, "href") !== undefined,
+  );
   const baseHref = baseTag ? tagAttr(baseTag.raw, "href") : undefined;
   let baseOffsite = false;
   if (baseHref !== undefined) {

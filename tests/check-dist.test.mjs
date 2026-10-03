@@ -3,7 +3,7 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–12):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–14):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/comment/inert-container stripping
  * (attribute values can never open a strip), tag-context-only link
@@ -582,8 +582,8 @@ t(
   0,
 );
 
-// ── Round 13: tokenizer-state quote tracking, comment closes, entities,
-//    foreign-namespace headings ─────────────────────────────────────────────
+// ── Rounds 13–14: tokenizer-state quote tracking, comment closes, entities,
+//    breakout headings, integration-point titles, base selection ───────────
 t(
   "unquoted value with apostrophe can't open a phantom quote (desc meta)",
   PAGE.replace('content="d"', "content=it's"),
@@ -625,19 +625,19 @@ t(
   0,
 );
 t(
-  "svg heading is foreign-namespace, doesn't count",
+  "svg h1 breaks out of foreign content and counts (two real h1s)",
   inBody("<svg><h1>x</h1></svg>"),
-  0,
-);
-t(
-  "math heading is foreign-namespace, doesn't count",
-  inBody("<math><h1>x</h1></math>"),
-  0,
-);
-t(
-  "page whose only heading is an svg h1 fails",
-  PAGE.replace("<h1>Page</h1>", "<svg><h1>x</h1></svg>"),
   1,
+);
+t(
+  "math h1 breaks out of foreign content and counts (two real h1s)",
+  inBody("<math><h1>x</h1></math>"),
+  1,
+);
+t(
+  "page whose only heading is an svg h1 passes (breakout → one real h1)",
+  PAGE.replace("<h1>Page</h1>", "<svg><h1>x</h1></svg>"),
+  0,
 );
 t(
   "h1 inside svg foreignObject (HTML integration point) counts",
@@ -646,4 +646,15 @@ t(
     "<svg><foreignObject><h1>y</h1></foreignObject></svg>",
   ),
   0,
+);
+t(
+  "svg <title> is an integration point — its h1 counts, not raw text",
+  PAGE.replace("<h1>Page</h1>", "<svg><title><h1>y</h1></title></svg>"),
+  0,
+);
+t(
+  "first <base> WITH href wins (href-less <base> skipped)",
+  inBody('<base><base href="/sub/"><a href="y.png">x</a>'),
+  0,
+  { "sub/y.png": "x" },
 );

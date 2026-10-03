@@ -74,9 +74,11 @@ lookup runs over quote-aware tag fragments: values and attribute-shaped
 prose can't fake a check, while a literal `<h1>` in text (which parsers
 promote to a real heading) still counts, and inert/raw-text containers are
 excluded, so a literal `<h1>` inside a value, `<template>`, `<textarea>`,
-`<style>`, `<title>` or `<noscript>` can't fake or hide the count; headings
-inside `<svg>`/`<math>` are foreign-namespace and don't count — inside HTML
-integration points (`<foreignobject>`/`<desc>`) they do; quoted
+`<style>`, `<title>` or `<noscript>` can't fake or hide the count; an
+`<svg>`/`<math>` `<h1>` counts too — h1–h6 are breakout elements in foreign
+content, so the parser pops out and the heading lands as a real
+`HTMLHeadingElement`, and an SVG `<title>` (an HTML integration point) is
+scanned as markup, not dropped as raw text; quoted
 or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
 case-insensitively — `>` inside a quoted attribute value never splits a
