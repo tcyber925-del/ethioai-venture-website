@@ -28,9 +28,10 @@ const {
   class: className = "",
 } = Astro.props;
 
-const isInternalRoute = href !== undefined && href.startsWith("/");
+const isInternalRoute =
+  href !== undefined && href.startsWith("/") && !href.startsWith("//");
 const isLiveLink =
-  href !== undefined && (!isInternalRoute || routeExists(href));
+  href !== undefined && href !== "" && (!isInternalRoute || routeExists(href));
 ---
 
 {href === undefined ? (
@@ -42,7 +43,11 @@ const isLiveLink =
     <slot />
   </a>
 ) : (
-  <span class:list={["btn", `btn--${variant}`, className]} data-inert>
+  <span
+    class:list={["btn", `btn--${variant}`, className]}
+    data-inert
+    title="Page not yet available"
+  >
     <slot />
   </span>
 )}

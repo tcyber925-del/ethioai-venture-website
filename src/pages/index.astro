@@ -64,9 +64,9 @@ const research = (await getCollection("research")).sort((a, b) =>
     title="Customer problems before technology"
   >
     <p>
-      We work with organizations that have concrete AI, workflow, knowledge or
-      document problems. The goal is not AI for its own sake — it is a working
-      system that solves the problem and holds up in real use.
+      EthioAI Venture is built for organizations with concrete AI, workflow,
+      knowledge or document problems. The goal is not AI for its own sake — it
+      is a working system that solves the problem and holds up in real use.
     </p>
   </Section>
 
@@ -75,7 +75,7 @@ const research = (await getCollection("research")).sort((a, b) =>
     <p>
       We build practical AI systems across {solutions.length} focused areas:
     </p>
-    <ul class="card-grid">
+    <ul class="card-grid" role="list">
       {solutions.map(({ data }) => (
         <li class="card">
           {routeExists(`/solutions/${data.slug}`) ? (
@@ -89,13 +89,8 @@ const research = (await getCollection("research")).sort((a, b) =>
   </Section>
 
   <!-- 4. Selected Work — consumes the projects collection -->
-  <Section
-    id="selected-work"
-    eyebrow="Evidence"
-    title="Selected work"
-    variant="surface"
-  >
-    <ul class="card-grid">
+  <Section id="selected-work" eyebrow="Evidence" title="Selected work">
+    <ul class="card-grid" role="list">
       {projects.map(({ data }) => (
         <li class="card">
           {routeExists(`/work/${data.slug}`) ? (
@@ -115,7 +110,7 @@ const research = (await getCollection("research")).sort((a, b) =>
 
   <!-- 5. How We Approach Projects -->
   <Section id="approach" eyebrow="Approach" title="How we approach projects">
-    <ul class="approach-list">
+    <ul class="approach-list" role="list">
       <li>
         <h3>Start from the problem</h3>
         <p>
@@ -126,8 +121,8 @@ const research = (await getCollection("research")).sort((a, b) =>
       <li>
         <h3>Build working systems</h3>
         <p>
-          We implement practical AI systems that real organizations can use:
-          shipped as working software, described honestly.
+          We implement practical AI systems: working software first, described
+          honestly.
         </p>
       </li>
       <li>
@@ -147,7 +142,7 @@ const research = (await getCollection("research")).sort((a, b) =>
     title="Research and products"
   >
     {research.length > 0 ? (
-      <ul class="card-grid">
+      <ul class="card-grid" role="list">
         {research.map(({ data }) => (
           <li class="card">
             {routeExists(`/research/${data.slug}`) ? (
@@ -214,9 +209,9 @@ const research = (await getCollection("research")).sort((a, b) =>
     title="Ethiopia → Africa → global"
   >
     <p>
-      EthioAI Venture is based in Ethiopia and builds toward a long-term
-      direction: solve real problems here, grow across Africa, and compete on
-      the global stage.
+      EthioAI Venture's direction is Ethiopia → Africa → global: build for
+      organizations in Ethiopia first, grow across Africa, and compete on the
+      global stage.
     </p>
   </Section>
 
@@ -224,7 +219,7 @@ const research = (await getCollection("research")).sort((a, b) =>
   <Section id="founder" eyebrow="Leadership" title="Founder-led">
     <p>
       EthioAI Venture is founder-led, with a long-term direction as a venture
-      studio that builds and ships practical AI systems. The full company story,
+      studio focused on building practical AI systems. The full company story,
       current focus and long-term direction will live on the About page.
     </p>
   </Section>
