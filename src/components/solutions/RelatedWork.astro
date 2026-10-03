@@ -30,6 +30,17 @@ const { related, projects, researchCount } = Astro.props;
 const workRouteExists = routeExists("/work");
 const researchRouteExists = routeExists("/research");
 
+/*
+ * routeExists() only matches `x.astro` / `x/index.astro`, so it cannot see a
+ * dynamic `/work/[slug]` route. Gating detail links on it alone would emit a
+ * dead link as soon as a /work index lands without its detail route, so the
+ * dynamic work route module is detected directly here.
+ */
+const workPageModules = import.meta.glob("../../pages/work/**/*.astro");
+const workDetailRouteExists = Object.keys(workPageModules).some((path) =>
+  path.includes("["),
+);
+
 const relatedItems = related.map((slug) => {
   const project = projects.find((entry) => entry.data.slug === slug);
   return {
@@ -50,7 +61,7 @@ const relatedItems = related.map((slug) => {
           <li class="related__item">
             {!resolvable ? (
               <code class="related__id">{slug}</code>
-            ) : workRouteExists ? (
+            ) : workDetailRouteExists ? (
               <Link href={`/work/${slug}`}>{title}</Link>
             ) : (
               <span class="related__plain">{title}</span>
