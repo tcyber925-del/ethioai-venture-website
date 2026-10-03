@@ -8,20 +8,23 @@
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
  * Per generated page (rendered markup — inline <script> bodies and HTML
- * comments are stripped first; attribute values match quoted *and* unquoted
- * HTML5 forms):
+ * comments are stripped first; tag/attribute *names* are matched
+ * case-insensitively and values accept quoted *and* unquoted HTML5 forms, so
+ * verbatim files copied from public/ are checked the same as Astro output):
  *   - non-empty <html lang>
  *   - non-empty <title> (tag may carry whitespace/attributes)
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1>
  * Across pages:
- *   - every internal href/src/srcset reference — root-relative or relative,
+ *   - every internal root-relative or relative href/src/srcset reference —
  *     query/fragment stripped, percent-encoded paths decoded — resolves to a
- *     built file (zero dead links). srcset data: URIs are skipped (payload
- *     fragments resume checking only when they look like a URL/path).
- *     CSS-internal url() references are not validated (would require parsing
- *     stylesheets); that stays in ENG-86's manual asset checks.
+ *     built file (zero dead links). Absolute URLs (scheme-bearing) are
+ *     treated as external and not validated — that is what keeps canonical/
+ *     OG absolute URLs from false-failing. srcset data: URIs are skipped
+ *     (payload fragments resume checking only when they look like a URL).
+ *     CSS-internal url() references are not validated either (would require
+ *     parsing stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Exits non-zero on any problem (CI gate).
@@ -88,12 +91,60 @@ function targetResolves(pathname) {
 }
 
 /**
- * Heuristic used only while skipping a srcset `data:` URI: does this comma
- * fragment look like a URL/path (root-relative, dot-relative, scheme-bearing
- * or an extension-bearing filename)? Payload/descriptor fragments
- * (`10'><path`, `0`, `1x`) don't. Failing to resume only *under*-checks the
- * remainder of that one srcset value — it can never red the gate on valid
- * markup; a false resume is limited to bare `word.ext`-shaped payload text.
+ * Parse a srcset value into candidate URL tokens (WHATWG "parse a srcset
+ * attribute", simplified): a URL is a non-whitespace run — so commas *inside*
+ * a run belong to the filename (`/a,b.png`); a run ending in commas is a
+ * comma-separated entry; descriptors follow until an entry-boundary comma.
+ * `data:` payloads with spaces stay split across runs, which the caller
+ * skips via the data-URI state below.
+ */
+function parseSrcset(value) {
+  const isWs = (c) =>
+    c === " " || c === "\t" || c === "\n" || c === "\f" || c === "\r";
+  const urls = [];
+  let i = 0;
+  const len = value.length;
+  while (i < len) {
+    while (i < len && (isWs(value[i]) || value[i] === ",")) i++;
+    if (i >= len) break;
+    const start = i;
+    while (i < len && !isWs(value[i])) i++;
+    let url = value.slice(start, i);
+    if (url.endsWith(",")) {
+      url = url.replace(/,+$/, "");
+      if (url) urls.push(url);
+      continue;
+    }
+    // Consume descriptors until an entry-boundary comma or end of value.
+    while (i < len) {
+      if (value[i] === ",") {
+        i++;
+        break;
+      }
+      if (isWs(value[i])) {
+        let j = i;
+        while (j < len && isWs(value[j])) j++;
+        if (j >= len || value[j] === ",") {
+          i = j + (j < len ? 1 : 0);
+          break;
+        }
+        i = j; // next descriptor token
+      } else {
+        while (i < len && !isWs(value[i]) && value[i] !== ",") i++;
+      }
+    }
+    if (url) urls.push(url);
+  }
+  return urls;
+}
+
+/**
+ * Heuristic used only while skipping a srcset `data:` URI: does this token
+ * look like a URL/path (root-relative, dot-relative, scheme-bearing or an
+ * extension-bearing filename)? Payload/descriptor fragments (`10'><path`,
+ * `0`, `1x`) don't. Failing to resume only *under*-checks the remainder of
+ * that one srcset value — it can never red the gate on valid markup; a false
+ * resume is limited to bare `word.ext`-shaped payload text.
  */
 const looksLikeUrl = (token) =>
   /^(?:https?:)?\/\//.test(token) ||
@@ -112,32 +163,33 @@ for (const file of htmlFiles) {
   // and HTML comments (commented-out markup must not count) are stripped
   // before any string-based check.
   const html = raw
-    .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/g, "$1$2")
+    .replace(/(<script[^>]*>)[\s\S]*?(<\/script>)/gi, "$1$2")
     .replace(/<!--[\s\S]*?-->/g, "");
   const fail = (msg) => failures.push(`${route}: ${msg}`);
 
   const lang = html.match(
-    /<html[^>]*\slang=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/,
+    /<html[^>]*\slang=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
   );
   if (!lang || !(lang[1] ?? lang[2] ?? lang[3]).trim()) {
     fail("missing or empty <html lang>");
   }
 
-  const title = html.match(/<title(?:\s[^>]*)?>([^<]*)<\/title>/);
+  const title = html.match(/<title(?:\s[^>]*)?>([^<]*)<\/title>/i);
   if (!title || !title[1].trim()) fail("missing or empty <title>");
 
   // Either attribute order; quoted with either style (apostrophes allowed
-  // inside differently-quoted values) or unquoted HTML5 values.
+  // inside differently-quoted values) or unquoted HTML5 values — for BOTH
+  // the name= and content= attributes.
   const metaContent = (name) => {
     const NAME = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const contentAtt = `content=(?:"([^"]*)"|'([^']*)'|([^\\s"'<>=\`]+))`;
-    const nameAtt = `name=(?:"${NAME}"|'${NAME}')`;
+    const nameAtt = `name=(?:"${NAME}"|'${NAME}'|${NAME}(?=[\\s>/]|$))`;
     const nameFirst = html.match(
-      new RegExp(`<meta[^>]*${nameAtt}[^>]*${contentAtt}`),
+      new RegExp(`<meta[^>]*${nameAtt}[^>]*${contentAtt}`, "i"),
     );
     if (nameFirst) return nameFirst[1] ?? nameFirst[2] ?? nameFirst[3];
     const contentFirst = html.match(
-      new RegExp(`<meta[^>]*${contentAtt}[^>]*${nameAtt}`),
+      new RegExp(`<meta[^>]*${contentAtt}[^>]*${nameAtt}`, "i"),
     );
     return contentFirst
       ? (contentFirst[1] ?? contentFirst[2] ?? contentFirst[3])
@@ -152,7 +204,7 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
-  const h1Count = (html.match(/<h1[\s>]/g) ?? []).length;
+  const h1Count = (html.match(/<h1[\s>]/gi) ?? []).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
   // Base for resolving relative references against this page's URL directory.
@@ -183,19 +235,17 @@ for (const file of htmlFiles) {
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
   for (const m of html.matchAll(
-    /\s(?:href|src)=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/g,
+    /\s(?:href|src)=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
   )) {
     checkReference(m[1] ?? m[2] ?? m[3], "link");
   }
 
   for (const m of html.matchAll(
-    /\ssrcset=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/g,
+    /\ssrcset=(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
   )) {
     const value = m[1] ?? m[2] ?? m[3];
     let inDataUri = false;
-    for (const entry of value.split(",")) {
-      const token = entry.trim().split(/\s+/)[0];
-      if (!token) continue;
+    for (const token of parseSrcset(value)) {
       if (inDataUri) {
         if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
         inDataUri = false;

@@ -57,10 +57,13 @@ required **Deterministic checks** status; `npm run verify` runs the identical se
 locally in one go. `check:dist` inspects the generated markup outside inline
 `<script>` bodies and HTML comments for static accessibility/SEO problems
 (`<html lang>` with a value, non-empty `<title>` and meta description, viewport,
-exactly one `<h1>` per page; quoted or unquoted HTML5 attribute forms) and validates
-that every internal `href`/`src`/`srcset` reference — root-relative or relative,
-query/fragment stripped, percent-encoded paths decoded (`data:` URIs in `srcset`
-skipped) — resolves to a built file: zero dead links. CSS-internal `url()`
+exactly one `<h1>` per page; quoted or unquoted HTML5 attribute forms, tag and
+attribute names matched case-insensitively) and validates that every internal
+`href`/`src`/`srcset` reference — root-relative or relative, query/fragment
+stripped, percent-encoded paths decoded (`data:` URIs in `srcset` skipped;
+absolute scheme-bearing URLs such as canonical/OG links are external and not
+validated) — resolves to a built file: zero dead internal links. CSS-internal
+`url()`
 references are not yet validated. Responsive, interaction, performance and
 production-like QA stay manual — Linear **ENG-86**.
 
