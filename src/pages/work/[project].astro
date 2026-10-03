@@ -1,0 +1,282 @@
+---
+/**
+ * /work/[project] — project detail (spec 02 / MIS approved sequence:
+ * Problem → What We Built → Architecture → Technical Implementation →
+ * Evidence → Limitations → What We Learned → Next → Related Work → CTA).
+ *
+ * Built from the `projects` collection glob, so any future entry routes
+ * automatically. Fields without approved source content render an explicit
+ * "no approved content" note instead of fabricated copy (MIS evidence
+ * policy). Related Work resolves only from solution entries whose
+ * `related_work` names this project — the research collection is empty and
+ * no relation is invented for it.
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Container from "../../components/Container.astro";
+import Link from "../../components/Link.astro";
+import Button from "../../components/Button.astro";
+import MetadataLabel from "../../components/MetadataLabel.astro";
+import StatusBadge from "../../components/work/StatusBadge.astro";
+import ProjectSection from "../../components/work/ProjectSection.astro";
+import { routeExists } from "../../config/routes";
+import { site } from "../../config/site";
+import { getCollection, type CollectionEntry } from "astro:content";
+
+export async function getStaticPaths() {
+  const projects = await getCollection("projects");
+  return projects.map((project) => ({
+    params: { project: project.data.slug },
+    props: { project },
+  }));
+}
+
+interface Props {
+  project: CollectionEntry<"projects">;
+}
+
+const { project } = Astro.props;
+const { data } = project;
+
+/** Honest fallback when a section has no approved source content. */
+const noContent = "No approved content published for this section yet.";
+
+const technologies = data.technologies ?? [];
+const images = data.images ?? [];
+
+/**
+ * Evidence text and evidence images are both content: only note absence when
+ * neither exists. An `undefined` body means the images slot renders instead.
+ */
+const evidenceBody =
+  data.evidence ?? (images.length > 0 ? undefined : noContent);
+
+const sections = [
+  { id: "problem", title: "Problem", body: data.problem ?? noContent },
+  { id: "built", title: "What We Built", body: data.built ?? noContent },
+  {
+    id: "architecture",
+    title: "Architecture",
+    body: data.architecture ?? noContent,
+  },
+  {
+    id: "implementation",
+    title: "Technical Implementation",
+    body: data.implementation ?? noContent,
+  },
+  { id: "evidence", title: "Evidence", body: evidenceBody },
+  {
+    id: "limitations",
+    title: "Limitations",
+    body: data.limitations ?? noContent,
+  },
+  {
+    id: "learnings",
+    title: "What We Learned",
+    body: data.learnings ?? noContent,
+  },
+  { id: "next", title: "Next", body: data.next ?? noContent },
+];
+
+const solutions = await getCollection("solutions");
+const relatedSolutions = solutions.filter((solution) =>
+  (solution.data.related_work ?? []).includes(data.slug),
+);
+---
+
+<BaseLayout title={data.title} description={data.summary}>
+  <Container>
+    <p class="project-back">
+      <Link href="/work">All work</Link>
+    </p>
+
+    <header class="project-header">
+      <MetadataLabel>Project</MetadataLabel>
+      <h1>{data.title}</h1>
+      <div class="project-header__meta">
+        {data.status && <StatusBadge status={data.status} />}
+        {data.category && <MetadataLabel>{data.category}</MetadataLabel>}
+      </div>
+      {data.summary && <p class="project-header__summary">{data.summary}</p>}
+      {technologies.length > 0 && (
+        <div class="project-header__tech">
+          <MetadataLabel>Technologies</MetadataLabel>
+          <ul class="tech-list">
+            {technologies.map((technology) => (
+              <li class="tech-list__item">{technology}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(data.github || data.demo) && (
+        <p class="project-header__links">
+          {data.github && <Link href={data.github}>GitHub</Link>}
+          {data.demo && <Link href={data.demo}>Demo</Link>}
+        </p>
+      )}
+    </header>
+
+    {sections.map((section) => (
+      <ProjectSection id={section.id} title={section.title} body={section.body}>
+        {section.id === "evidence" && images.length > 0 && (
+          <ul class="evidence-images">
+            {images.map((image) => (
+              <li>
+                <img
+                  src={image}
+                  alt={`${data.title} project image`}
+                  loading="lazy"
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </ProjectSection>
+    ))}
+
+    <ProjectSection
+      id="related-work"
+      title="Related Work"
+      body={relatedSolutions.length > 0 ? undefined : noContent}
+    >
+      {relatedSolutions.length > 0 && (
+        <ul class="related-list">
+          {relatedSolutions.map((solution) => (
+            <li>
+              {routeExists(`/solutions/${solution.data.slug}`) ? (
+                <Link href={`/solutions/${solution.data.slug}`}>
+                  {solution.data.title}
+                </Link>
+              ) : (
+                <span>{solution.data.title}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </ProjectSection>
+
+    <section class="cta" aria-labelledby="cta-heading">
+      <h2 id="cta-heading">Start a Project</h2>
+      <p class="cta__text">{site.description}</p>
+      {routeExists("/start-a-project") && (
+        <Button href="/start-a-project">Start a Project</Button>
+      )}
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .project-back {
+    padding-top: var(--space-2xl);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .project-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    padding-block: var(--space-xl) var(--space-2xl);
+  }
+
+  .project-header__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .project-header__summary {
+    max-width: 72ch;
+    color: var(--color-secondary);
+    font-size: var(--text-body-lg-size);
+    line-height: var(--text-body-lg-leading);
+  }
+
+  .project-header__tech {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .tech-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tech-list__item {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    color: var(--color-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-size);
+    line-height: var(--text-mono-leading);
+  }
+
+  .project-header__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .evidence-images {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  @media (min-width: 768px) {
+    .evidence-images {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .evidence-images img {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+  }
+
+  .related-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+    margin-block: var(--space-xl) var(--space-3xl);
+    padding: var(--space-xl);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+  }
+
+  .cta h2 {
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+    letter-spacing: var(--text-h3-tracking);
+  }
+
+  .cta__text {
+    color: var(--color-secondary);
+  }
+</style>
