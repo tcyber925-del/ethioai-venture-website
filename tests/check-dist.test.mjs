@@ -499,3 +499,42 @@ t(
   inBody("<template><h1>fake</h1>"),
   1,
 );
+
+// ── Round 11: title anchors and h1 count come from tag fragments only ──────
+t(
+  "title-shaped markup inside head attr value can't shadow the real title",
+  PAGE.replace(
+    "<title>Page</title>",
+    '<meta name="x" content="<title></title>"><title>Page</title>',
+  ),
+  0,
+);
+t(
+  "body-shaped markup inside head attr value can't truncate the head",
+  PAGE.replace(
+    "<title>Page</title>",
+    '<meta name="x" content="<body>"><title>Page</title>',
+  ),
+  0,
+);
+t(
+  "title-shaped markup inside attr value can't fake a missing title",
+  PAGE.replace(
+    "<title>Page</title>",
+    '<meta name="x" content="<title>Fake</title>">',
+  ),
+  1,
+);
+t(
+  'text-level h1 behind prose shaped like name = "..." still counts',
+  PAGE.replace(
+    "<h1>Page</h1>",
+    '<p>write tag = "<h1>heading</h1>" literally</p>',
+  ),
+  0,
+);
+t(
+  "text-level second h1 isn't masked by prose-shaped blanking",
+  inBody('<p>kw = "<h1>second</h1>"</p>'),
+  1,
+);

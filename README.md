@@ -65,13 +65,17 @@ markup Astro never emits — fails loudly rather than being guessed out) — for
 static accessibility/SEO problems
 (`<html lang>` with a value read off the document's first `<html>` tag,
 non-empty head `<title>` (an `<svg><title>` label doesn't count) and meta
-description, viewport, exactly one `<h1>` per page — attribute values are
-blanked first and inert/raw-text containers excluded, so a literal `<h1>`
-inside a value, `<template>`, `<textarea>`, `<style>`, `<title>` or
-`<noscript>` can't fake or hide the count; quoted or unquoted HTML5 attribute
+description, viewport, exactly one `<h1>` per page — every structural
+lookup runs over quote-aware tag fragments: values and attribute-shaped
+prose can't fake a check, while a literal `<h1>` in text (which parsers
+promote to a real heading) still counts, and inert/raw-text containers are
+excluded, so a literal `<h1>` inside a value, `<template>`, `<textarea>`,
+`<style>`, `<title>` or `<noscript>` can't fake or hide the count; quoted
+or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
-case-insensitively, and the html/title/meta/base open tags matched
-quote-aware — `>` inside a quoted attribute value never splits the match)
+case-insensitively — `>` inside a quoted attribute value never splits a
+match, and markup inside another attribute's value (`content="<title>…"`)
+is content, never structure)
 and validates that every internal `href`/`src`/`srcset`
 reference (including SVG `xlink:href`) — matched only at real
 attribute-name positions inside parsed tag fragments, so neither prose or

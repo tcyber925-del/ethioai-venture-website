@@ -13,9 +13,12 @@
  * <title> for all but its own check (RCDATA text; only the head's title
  * counts as the document title — an <svg><title> label doesn't); an
  * unclosed container is malformed markup Astro never emits — it fails
- * loudly rather than being guessed out. The
- * html/title/meta/base open tags are matched quote-aware (`>` is legal
- * inside a quoted attribute value and must never split the match);
+ * loudly rather than being guessed out. Every structural lookup —
+ * lang/title/meta/base and the <h1> count — runs over quote-aware tag
+ * fragments (extractTags): `>` inside a quoted attribute value never
+ * splits a match, and markup inside another attribute's value
+ * (content="<title>…", content="<body>") is content of that fragment,
+ * never structure;
  * tag/attribute *names* are matched
  * case-insensitively, whitespace around `=` is tolerated, and values accept
  * quoted *and* unquoted HTML5 forms, so verbatim files copied from public/
@@ -26,10 +29,11 @@
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash —
- *     attribute values are blanked first and inert/raw-text containers are
- *     excluded, so a literal "<h1>" inside an attribute value, <template>,
- *     <textarea>, <style>, <title> or <noscript> can neither fake nor hide
- *     the count)
+ *     counted at fragment positions only: a value can't fake it, while a
+ *     literal <h1> in TEXT still counts (parsers promote it); inert/raw-text
+ *     containers are excluded, so a literal "<h1>" inside an attribute
+ *     value, <template>, <textarea>, <style>, <title> or <noscript> can
+ *     neither fake nor hide the count)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
  *     (the href pattern also matches SVG xlink:href) — matched only at
@@ -203,12 +207,15 @@ const looksLikeUrl = (token) =>
   (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
 /**
- * Extract the document's tag fragments — quote-aware (a `>` inside a quoted
- * attribute value does not end the tag). A tag opens at `<` followed by a
+ * Extract the document's tag fragments as `{raw, start, end}` —
+ * quote-aware (a `>` inside a quoted attribute value does not end the
+ * tag). A tag opens at `<` followed by a
  * letter, `/`, `!` or `?` per the HTML tokenizer; any other `<` (e.g.
- * `a < b`) is text. Reference attributes are matched ONLY inside these
- * fragments, so prose, code samples and other text that merely *mentions*
- * `href="/…"` never counts as a link (review round 8). An unterminated tag
+ * `a < b`) is text. All structural matching (references, lang/title/meta/
+ * base, the <h1> count) runs over these fragments, so prose, code samples
+ * and other text that merely *mentions* `href="/…"` never counts as a
+ * link, and markup inside another attribute's quoted value is content of
+ * that one fragment (review rounds 8–11). An unterminated tag
  * (malformed markup) is skipped rather than guessed at.
  */
 function extractTags(markup) {
@@ -230,25 +237,29 @@ function extractTags(markup) {
       i++;
     }
     if (i >= markup.length) break;
-    tags.push(markup.slice(m.index, i + 1));
+    tags.push({
+      raw: markup.slice(m.index, i + 1),
+      start: m.index,
+      end: i + 1,
+    });
     open.lastIndex = i + 1;
   }
   return tags;
 }
 
 /**
- * All `<name …>` open tags in `markup`, matched quote-aware — quoted
- * attribute values may legally contain `>`, so a naive `[^>]*` would cut
- * the tag short and hide (or fabricate) everything after the `>`
- * (review round 9).
+ * Fragments of `tags` that are an open tag of `name` — tag-context only:
+ * a `<title>`/`<meta>`-looking sequence inside another attribute's quoted
+ * value lives inside that tag's fragment and never becomes a fragment of
+ * its own (review rounds 10–11).
  */
-const openTags = (markup, name) =>
-  markup.match(
-    new RegExp(`<${name}(?=[\\s>])(?:"[^"]*"|'[^']*'|[^>"'])*>`, "gi"),
-  ) ?? [];
+const tagsNamed = (tags, name) => {
+  const re = new RegExp(`^<${name}(?=[\\s>/])`, "i");
+  return tags.filter((t) => re.test(t.raw));
+};
 
 /**
- * Parse a whole open tag (from openTags/extractTags) into attribute
+ * Parse a whole open tag (from extractTags) into attribute
  * records `{name, value}` — a quote-aware walk from after the tag name:
  * names end at whitespace/`=`/`/`/`>`, values are read through their
  * quote (or up to whitespace/`>` unquoted, same charset the reference
@@ -345,8 +356,14 @@ for (const file of htmlFiles) {
     "",
   );
 
-  const htmlTag = openTags(stripped, "html")[0];
-  const lang = htmlTag && tagAttr(htmlTag, "lang");
+  // Every structural lookup below runs over these tag fragments — never
+  // raw strings — so markup inside another attribute's quoted value
+  // (`content="<title>…</title>"`, `content="<body>"`) stays content of
+  // that one fragment (review round 11).
+  const pageTags = extractTags(stripped);
+
+  const htmlTag = tagsNamed(pageTags, "html")[0];
+  const lang = htmlTag && tagAttr(htmlTag.raw, "lang");
   if (!lang || !lang.trim()) {
     fail("missing or empty <html lang>");
   }
@@ -354,30 +371,33 @@ for (const file of htmlFiles) {
   // <title> is RCDATA: inner markup is literal text, so the emptiness test
   // runs on the raw content (a "Page<h1>x</h1>" title is not empty). Only
   // the head's own title counts — an <svg><title> in the body is a diagram
-  // label, not the document title — and the open tag is matched
-  // quote-aware (`>` inside a quoted attribute never splits it).
-  const bodyAt = titleSrc.search(/<body\b/i);
-  const headSrc = bodyAt === -1 ? titleSrc : titleSrc.slice(0, bodyAt);
-  const titleTag = openTags(headSrc, "title")[0];
-  const titleStart = titleTag
-    ? headSrc.indexOf(titleTag) + titleTag.length
-    : -1;
-  const titleRest = titleStart > 0 ? headSrc.slice(titleStart) : "";
-  const titleClose = titleRest.match(/<\/title>/i);
-  const titleText = titleClose ? titleRest.slice(0, titleClose.index) : "";
+  // label, not the document title — and both anchors (<title>, <body>) are
+  // fragment lookups, so head-attribute values carrying title- or
+  // body-shaped markup can neither shadow the real title nor truncate the
+  // head early (review round 11).
+  const titleTags = extractTags(titleSrc);
+  const bodyTag = tagsNamed(titleTags, "body")[0];
+  const headEnd = bodyTag ? bodyTag.start : titleSrc.length;
+  const titleTag = tagsNamed(titleTags, "title").find((t) => t.start < headEnd);
+  let titleText = "";
+  if (titleTag) {
+    // After the open tag the RCDATA content runs to the first </title>.
+    const rest = titleSrc.slice(titleTag.end);
+    const close = rest.search(/<\/title\s*>/i);
+    titleText = close === -1 ? "" : rest.slice(0, close);
+  }
   if (!titleText.trim()) fail("missing or empty <title>");
 
   // Either attribute order; quoted with either style (apostrophes allowed
   // inside differently-quoted values) or unquoted HTML5 values — for BOTH
   // the name= and content= attributes, with optional whitespace around =.
-  // Attributes are read off quote-aware <meta> tags (so `>` inside a
-  // quoted value never splits the match) on the container-stripped source
-  // (a fake <meta> inside <style>/<template> can't satisfy the check).
+  // Attributes are read off fragment <meta> tags (a fake <meta> inside a
+  // quoted value or a container can't satisfy the check).
   const metaContent = (name) => {
-    for (const tag of openTags(stripped, "meta")) {
-      const n = tagAttr(tag, "name");
+    for (const tag of tagsNamed(pageTags, "meta")) {
+      const n = tagAttr(tag.raw, "name");
       if (n !== undefined && n.toLowerCase() === name) {
-        return tagAttr(tag, "content") ?? null;
+        return tagAttr(tag.raw, "content") ?? null;
       }
     }
     return null;
@@ -391,15 +411,13 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
-  // Blank attribute values before counting: a literal "<h1>" inside a
-  // value (title="…<h1>…") must neither fake nor hide the count. The name
-  // charset includes ":" so namespaced attributes (xlink:href, xml:lang)
-  // blank too.
-  const withoutAttrValues = stripped.replace(
-    /(\s[\w:-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
-    "$1",
-  );
-  const h1Count = (withoutAttrValues.match(/<h1[\s/>]/gi) ?? []).length;
+  // Count <h1> at fragment positions only: a literal "<h1>" inside an
+  // attribute value or attribute-shaped prose can't fake the count, while
+  // a literal <h1> in TEXT — which parsers promote to a real heading —
+  // still counts, matching DOM semantics (review round 11; replaces the
+  // old whole-string value-blanking pass, which hid text-level <h1>s
+  // behind prose that merely looked like `name = "…"`).
+  const h1Count = pageTags.filter((t) => /^<h1[\s/>]/i.test(t.raw)).length;
   if (h1Count !== 1) fail(`expected exactly one <h1>, found ${h1Count}`);
 
   // Base for resolving relative references: <base href> when the document
@@ -409,8 +427,8 @@ for (const file of htmlFiles) {
   const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
   let pageBase =
     CHECK_ORIGIN + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
-  const baseTag = openTags(stripped, "base")[0];
-  const baseHref = baseTag ? tagAttr(baseTag, "href") : undefined;
+  const baseTag = tagsNamed(pageTags, "base")[0];
+  const baseHref = baseTag ? tagAttr(baseTag.raw, "href") : undefined;
   let baseOffsite = false;
   if (baseHref !== undefined) {
     try {
@@ -486,9 +504,9 @@ for (const file of htmlFiles) {
   // attribute-shaped text inside quoted values (`alt="use href=/x"`) can
   // never red the gate. <base> tags are skipped — resolution prefixes are
   // never fetch targets. xlink:href matches its exact name (colons fine).
-  for (const tag of extractTags(stripped)) {
-    if (/^<base\b/i.test(tag)) continue;
-    for (const { name, value } of tagAttributes(tag)) {
+  for (const { raw } of pageTags) {
+    if (/^<base\b/i.test(raw)) continue;
+    for (const { name, value } of tagAttributes(raw)) {
       if (value === undefined) continue;
       const attr = name.toLowerCase();
       if (attr === "href" || attr === "src" || attr === "xlink:href") {
