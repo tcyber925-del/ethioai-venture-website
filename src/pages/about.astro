@@ -45,15 +45,17 @@ const solutionAreas = (await getCollection("solutions"))
 
 const startProjectExists = routeExists("/start-a-project");
 /**
- * Gate the solution-area links on the /solutions *index* rather than on
- * each detail href: routeExists() only sees static page modules, and ENG-79
- * implements detail pages as a dynamic `solutions/[slug].astro` route — a
- * per-href check would never activate. The index is a safe proxy because the
- * one-issue-one-PR rule guarantees ENG-79 ships index + detail route in the
- * same PR (they merge atomically), and detail URLs are served by that dynamic
- * route from the seeded slugs.
+ * Gate each solution-area link on its own href. Since ENG-78 (merged),
+ * routeExists is dynamic-segment aware: `/solutions/<slug>` matches the
+ * `solutions/[slug].astro` module itself, so a link activates only when
+ * the file that serves its URL exists — strictly stricter than the former
+ * `/solutions` index proxy (an index without the detail route would have
+ * activated five 404s). Hrefs derive from the seeded collection — the same
+ * source ENG-79's detail route emits getStaticPaths from (caller contract
+ * in src/config/routes.ts) — so a rendered link and its page activate
+ * together. File shape is checked; getStaticPaths output is not visible at
+ * build time (documented routes.ts limitation).
  */
-const solutionsRouteExists = routeExists("/solutions");
 ---
 
 <BaseLayout title="About">
@@ -105,7 +107,7 @@ const solutionsRouteExists = routeExists("/solutions");
             <ul class="focus-list" role="list">
               {solutionAreas.map(({ label, href }) => (
                 <li>
-                  {solutionsRouteExists ? (
+                  {routeExists(href) ? (
                     <Link href={href}>{label}</Link>
                   ) : (
                     <span>{label}</span>
