@@ -18,6 +18,8 @@ html {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--color-neutral);
   color: var(--color-on-surface);
@@ -26,6 +28,11 @@ body {
   font-weight: var(--text-body-weight);
   line-height: var(--text-body-leading);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Shell: let content push the footer down on short pages. */
+main {
+  flex: 1 0 auto;
 }
 
 img,
