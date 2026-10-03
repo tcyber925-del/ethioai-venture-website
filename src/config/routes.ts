@@ -36,7 +36,7 @@ function segmentPattern(segment: string): string {
 /** Page file path → full-route regex. A `[...param]` segment makes the
  * preceding separator and everything after optional, so
  * `docs/[...slug].astro` matches both `docs` and `docs/a/b`. */
-function filePattern(file: string): string {
+function filePattern(file: string): RegExp {
   let pattern = "";
   for (const segment of file.split("/")) {
     if (segment.startsWith("[...")) {
@@ -45,7 +45,7 @@ function filePattern(file: string): string {
       pattern += (pattern === "" ? "" : "/") + segmentPattern(segment);
     }
   }
-  return `^${pattern}$`;
+  return new RegExp(`^${pattern}$`);
 }
 
 /** Whether a route resolves to an existing page module at build time. */
