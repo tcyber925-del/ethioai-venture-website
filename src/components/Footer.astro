@@ -1,0 +1,90 @@
+---
+import Container from "./Container.astro";
+import Link from "./Link.astro";
+import { site, primaryNav } from "../config/site";
+import { routeExists } from "../config/routes";
+
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <Container>
+    <div class="site-footer__grid">
+      <div class="site-footer__identity">
+        <p class="footer-name">{site.name}</p>
+        <p class="footer-tagline">{site.description}</p>
+      </div>
+      <nav aria-label="Footer" class="footer-nav">
+        <ul>
+          {primaryNav.map(({ label, href }) => (
+            <li>
+              {routeExists(href) ? (
+                <Link href={href}>{label}</Link>
+              ) : (
+                <span>{label}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+    <p class="copyright">
+      © {year} {site.name}
+    </p>
+  </Container>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--color-border);
+    padding-block: var(--space-2xl);
+    margin-top: auto;
+  }
+
+  .site-footer__grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-xl);
+  }
+
+  .footer-name {
+    font-size: var(--text-h3-size);
+    font-weight: var(--text-h3-weight);
+    line-height: var(--text-h3-leading);
+    color: var(--color-primary);
+  }
+
+  .footer-tagline {
+    margin-top: var(--space-sm);
+    color: var(--color-secondary);
+  }
+
+  .footer-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .footer-nav span {
+    color: var(--color-secondary);
+  }
+
+  .copyright {
+    margin-top: var(--space-2xl);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-muted);
+  }
+
+  @media (min-width: 768px) {
+    .footer-nav ul {
+      gap: var(--space-lg);
+    }
+  }
+</style>
