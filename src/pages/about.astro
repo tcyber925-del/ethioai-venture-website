@@ -92,7 +92,8 @@ const solutionsRouteExists = routeExists("/solutions");
 
       <section class="section" aria-labelledby="current-focus">
         <h2 id="current-focus">Current focus</h2>
-        <p>Our current focus is these five solution areas:</p>
+        {/* count derives from the collection — no numeral that can drift */}
+        <p>Our current focus is these {solutionAreas.length} solution areas:</p>
         <ul class="focus-list" role="list">
           {solutionAreas.map(({ label, href }) => (
             <li>
