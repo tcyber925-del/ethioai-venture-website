@@ -34,7 +34,7 @@ const isLiveLink =
   href !== undefined && href !== "" && (!isInternalRoute || routeExists(href));
 ---
 
-{href === undefined ? (
+{href === undefined || href === "" ? (
   <button type={type} class:list={["btn", `btn--${variant}`, className]}>
     <slot />
   </button>

@@ -25,6 +25,20 @@ import { routeExists } from "../config/routes";
  *
  * Internal links follow the shell's dead-link rule (ENG-77 routes.ts):
  * rendered inert until the target page module exists, auto-linked after.
+ *
+ * Claim sources, quoted in-repo so they are verifiable here (PR #7 carries
+ * the Notion permalinks):
+ * - "founder-led" + Ethiopia → Africa → global direction: Linear ENG-82 —
+ *   "Build the founder-led company story, Ethiopia → Africa → Global
+ *   positioning, current focus and long-term venture-studio direction
+ *   without unsupported claims."
+ * - Audience framing: MIS v1.0 Product contract — "Primary audience:
+ *   Organizations with concrete AI, workflow, knowledge or document
+ *   problems." / "Core proposition: Practical AI systems for real-world
+ *   organizations."
+ * - Section sequence: spec 02 — "Hero → Problem/Value → What We Build →
+ *   Selected Work → How We Approach Projects → Research & Products →
+ *   Engineering Depth → Ethiopia/Africa/Global → Founder → CTA."
  */
 const solutions = (await getCollection("solutions")).sort((a, b) =>
   a.data.title.localeCompare(b.data.title),
@@ -73,7 +87,11 @@ const research = (await getCollection("research")).sort((a, b) =>
   <!-- 3. What We Build — consumes the solutions collection -->
   <Section id="what-we-build" eyebrow="Solutions" title="What we build">
     <p>
-      We build practical AI systems across {solutions.length} focused areas:
+      We build practical AI systems across
+      {solutions.length === 1
+        ? "1 focused area"
+        : `${solutions.length} focused areas`}
+      :
     </p>
     <ul class="card-grid" role="list">
       {solutions.map(({ data }) => (
