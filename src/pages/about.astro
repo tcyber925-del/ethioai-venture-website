@@ -1,0 +1,313 @@
+---
+/**
+ * About — approved section sequence (spec 02 / MIS):
+ * Company → why we build → how we think → current focus → geography →
+ * founder → long-term direction → CTA.
+ *
+ * Copy sources (evidence rule — no claims beyond these):
+ * - Project brief "Frozen strategic direction": positioning, proposition,
+ *   commercial identity, long-term identity (AI Venture Studio), geography
+ *   line (Ethiopia-origin → Africa-aware → globally applicable).
+ * - MIS v1.0: primary audience, V1 purpose, founder (Tcyber), CTA route.
+ * - PRD 01: evidence policy.
+ * - Spec 02: "Evidence early. Customer problems before technology."
+ * - Spec-driven rules: "Specification precedes implementation".
+ * - Solution area labels/hrefs: derived at build time from the seeded
+ *   solutions collection itself (titles + slugs, ENG-76).
+ * - Geography step glosses (01–03): one-sentence expansions of the three
+ *   approved terms "Ethiopia-origin", "Africa-aware", "globally applicable"
+ *   (project brief Geography line) — no claims beyond the terms.
+ *
+ * No founder biography or photography exists in approved sources — the
+ * founder section is kept strictly factual (flagged in the PR as pending
+ * content). CTA and solution links use the build-time route registry:
+ * rendered as links only while their target page module exists — the five
+ * solution links are live now (ENG-79 merged), the CTA stays inert until
+ * ENG-83.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Container from "../components/Container.astro";
+import MetadataLabel from "../components/MetadataLabel.astro";
+import Button from "../components/Button.astro";
+import Link from "../components/Link.astro";
+import { routeExists } from "../config/routes";
+import { getCollection } from "astro:content";
+
+// Labels and hrefs derive from the seeded collection itself (ENG-76 is the
+// source of truth for titles/slugs) — no duplicated copy that can drift into
+// wrong labels or dead links. Sorted by slug: neither MIS nor spec 02
+// mandates an item order for the current-focus list (they fix only the
+// section sequence), so slug order is the deterministic choice.
+const solutionAreas = (await getCollection("solutions"))
+  .sort((a, b) => a.data.slug.localeCompare(b.data.slug))
+  .map((entry) => ({
+    label: entry.data.title,
+    href: `/solutions/${entry.data.slug}`,
+  }));
+
+// Per-href gating policy for the solution-area links, applied in the JSX
+// below via `routeExists(href)`. Since ENG-78 (merged), routeExists is
+// dynamic-segment aware: `/solutions/<slug>` matches the
+// `solutions/[slug].astro` module itself, so a link activates only when
+// the file that serves its URL exists — strictly stricter than the former
+// `/solutions` index proxy (an index without the detail route would have
+// activated five 404s). Hrefs derive from the seeded collection — the same
+// source ENG-79's detail route emits getStaticPaths from (caller contract
+// in src/config/routes.ts) — so a rendered link and its page activate
+// together. File shape is checked; getStaticPaths output is not visible at
+// build time (documented routes.ts limitation).
+---
+
+<BaseLayout title="About">
+  <Container>
+    <div class="about">
+      <section class="section" aria-labelledby="about-title">
+        <MetadataLabel>About</MetadataLabel>
+        <h1 id="about-title">About EthioAI Venture</h1>
+        <p class="lede">Practical AI systems for real-world organizations.</p>
+        <p>
+          EthioAI Venture is an AI engineering and implementation studio. This
+          site is the studio's public front door, proof center, and engineering
+          and research surface.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="why-we-build">
+        <h2 id="why-we-build">Why we build</h2>
+        <p>
+          Organizations have concrete AI, workflow, knowledge, and document
+          problems. We build practical AI systems to solve them — practical
+          enterprise AI implementation.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="how-we-think">
+        <h2 id="how-we-think">How we think</h2>
+        <ul class="principles">
+          <li>Evidence early. Customer problems before technology.</li>
+          <li>Specification precedes implementation.</li>
+          <li>
+            Claims must be supported by an artifact, demo, source, measurement,
+            user evidence or customer result. If evidence does not exist, we use
+            status and limitation language.
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" aria-labelledby="current-focus">
+        <h2 id="current-focus">Current focus</h2>
+        {/* count derives from the collection — no numeral that can drift;
+            the whole block (sentence + list) hides while it's empty */}
+        {solutionAreas.length > 0 && (
+          <>
+            <p>
+              Our current focus spans these {solutionAreas.length} solution
+              areas:
+            </p>
+            <ul class="focus-list" role="list">
+              {solutionAreas.map(({ label, href }) => (
+                <li>
+                  {routeExists(href) ? (
+                    <Link href={href}>{label}</Link>
+                  ) : (
+                    <span>{label}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section class="section" aria-labelledby="geography">
+        {/* Arrows are decorative (aria-hidden), with an sr-only "to" so the
+            three stages don't fuse for AT: name reads "Ethiopia to Africa to
+            Global". WCAG 2.5.3 binds controls, not headings; the padding
+            spaces live INSIDE the visible spans so JSX newline-stripping
+            can't eat them. Visual text is byte-identical to the approved
+            copy after whitespace collapse. */}
+        <h2 id="geography">
+          Ethiopia<span class="sr-only"> to </span>
+          <span aria-hidden="true"> → </span>
+          Africa<span class="sr-only"> to </span>
+          <span aria-hidden="true"> → </span>
+          Global
+        </h2>
+        <p>
+          The studio's geographic direction: Ethiopia-origin
+          <span class="sr-only"> to </span>
+          <span aria-hidden="true"> → </span>
+          Africa-aware<span class="sr-only"> to </span>
+          <span aria-hidden="true"> → </span>
+          globally applicable.
+        </p>
+        {/* role="list": restores list semantics Safari/VoiceOver drop when
+            list-style is none; step numbers are visual only (hidden from SR
+            so list position isn't double-announced). */}
+        <ol class="steps" role="list">
+          <li class="step">
+            <span aria-hidden="true">
+              <MetadataLabel>01</MetadataLabel>
+            </span>
+            <h3>Ethiopia-origin</h3>
+            <p>The studio starts in Ethiopia.</p>
+          </li>
+          <li class="step">
+            <span aria-hidden="true">
+              <MetadataLabel>02</MetadataLabel>
+            </span>
+            <h3>Africa-aware</h3>
+            <p>Built with African contexts in mind.</p>
+          </li>
+          <li class="step">
+            <span aria-hidden="true">
+              <MetadataLabel>03</MetadataLabel>
+            </span>
+            <h3>Globally applicable</h3>
+            <p>Systems that apply beyond any single market.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section" aria-labelledby="founder">
+        <h2 id="founder">Founder</h2>
+        <p>
+          EthioAI Venture is a founder-led studio: the company is built and led
+          by its founder, Tcyber.
+        </p>
+      </section>
+
+      <section class="section" aria-labelledby="long-term-direction">
+        <h2 id="long-term-direction">Long-term direction</h2>
+        <p>EthioAI Venture's long-term identity: an AI Venture Studio.</p>
+      </section>
+
+      <section class="section cta" aria-labelledby="start-a-project">
+        <h2 id="start-a-project">Start a Project</h2>
+        <p>Have a concrete AI, workflow, knowledge, or document problem?</p>
+        {/* Button self-gates /start-a-project (inert styled span with an
+            unavailability title until ENG-83) — the same pattern the
+            homepage already uses; no page-local pending variant. */}
+        <Button href="/start-a-project" variant="primary">
+          Start a Project
+        </Button>
+      </section>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  /* visually hidden, still announced — connectors for decorative glyphs */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .about {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+    padding-block: var(--space-2xl);
+  }
+
+  .section h1,
+  .section h2 {
+    margin-block: var(--space-sm) var(--space-md);
+  }
+
+  .section p {
+    max-width: 72ch;
+  }
+
+  .lede {
+    font-size: var(--text-body-lg-size);
+    font-weight: var(--text-body-lg-weight);
+    line-height: var(--text-body-lg-leading);
+    color: var(--color-secondary);
+  }
+
+  .principles {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-inline-start: var(--space-lg);
+    /* same reading measure as .section p (72ch + marker gutter) */
+    max-width: calc(72ch + var(--space-lg));
+  }
+
+  .principles li::marker {
+    color: var(--color-tertiary);
+  }
+
+  .focus-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-lg);
+    margin-top: var(--space-md);
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  .focus-list span {
+    color: var(--color-secondary);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-md);
+  }
+
+  .step h3 {
+    margin-block: var(--space-xs);
+  }
+
+  .step p {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+
+  .cta {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+  }
+
+  .cta p {
+    margin-bottom: var(--space-lg);
+  }
+
+  @media (min-width: 768px) {
+    .about {
+      gap: var(--space-3xl);
+      padding-block: var(--space-3xl);
+    }
+
+    .steps {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .cta {
+      padding: var(--space-2xl);
+    }
+  }
+</style>
