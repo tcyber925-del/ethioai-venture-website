@@ -39,6 +39,9 @@ jobs:
       - name: Type checking
         run: npm run typecheck
 
+      - name: Unit tests
+        run: npm test
+
       - name: Content schema validation
         run: npx astro sync
 

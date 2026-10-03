@@ -8,7 +8,9 @@
  * interaction and production-like QA stays in ENG-86 (spec 06).
  *
  * Per generated page (rendered markup — inline <script> bodies and HTML
- * comments are stripped first; tag/attribute *names* are matched
+ * comments are stripped first, then <style>/<template>/<textarea>/<title>
+ * bodies drop whole: never rendered as headings or live markup;
+ * tag/attribute *names* are matched
  * case-insensitively, whitespace around `=` is tolerated, and values accept
  * quoted *and* unquoted HTML5 forms, so verbatim files copied from public/
  * are checked the same as Astro output):
@@ -17,14 +19,18 @@
  *   - meta name="description" present and non-empty (either attribute order)
  *   - meta name="viewport" present and non-empty (either attribute order)
  *   - exactly one <h1> (self-closing <h1/> counts; parsers ignore the slash —
- *     attribute values are blanked first so a literal "<h1>" inside a value
- *     can neither fake nor hide the count)
+ *     attribute values are blanked first and inert/raw-text containers are
+ *     excluded, so a literal "<h1>" inside an attribute value, <template>,
+ *     <textarea>, <style> or <title> can neither fake nor hide the count)
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
- *     (the href pattern also matches SVG xlink:href) —
- *     leading/trailing whitespace trimmed (URL parsing strips it too),
- *     query/fragment stripped, percent-encoded paths and numeric HTML
- *     entities decoded — resolves to a built file (zero dead links).
+ *     (the href pattern also matches SVG xlink:href) — matched ONLY inside
+ *     parsed tag fragments, so prose/code samples that merely mention
+ *     href="/…" can never red the gate; leading/trailing whitespace trimmed
+ *     (URL parsing strips it too), query/fragment stripped,
+ *     percent-encoded paths and numeric HTML entities decoded, and
+ *     root-relative paths get WHATWG normalization (tab/LF/CR stripped,
+ *     "\" mapped to "/") — resolves to a built file (zero dead links).
  *     References still carrying an undecodable named HTML entity
  *     (&eacute; … — the full entity table would be a dependency) are
  *     skipped, never red-flagged. Relative references resolve against
@@ -47,13 +53,19 @@
  *     stylesheets); that stays in ENG-86's manual asset checks.
  *
  * Local reproduction: npm run build && npm run check:dist
+ * Regression battery: npm test (tests/check-dist.test.mjs via node:test —
+ * wired into `npm run verify` and the CI job together with the route suite).
  * Exits non-zero on any problem (CI gate).
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join, posix, relative, sep } from "node:path";
+import { join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const distDir = fileURLToPath(new URL("../dist", import.meta.url));
+// Default to the repo's dist/; an explicit path (tests, ad-hoc runs against
+// another build) is taken as-is.
+const distDir = process.argv[2]
+  ? resolve(process.argv[2])
+  : fileURLToPath(new URL("../dist", import.meta.url));
 const CHECK_ORIGIN = "http://check.dist";
 
 function walk(dir, out = []) {
@@ -178,6 +190,40 @@ const looksLikeUrl = (token) =>
   !/[<>'"]/.test(token) && // markup/quote fragments never resume
   (/^(?:https?:)?\/\//.test(token) || /^\.{0,2}\//.test(token));
 
+/**
+ * Extract the document's tag fragments — quote-aware (a `>` inside a quoted
+ * attribute value does not end the tag). A tag opens at `<` followed by a
+ * letter, `/`, `!` or `?` per the HTML tokenizer; any other `<` (e.g.
+ * `a < b`) is text. Reference attributes are matched ONLY inside these
+ * fragments, so prose, code samples and other text that merely *mentions*
+ * `href="/…"` never counts as a link (review round 8). An unterminated tag
+ * (malformed markup) is skipped rather than guessed at.
+ */
+function extractTags(markup) {
+  const tags = [];
+  const open = /<(?=[a-z!/?])/gi;
+  let m;
+  while ((m = open.exec(markup)) !== null) {
+    let i = m.index + 1;
+    let quote = null;
+    while (i < markup.length) {
+      const ch = markup[i];
+      if (quote) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === ">") {
+        break;
+      }
+      i++;
+    }
+    if (i >= markup.length) break;
+    tags.push(markup.slice(m.index, i + 1));
+    open.lastIndex = i + 1;
+  }
+  return tags;
+}
+
 const failures = [];
 let referencesChecked = 0;
 
@@ -201,7 +247,10 @@ for (const file of htmlFiles) {
     fail("missing or empty <html lang>");
   }
 
-  const title = html.match(/<title(?:\s[^>]*)?>([^<]*)<\/title>/i);
+  // <title> is RCDATA: inner markup is literal text, so the emptiness test
+  // runs on the raw content (a "Page<h1>x</h1>" title is not empty) — and
+  // the match may span any content up to the first "</title>", like parsers.
+  const title = html.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i);
   if (!title || !title[1].trim()) fail("missing or empty <title>");
 
   // Either attribute order; quoted with either style (apostrophes allowed
@@ -231,9 +280,19 @@ for (const file of htmlFiles) {
     fail("missing or empty meta viewport");
   }
 
+  // Rendered-markup source for the checks below: inert/raw-text containers
+  // drop their whole bodies — <template> is never rendered, <textarea> and
+  // <title> hold text (RCDATA), <style> holds CSS strings (its url() stays
+  // out of scope) — so content inside them can neither fake nor hide an
+  // <h1> nor contribute reference attributes.
+  const renderable = html.replace(
+    /<(style|template|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,
+    "",
+  );
+
   // Blank attribute values before counting: a literal "<h1>" inside a
   // value (title="…<h1>…") must neither fake nor hide the count.
-  const withoutAttrValues = html.replace(
+  const withoutAttrValues = renderable.replace(
     /(\s[\w-]+\s*=\s*)(?:"[^"]*"|'[^']*'|[^\s"'<>=`]+)/g,
     "$1",
   );
@@ -247,7 +306,7 @@ for (const file of htmlFiles) {
   const pageDir = posix.dirname("/" + relFile); // "/" or "/about"
   let pageBase =
     CHECK_ORIGIN + (pageDir.endsWith("/") ? pageDir : `${pageDir}/`);
-  const baseTag = html.match(
+  const baseTag = renderable.match(
     /<base[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/i,
   );
   let baseOffsite = false;
@@ -260,7 +319,7 @@ for (const file of htmlFiles) {
       // unparsable <base href> — fall back to the page directory
     }
   }
-  const scanHtml = html.replace(/<base\b[^>]*>/gi, "");
+  const scanHtml = renderable.replace(/<base\b[^>]*>/gi, "");
 
   /** Check one raw reference (href/src value or srcset entry). */
   const checkReference = (rawTarget, kind) => {
@@ -298,7 +357,10 @@ for (const file of htmlFiles) {
       // Browsers resolve root-relative references against the document's
       // base URL — an offsite <base> sends them offsite too.
       if (baseOffsite) return;
-      pathname = target; // same-origin root path — <base> path doesn't apply
+      // WHATWG normalization this raw-string branch would otherwise miss
+      // (the relative branch gets it via new URL): tab/LF/CR anywhere are
+      // stripped and "\" maps to "/" for special schemes.
+      pathname = target.replace(/[\t\n\r]/g, "").replace(/\\/g, "/");
     } else {
       try {
         const resolved = new URL(target, pageBase);
@@ -316,27 +378,31 @@ for (const file of htmlFiles) {
 
   // External URLs, in-page anchors and mailto: are out of scope — this is
   // the deterministic internal link/assets check ("where reliable").
-  // `xlink:href` first so the colon-bearing legacy name matches as a whole.
-  for (const m of scanHtml.matchAll(
-    /\s(?:xlink:href|href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
-  )) {
-    checkReference(m[1] ?? m[2] ?? m[3], "link");
-  }
+  // Attributes are matched only inside parsed tag fragments (extractTags),
+  // so text content can never red the gate. `xlink:href` first so the
+  // colon-bearing legacy name matches as a whole.
+  for (const tag of extractTags(scanHtml)) {
+    for (const m of tag.matchAll(
+      /\s(?:xlink:href|href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
+    )) {
+      checkReference(m[1] ?? m[2] ?? m[3], "link");
+    }
 
-  for (const m of scanHtml.matchAll(
-    /\ssrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
-  )) {
-    const value = m[1] ?? m[2] ?? m[3];
-    let inDataUri = false;
-    for (const token of parseSrcset(value)) {
-      if (inDataUri) {
-        if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
-        inDataUri = false;
-      } else if (/^data:/i.test(token)) {
-        inDataUri = true;
-        continue;
+    for (const m of tag.matchAll(
+      /\ssrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>=`]+))/gi,
+    )) {
+      const value = m[1] ?? m[2] ?? m[3];
+      let inDataUri = false;
+      for (const token of parseSrcset(value)) {
+        if (inDataUri) {
+          if (!looksLikeUrl(token)) continue; // payload/descriptor fragment
+          inDataUri = false;
+        } else if (/^data:/i.test(token)) {
+          inDataUri = true;
+          continue;
+        }
+        checkReference(token, "srcset target");
       }
-      checkReference(token, "srcset target");
     }
   }
 }

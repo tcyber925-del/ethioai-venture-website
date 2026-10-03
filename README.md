@@ -35,6 +35,7 @@ considered ready for review:
 npm run format:check   # verify formatting (Prettier)
 npm run lint           # lint (ESLint, flat config)
 npm run typecheck      # TypeScript type check (astro check)
+npm test               # node:test regression suites (tests/)
 npx astro sync         # content-collection schema validation
 npm run build          # production build
 npm run check:dist     # static accessibility/SEO checks + internal link validation
@@ -55,18 +56,24 @@ npm run format
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go. `check:dist` inspects the generated markup outside inline
-`<script>` bodies and HTML comments for static accessibility/SEO problems
+`<script>` bodies, HTML comments and `<style>`/`<template>`/`<textarea>`/`<title>`
+bodies for static accessibility/SEO problems
 (`<html lang>` with a value, non-empty `<title>` and meta description, viewport,
-exactly one `<h1>` per page — attribute values are blanked first so a literal
-`<h1>` inside a value can't fake the count; quoted or unquoted HTML5 attribute
+exactly one `<h1>` per page — attribute values are blanked first and
+inert/raw-text containers excluded, so a literal `<h1>` inside a value, a
+`<template>`, `<textarea>`, `<style>` or `<title>` can't fake or hide the count;
+quoted or unquoted HTML5 attribute
 forms, whitespace around `=`, tag and attribute names matched
 case-insensitively) and validates that every internal `href`/`src`/`srcset`
-reference (including SVG `xlink:href`) — root-relative or relative (resolved
+reference (including SVG `xlink:href`) — matched only on parsed tag fragments,
+so prose or code samples that merely mention `href="/…"` never count as links —
+root-relative or relative (resolved
 against `<base href>` when the document declares one; an offsite `<base>` sends
 both offsite, matching browser resolution, and fragment-only references become
 checkable paths under a declared `<base>`), leading/trailing whitespace
 trimmed, query/fragment stripped, percent-encoded paths and numeric HTML
-entities decoded — resolves to a built file: zero dead internal links.
+entities decoded, root-relative paths WHATWG-normalized (tab/LF/CR stripped,
+`\` → `/`) — resolves to a built file: zero dead internal links.
 Documented skips, all specified in the script header: `data:` payloads in
 `srcset` (checking resumes only at path-prefixed tokens carrying neither
 quotes nor markup, so base64/percent-encoded payloads cannot red the gate —
@@ -78,6 +85,11 @@ scheme-bearing URLs such as canonical/OG links (external, not validated).
 CSS-internal `url()` references are not yet validated. Responsive,
 interaction, performance and production-like QA stay manual — Linear
 **ENG-86**.
+
+Every edge-case verdict above is locked by a committed regression battery —
+`npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
+dependencies) together with the route-pattern suite, wired into both
+`npm run verify` and the CI job.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a
@@ -93,6 +105,7 @@ src/config/         site configuration
 src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
+tests/              node:test regression suites (route patterns, check:dist)
 ```
 
 ## Conventions
