@@ -134,7 +134,13 @@ const description =
           empty and hidden — text is set at update time so assistive tech
           announces the change. */}
       <p id="form-status" class="status" role="status" tabindex="-1" hidden></p>
-      <p id="form-error" class="status status--error" role="alert" hidden></p>
+      <p
+        id="form-error"
+        class="status status--error"
+        role="alert"
+        tabindex="-1"
+        hidden
+      ></p>
     </div>
   </Container>
 </BaseLayout>
@@ -171,6 +177,14 @@ const description =
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: var(--space-xl);
+  }
+
+  /* Author display rules beat the UA [hidden] rule — without this, the
+     success state's form.hidden = true leaves computed display:flex and
+     the form stays visible (repo pattern: ProjectCard .project-card[hidden],
+     StatusFilter .filter[hidden]). */
+  form[hidden] {
+    display: none;
   }
 
   .field {
@@ -284,6 +298,12 @@ const description =
           if (response.ok && body?.ok === true) {
             form.reset();
             form.hidden = true;
+            // Release the send lock — otherwise this state is dead forever
+            // (button disabled, further submits swallowed by `sending`).
+            sending = false;
+            if (submitButton instanceof HTMLButtonElement) {
+              submitButton.disabled = false;
+            }
             status.textContent = "Thanks — your message has been sent.";
             status.focus();
             return;
@@ -296,6 +316,9 @@ const description =
           error.hidden = false;
           error.textContent =
             "Something went wrong sending your message. Please try again.";
+          // Move focus to the error the same way success focuses status
+          // (WCAG 2.4.3) — role="alert" alone leaves activeElement on body.
+          error.focus();
           if (submitButton instanceof HTMLButtonElement) {
             submitButton.disabled = false;
           }

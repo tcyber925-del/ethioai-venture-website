@@ -33,7 +33,9 @@ describe("start-a-project endpoint is a single config constant", () => {
   test("config holds the one Formspree endpoint URL", () => {
     const hits = config.match(/formspree\.io\/f\//g) ?? [];
     assert.equal(hits.length, 1);
-    assert.match(config, /PENDING_FORMSPREE_ID/);
+    // The URL must BE a Formspree endpoint — but never pin its ID, so the
+    // go-live swap of the placeholder stays a single-file change.
+    assert.match(config, /https:\/\/formspree\.io\/f\/[A-Za-z0-9_-]+/);
   });
   test("page imports the constant and hardcodes no endpoint", () => {
     assert.match(page, /from "\.\.\/config\/forms"/);
@@ -87,5 +89,22 @@ describe("start-a-project spam protection and states", () => {
   test("success requires Formspree's explicit ok:true — a 200 with a non-JSON or ok:false body must never render a false confirmation", () => {
     assert.match(page, /body\?\.ok === true/);
     assert.doesNotMatch(page, /body\?\.ok !== false/);
+  });
+  test("success state actually hides the form — author [hidden] rule beats form's display:flex — and releases the send lock", () => {
+    // The form's own `display: flex` overrides the UA [hidden] rule, so
+    // form.hidden = true needs an author rule (repo pattern: ProjectCard
+    // .project-card[hidden], StatusFilter .filter[hidden]).
+    assert.match(page, /form\[hidden\] \{[^}]*display: none/);
+    const successBlock =
+      page.split("body?.ok === true")[1]?.split("throw new Error")[0] ?? "";
+    assert.match(successBlock, /form\.hidden = true/);
+    assert.match(successBlock, /sending = false/);
+    assert.match(successBlock, /submitButton\.disabled = false/);
+    assert.match(successBlock, /status\.focus\(\)/);
+  });
+  test("error state takes keyboard focus (WCAG 2.4.3) — mirror of the status region", () => {
+    assert.match(page, /<p[^>]*\bid="form-error"[^>]*tabindex="-1"/);
+    const catchBlock = page.split(".catch(() => {")[1] ?? "";
+    assert.match(catchBlock, /error\.focus\(\)/);
   });
 });
