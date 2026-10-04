@@ -10,16 +10,22 @@
  * Per generated page (rendered markup — every drop runs over one
  * quote-aware token walk, never a raw regex over the document: text
  * inside a quoted attribute value can never open or close a strip.
- * Inline <script> bodies drop (the tags stay so src= is checked;
- * `<script/>` still opens — HTML ignores the flag for these elements),
+ * Inline <script>/<iframe>/<object> bodies drop while the tags stay
+ * (src=/data= IS a reference-checked fetch target; `<script/>` still
+ * opens — HTML ignores the flag for these elements; iframe children live
+ * in a child document, object children are failure-only fallback),
  * HTML comments drop whole (the abrupt `<!-->`/`<!--->` forms and `--!>`
  * close at their `>`; an unclosed `<!--` runs to EOF — all like
- * parsers), then inert/raw-text containers drop whole:
- * <style>/<template>/<textarea>/<noscript> for every check below, plus
- * <title> for all but its own check (RCDATA text; only the head's title
- * counts as the document title — an <svg><title> label doesn't); an
- * unclosed <container> is malformed markup Astro never emits — it fails
- * loudly rather than being guessed out. Every structural lookup —
+ * parsers), `<![CDATA[…]]>` drops to `]]>` (foreign content: a text node
+ * that never fetches) while `<?…>` and non-doctype `<!…>` bogus
+ * comments drop to their first `>`, then inert/raw-text/non-rendered
+ * containers drop whole: <style>/<template>/<textarea>/<noscript>/
+ * <xmp>/<noframes> for every check below (<plaintext> never closes — it
+ * runs to EOF), plus <title> for all but its own check (RCDATA text;
+ * only the head's title counts as the document title — an <svg><title>
+ * label doesn't — while an in-foreign <title> is an HTML integration
+ * point scanned as markup); an unclosed <container> is malformed markup
+ * Astro never emits — it fails loudly rather than being guessed out. Every structural lookup —
  * lang/title/meta/base and the <h1> count — runs over quote-aware tag
  * fragments (extractTags): `>` inside a quoted attribute value never
  * splits a match, and markup inside another attribute's value
@@ -309,14 +315,24 @@ const tagsNamed = (tags, name) => {
 };
 
 /** Elements whose content is literal text (raw text / RCDATA) — self-
- * closing flags are ignored for them by HTML, so `<script/>` still opens. */
+ * closing flags are ignored for them by HTML, so `<script/>` still opens.
+ * `xmp`/`noframes` are legacy raw-text; `plaintext` never closes (runs to
+ * EOF). */
 const RAWTEXT_NAMES = new Set([
   "script",
   "style",
   "textarea",
   "title",
   "noscript",
+  "xmp",
+  "noframes",
+  "plaintext",
 ]);
+
+/** Elements whose open tag carries a fetch target (src=/data=) so the tag
+ * stays in the output while the body — never fetched as part of THIS
+ * document (child-document content or failure-only fallback) — drops. */
+const KEEP_OPEN = new Set(["script", "iframe", "object"]);
 
 /**
  * One quote-aware forward pass over the raw page markup yielding drop
@@ -325,10 +341,16 @@ const RAWTEXT_NAMES = new Set([
  * inside a quoted attribute value (`content="<template>"`) can never open
  * a false strip boundary that eats the markup up to a later real close.
  *   - comments drop whole (an unclosed `<!--` runs to EOF, like parsers);
- *   - `<script>` tags stay (src= is reference-checked) but the raw body
- *     drops (to EOF when unclosed, like parsers);
- *   - raw-text elements (`style`/`textarea`/`title`/`noscript`) drop whole
- *     to their first close (or EOF when unclosed);
+ *   - `<![CDATA[ … ]]>` drops to `]]>` (foreign content: a text node —
+ *     nothing inside ever fetches); `<?…>` and non-doctype `<!…>` are
+ *     bogus comments — dropped to their first `>`;
+ *   - `<script>`, `<iframe>`, `<object>` tags stay (src=/data= IS a
+ *     reference-checked fetch target) but the body drops — JS is raw,
+ *     iframe children live in a child document, object children are
+ *     failure-only fallback (to EOF / depth-close when unclosed);
+ *   - raw-text elements (`style`/`textarea`/`title`/`noscript`/`xmp`/
+ *     `noframes`) drop whole to their first close (or EOF when
+ *     unclosed), and `<plaintext>` drops to EOF (it never closes);
  *   - `<template>` nests: drops whole only when a matching close exists at
  *     depth 0 over real tag fragments; an unclosed one produces no region
  *     (malformed markup fails loudly — documented boundary).
@@ -386,6 +408,12 @@ function markupDropEvents(raw) {
         j = c;
         continue;
       }
+      if (raw.startsWith("<![CDATA[", lt)) {
+        const c = raw.indexOf("]]>", lt + 9);
+        if (c === -1) return null;
+        j = c + 3;
+        continue;
+      }
       const nxt = raw[lt + 1] ?? "";
       if (!/^[a-z!?/]/i.test(nxt)) {
         j = lt + 1;
@@ -425,6 +453,30 @@ function markupDropEvents(raw) {
       continue;
     }
     const nxt = raw[lt + 1] ?? "";
+    if (raw.startsWith("<![CDATA[", lt)) {
+      // Foreign-content CDATA is a text node — nothing inside ever
+      // fetches (review round 15). Unterminated → EOF; the HTML
+      // bogus-comment `>` boundary would only leave text foreign content
+      // doesn't fetch either, so this direction can only under-check.
+      const c = raw.indexOf("]]>", lt + 9);
+      const e = c === -1 ? len : c + 3;
+      events.push({ s: lt, e, always: true });
+      i = e;
+      continue;
+    }
+    if (
+      nxt === "?" ||
+      (nxt === "!" && !/^<!doctype/i.test(raw.slice(lt, lt + 9)))
+    ) {
+      // `<?…>` (copied PHP) and non-doctype `<!…>` are bogus comments —
+      // the content never parses, so drop to the first `>` (parsers end
+      // bogus comments there, quotes irrelevant; review round 15).
+      const gt = raw.indexOf(">", lt + 2);
+      const e = gt === -1 ? len : gt + 1;
+      events.push({ s: lt, e, always: true });
+      i = e;
+      continue;
+    }
     if (!/^[a-z!?/]/i.test(nxt)) {
       i = lt + 1; // literal `<` in text (a < b)
       continue;
@@ -436,8 +488,22 @@ function markupDropEvents(raw) {
     }
     const name = tagNameAt(lt, tagEnd);
     const isClose = raw[lt + 1] === "/";
-    if (!isClose && name === "script") {
-      const close = findRawClose(tagEnd, name);
+    if (!isClose && name === "plaintext") {
+      // `<plaintext>` never closes — everything after it is text
+      // (review round 15), so the drop runs to EOF.
+      events.push({ s: lt, e: len, drop: name });
+      i = len;
+      continue;
+    }
+    if (!isClose && KEEP_OPEN.has(name)) {
+      // The open tag stays (src=/data= IS a reference-checked fetch
+      // target); the body never fetches as part of THIS document — script
+      // JS is raw, iframe children live in a child document, object
+      // children are failure-only fallback (review round 15).
+      const close =
+        name === "script"
+          ? findRawClose(tagEnd, name)
+          : findMarkupClose(tagEnd, name);
       events.push({ s: tagEnd, e: close ? close.start : len, always: true });
       i = close ? close.end : len;
       continue;
@@ -492,14 +558,27 @@ function applyDropEvents(raw, events, dropTags) {
 }
 
 /** Drop sets per source: `titleSrc` keeps <title> (its presence check
- * needs the tag); `stripped` drops every inert/raw-text container. */
-const TITLE_SRC_DROPS = new Set(["style", "template", "textarea", "noscript"]);
+ * needs the tag); `stripped` drops every inert/raw-text/non-rendered
+ * container — the legacy raw-text pair (`xmp`/`noframes`) and
+ * `plaintext` (never closes — EOF) included (review round 15). */
+const TITLE_SRC_DROPS = new Set([
+  "style",
+  "template",
+  "textarea",
+  "noscript",
+  "xmp",
+  "noframes",
+  "plaintext",
+]);
 const STRIPPED_DROPS = new Set([
   "style",
   "template",
   "textarea",
   "title",
   "noscript",
+  "xmp",
+  "noframes",
+  "plaintext",
 ]);
 
 /**

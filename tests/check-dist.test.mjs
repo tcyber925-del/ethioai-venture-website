@@ -3,10 +3,12 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–14):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–15):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
- * lookups, token-walk-only script/comment/inert-container stripping
- * (attribute values can never open a strip), tag-context-only link
+ * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
+ * inert-container stripping (attribute values can never open a strip),
+ * non-rendered content never link-scanned (plaintext/xmp/noframes run or drop
+ * whole), tag-context-only link
  * scanning (prose mentioning href="/…"
  * must not count), percent/entity decoding, WHATWG path normalization,
  * <base> resolution (relative, offsite, fragment-under-base), data:-srcset
@@ -657,4 +659,49 @@ t(
   inBody('<base><base href="/sub/"><a href="y.png">x</a>'),
   0,
   { "sub/y.png": "x" },
+);
+
+// ── Round 15: non-rendered/fallback content is never link-scanned ──────────
+t(
+  "CDATA text node: link and h1 inside it are invisible (foreign content)",
+  inBody(
+    "<svg><text><![CDATA[ <h1>fake</h1> <a href=/dead-cdata> ]]></text></svg>",
+  ),
+  0,
+);
+t(
+  "iframe fallback content is a child document — link not scanned",
+  inBody("<iframe><a href=/dead-iframe></iframe>"),
+  0,
+);
+t(
+  "iframe src is kept and checked (open tag survives)",
+  inBody('<iframe src="/missing-frame.html"></iframe>'),
+  1,
+);
+t(
+  "object fallback content never renders — link not scanned",
+  inBody("<object><a href=/dead-obj></object>"),
+  0,
+);
+t(
+  "plaintext runs to EOF — trailing link not scanned",
+  inBody("<plaintext><a href=/dead-plain>"),
+  0,
+);
+t("xmp raw-text body not scanned", inBody("<xmp><a href=/dead-xmp></xmp>"), 0);
+t(
+  "noframes raw-text body not scanned",
+  inBody("<noframes><a href=/dead-noframes></noframes>"),
+  0,
+);
+t(
+  "<?php ... ?> is a bogus comment — dropped to its first >",
+  inBody("<?php echo '<a href=/dead-php>'; ?>"),
+  0,
+);
+t(
+  "<!foo ...> non-doctype markup declaration is a bogus comment",
+  inBody("<!foo href=/dead-bogus>"),
+  0,
 );
