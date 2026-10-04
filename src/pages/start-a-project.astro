@@ -10,8 +10,10 @@
  *   question already shipped on the About page — no new claims.
  * - Spec 04 "Form integration boundary": Formspree hosted endpoint
  *   (founder decision, 2026-10-04) — no backend, database, CRM or auth;
- *   spam protection is Formspree's server-side filtering plus the
- *   `_honey` honeypot below.
+ *   spam protection is Formspree's own server-side filtering, plus two
+ *   honeypot fields below: `_gotcha` (Formspree's built-in discard field,
+ *   the one that filters server-side) and `_honey` (the AC-literal field,
+ *   inert on its own — see src/config/forms.ts).
  * - Issue AC (privacy-conscious data handling): minimal field set only —
  *   problem description, name, email, organization (optional); no
  *   sensitive data. The endpoint lives in exactly one config constant
@@ -289,13 +291,26 @@ const description =
         headers: { Accept: "application/json" },
       })
         .then(async (response) => {
-          // Success requires Formspree's explicit ok:true. Non-JSON bodies
-          // and ok:false both land in the error state — a false "sent"
-          // confirmation would lose the inquiry silently.
+          // Success is judged against Formspree's DOCUMENTED contracts, never a
+          // guessed body flag: their AJAX docs gate on `response.ok`, and their
+          // own client treats a body carrying `next` as success — no documented
+          // contract returns `{ ok: true }`, so requiring it would show a false
+          // error for every genuine submission. The rule below accepts any 2xx
+          // JSON body that carries no server-side complaint, while keeping the
+          // two real failure shapes out of the success path:
+          //   - HTTP failure (incl. an unswapped placeholder endpoint → 404);
+          //   - HTTP 200 with `{"errors":[…]}`, which is how Formspree answers
+          //     server-side field validation failures.
+          // Unparseable bodies (proxy/HTML error pages) also stay in the error
+          // state: a false "sent" confirmation would lose the inquiry silently.
           const body = (await response.json().catch(() => null)) as {
-            ok?: boolean;
+            errors?: unknown;
+            error?: unknown;
           } | null;
-          if (response.ok && body?.ok === true) {
+          const serverSideComplaint =
+            (Array.isArray(body?.errors) && body.errors.length > 0) ||
+            Boolean(body?.error);
+          if (response.ok && body !== null && !serverSideComplaint) {
             form.reset();
             form.hidden = true;
             // Release the send lock — otherwise this state is dead forever

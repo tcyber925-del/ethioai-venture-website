@@ -81,14 +81,30 @@ describe("start-a-project spam protection and states", () => {
     assert.match(page, /Thanks — your message has been sent\./);
     assert.match(page, /Something went wrong sending your message/);
   });
-  test("AJAX submission requests Formspree's JSON response", () => {
+  test("AJAX submission requests Formspree's JSON response; the native POST attribute stays for the no-JS fallback", () => {
     assert.match(page, /fetch\(form\.action/);
     assert.match(page, /Accept: "application\/json"/);
-    assert.match(page, /method="post"/);
+    // The client issues its own POST …
+    assert.match(page, /method: "POST"/);
+    // … while the form element keeps method="post" for the no-JS fallback
+    // path (asserting only the attribute would never prove what fetch sends).
+    assert.match(page, /<form[^>]*method="post"/);
   });
-  test("success requires Formspree's explicit ok:true — a 200 with a non-JSON or ok:false body must never render a false confirmation", () => {
-    assert.match(page, /body\?\.ok === true/);
-    assert.doesNotMatch(page, /body\?\.ok !== false/);
+  test("success follows Formspree's documented contracts — 2xx JSON without a server-side complaint — never a guessed ok:true flag", () => {
+    // Their AJAX docs gate on response.ok and their client keys on a `next`
+    // body; no documented contract returns {ok:true}, so requiring it would
+    // render a false error for every real submission.
+    assert.doesNotMatch(page, /body\?\.ok === true/);
+    assert.match(page, /response\.ok && body !== null && !serverSideComplaint/);
+    // Server-side field validation comes back as HTTP 200 + {"errors":[…]} —
+    // it must land in the error state, not a confirmation.
+    assert.match(
+      page,
+      /Array\.isArray\(body\?\.errors\) && body\.errors\.length > 0/,
+    );
+    assert.match(page, /Boolean\(body\?\.error\)/);
+    // Unparseable bodies (proxy/HTML error pages) stay an error.
+    assert.match(page, /response\.json\(\)\.catch\(\(\) => null\)/);
   });
   test("success state actually hides the form — author [hidden] rule beats form's display:flex — and releases the send lock", () => {
     // The form's own `display: flex` overrides the UA [hidden] rule, so
@@ -96,7 +112,7 @@ describe("start-a-project spam protection and states", () => {
     // .project-card[hidden], StatusFilter .filter[hidden]).
     assert.match(page, /form\[hidden\] \{[^}]*display: none/);
     const successBlock =
-      page.split("body?.ok === true")[1]?.split("throw new Error")[0] ?? "";
+      page.split("!serverSideComplaint")[1]?.split("throw new Error")[0] ?? "";
     assert.match(successBlock, /form\.hidden = true/);
     assert.match(successBlock, /sending = false/);
     assert.match(successBlock, /submitButton\.disabled = false/);
