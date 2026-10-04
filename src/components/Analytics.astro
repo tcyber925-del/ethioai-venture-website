@@ -1,0 +1,150 @@
+---
+/**
+ * Analytics — site-wide GoatCounter include + conversion-event delegation
+ * (ENG-85, founder decision 2026-10-04: GoatCounter is the approved
+ * provider, recorded in the PRD "Analytics mechanism").
+ *
+ * Two pieces, both from the base layout so every page gets them:
+ *
+ * 1. count.js — the official cookieless count script, loaded async
+ *    (non-blocking) from the base layout head. Rendered ONLY while
+ *    GOATCOUNTER_SITE_ID is pending: no site ID → no script, no requests.
+ *
+ * 2. Conversion events — a dependency-free delegated listener module
+ *    (bundled, type=module → deferred/non-blocking) that classifies
+ *    clicks and form interactions and reports them with
+ *    `window.goatcounter.count({path, event: true})`, the documented
+ *    GoatCounter events API. It is a hard no-op until count.js defines
+ *    `window.goatcounter` (i.e. until the site ID constant is set):
+ *    events that race the script are queued and flushed on `load`.
+ *
+ * Agreed event catalog (ENG-85 acceptance criteria) — names are the
+ * GoatCounter event keys, enforced by tests/analytics.test.mjs:
+ *   cta-start-a-project  click on /start-a-project          (AC1)
+ *   form-start           first focusin in the hooked form   (AC2)
+ *   form-submit          submit of the hooked form          (AC2)
+ *   work-open            click on /work                     (AC3)
+ *   project-open         click on /work/<slug>              (AC3)
+ *   github-click         explicit hook, GitHub proof link   (AC4)
+ *   demo-click           explicit hook, demo proof link     (AC4)
+ *   solution-open        click on /solutions[...]           (AC5)
+ *   research-open        click on /research[...]            (AC5)
+ *
+ * Delegation hooks (documented contract for ENG-83 and future markup):
+ * - `data-analytics-event="name"` on any element (or an ancestor of a
+ *   clicked link) reports that event name verbatim; explicit hooks win
+ *   over href classification. External links are NEVER classified from
+ *   their href — no blanket outbound tracking.
+ * - `<form data-analytics-form>` (attribute presence, value ignored)
+ *   gets `form-start` once per page on first focusin inside it and
+ *   `form-submit` on submit. Field values are never read.
+ *
+ * Privacy: cookieless provider, no consent banner required; events are
+ * counts keyed by event name only — never form contents, email addresses
+ * or any other PII (binding rule, see src/config/analytics.ts).
+ *
+ * Note on AC1: while /start-a-project does not exist (ENG-77 dead-link
+ * rule), Start a Project CTAs render as inert non-link elements, so there
+ * is nothing to click and no event fires. The moment ENG-83 adds the
+ * route, the same delegation classifies those anchors — no further change
+ * here.
+ */
+import {
+  GOATCOUNTER_COUNT_SCRIPT,
+  GOATCOUNTER_SITE_ID,
+  goatcounterEndpoint,
+} from "../config/analytics";
+
+const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
+---
+
+{endpoint !== null && (
+  <script
+    is:inline
+    async
+    data-goatcounter={endpoint}
+    src={GOATCOUNTER_COUNT_SCRIPT}
+  ></script>
+)}
+
+<script>
+  import {
+    analyticsEventForAnchor,
+    EVENT_HOOK_ATTRIBUTE,
+    FORM_HOOK_ATTRIBUTE,
+    FORM_START_EVENT,
+    FORM_SUBMIT_EVENT,
+  } from "../config/analytics";
+
+  interface GoatCounterApi {
+    count(vars: { path: string; event: boolean }): void;
+  }
+
+  declare global {
+    interface Window {
+      goatcounter?: GoatCounterApi;
+    }
+  }
+
+  /**
+   * Events reported before count.js finished loading (e.g. an autofocused
+   * form field beating the async script). Flushed on `load`; dropped
+   * silently if count.js never arrives (site ID still pending).
+   */
+  const queued: string[] = [];
+
+  function report(eventName: string): void {
+    const api = window.goatcounter;
+    if (api && typeof api.count === "function") {
+      api.count({ path: eventName, event: true });
+    } else {
+      queued.push(eventName);
+    }
+  }
+
+  window.addEventListener("load", () => {
+    const api = window.goatcounter;
+    if (!api || typeof api.count !== "function") return;
+    let name = queued.shift();
+    while (name !== undefined) {
+      api.count({ path: name, event: true });
+      name = queued.shift();
+    }
+  });
+
+  /* Click delegation: explicit data-analytics-event hook (element or
+     ancestor) wins, else classify the nearest anchor's href. */
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const hook = target
+      .closest<HTMLElement>(`[${EVENT_HOOK_ATTRIBUTE}]`)
+      ?.getAttribute(EVENT_HOOK_ATTRIBUTE);
+    const href =
+      target.closest<HTMLAnchorElement>("a[href]")?.getAttribute("href") ?? "";
+    const eventName = analyticsEventForAnchor(href, hook);
+    if (eventName !== null) report(eventName);
+  });
+
+  /* Form lifecycle (AC2): first focusin starts, submit submits.
+     Presence of the attribute is the switch; field values never read. */
+  const startedForms = new WeakSet<HTMLFormElement>();
+
+  document.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const form = target.closest<HTMLFormElement>(
+      `form[${FORM_HOOK_ATTRIBUTE}]`,
+    );
+    if (!form || startedForms.has(form)) return;
+    startedForms.add(form);
+    report(FORM_START_EVENT);
+  });
+
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (!form.matches(`form[${FORM_HOOK_ATTRIBUTE}]`)) return;
+    report(FORM_SUBMIT_EVENT);
+  });
+</script>

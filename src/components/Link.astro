@@ -8,12 +8,22 @@
 interface Props {
   href: string;
   class?: string;
+  /** ENG-85 analytics event hook; omitted from output when absent. */
+  "data-analytics-event"?: string;
 }
 
-const { href, class: className = "" } = Astro.props;
+const {
+  href,
+  class: className = "",
+  "data-analytics-event": analyticsEvent,
+} = Astro.props;
 ---
 
-<a href={href} class:list={["link", className]}>
+<a
+  href={href}
+  class:list={["link", className]}
+  data-analytics-event={analyticsEvent}
+>
   <slot />
 </a>
 
