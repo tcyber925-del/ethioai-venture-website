@@ -154,7 +154,8 @@ Every entry's frontmatter `slug` must:
   hyphens only (e.g. `workflow-automation`); no spaces and no leading, trailing
   or inner `/`. The slug is interpolated directly into the route
   (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
-  relation links, so anything else produces a broken URL.
+  relation links; any other shape — including URL-safe ones such as `snake_case`
+  or `Upper` — is rejected by the schema.
 - **Be unique within its collection** — a duplicate collides in
   `getStaticPaths` and in relation links between pages.
 
