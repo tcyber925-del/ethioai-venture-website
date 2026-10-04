@@ -3,7 +3,7 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–19):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–20):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
  * inert-container stripping (attribute values can never open a strip),
@@ -821,4 +821,44 @@ t(
   "entity-shaped text in the PATHNAME stays a documented skip (no table)",
   inBody('<a href="/news&events/">x</a>'),
   0,
+);
+
+// ── Round 20: unquoted values end only at whitespace/`>` — quotes, `<`, `=`,
+//    backtick inside them are parse errors browsers append, never terminators
+//    (tagAttributes now matches tagEndFrom's `unq` state) ──────────────────
+t(
+  "unquoted value keeps `=` — live /a=b.html passes (no false red)",
+  inBody("<a href=/a=b>x</a>"),
+  0,
+  { "a=b.html": SUB_PAGE },
+);
+t(
+  "unquoted value keeps `=` — /exists=dead stays dead (no false pass)",
+  inBody("<a href=/exists=dead>x</a>"),
+  1,
+  { "exists.html": SUB_PAGE },
+);
+t(
+  "unquoted value keeps the apostrophe — /it's.html passes",
+  inBody("<a href=/it's>x</a>"),
+  0,
+  { "it's.html": SUB_PAGE },
+);
+t(
+  'unquoted value keeps `"` — /say"hi.html passes',
+  inBody('<a href=/say"hi>x</a>'),
+  0,
+  { 'say"hi.html': SUB_PAGE },
+);
+t(
+  "unquoted value keeps a backtick — /a`b.html passes",
+  inBody("<a href=/a`b>x</a>"),
+  0,
+  { "a`b.html": SUB_PAGE },
+);
+t(
+  "unquoted value keeps `<` — /a<b.html passes",
+  inBody("<a href=/a<b>x</a>"),
+  0,
+  { "a<b.html": SUB_PAGE },
 );

@@ -639,8 +639,10 @@ const STRIPPED_DROPS = new Set([
  * Parse a whole open tag (from extractTags) into attribute
  * records `{name, value}` — a quote-aware walk from after the tag name:
  * names end at whitespace/`=`/`/`/`>`, values are read through their
- * quote (or up to whitespace/`>` unquoted, same charset the reference
- * checks accepted before). Matching happens at real attribute-name
+ * quote (or up to whitespace/`>` unquoted — WHATWG ends unquoted values
+ * only there; quotes, `<`, `=`, backtick inside them are parse errors
+ * browsers append, never terminators, matching tagEndFrom's `unq` state).
+ * Matching happens at real attribute-name
  * positions only, so attribute-shaped text inside a quoted value
  * (`alt="use href=/ghost1"`, `data-x=" lang=zz"`) is content, not
  * structure (review round 10). Boolean attributes carry
@@ -673,7 +675,13 @@ function tagAttributes(tag) {
       if (i < tag.length) i++; // closing quote
     } else {
       const valueStart = i;
-      while (i < tag.length && !/[\s"'<>=`]/.test(tag[i])) i++;
+      // Unquoted values end only at whitespace or the tag's `>` — quotes,
+      // `<`, `=`, backtick are parse errors browsers APPEND (the same rule
+      // tagEndFrom's `unq` state already applies). Truncating at them lied
+      // about the target: `href=/a=b` read as `/a` red-flagged a live
+      // `/a=b.html` and `href=/exists=dead` waved through when only
+      // `exists.html` existed (review round 20).
+      while (i < tag.length && !/[\s>]/.test(tag[i])) i++;
       value = tag.slice(valueStart, i);
     }
     attrs.push({ name, value });
