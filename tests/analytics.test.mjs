@@ -1,5 +1,5 @@
 /**
- * Regression suite for the ENG-85 analytics configuration and conversion
+ * Regression suite for the ENG-85 analytics CONFIGURATION and conversion
  * event classification (src/config/analytics.ts).
  *
  * Run: node --test — wired into `npm run verify` and the CI job.
@@ -8,8 +8,12 @@
  * criteria: (1) Start a Project CTA clicks, (2) project form start/submit
  * (delegation hook contract for ENG-83), (3) work/project opens,
  * (4) demo/GitHub proof-link clicks (explicit hooks only — no blanket
- * outbound tracking), (5) solution/research engagement. Keep them in sync
- * with the catalog documented in src/components/Analytics.astro.
+ * outbound tracking), (5) solution/research engagement. The catalog itself
+ * is NOT restated here — see the EVENT CATALOG block in
+ * src/config/analytics.ts (authoritative). This module classifies purely
+ * from href/hook; the in-content-only rule for section-open events is
+ * enforced in src/scripts/analytics-client.ts and covered by
+ * tests/analytics-client.test.mjs.
  *
  * Privacy rules encoded here: external links without an explicit
  * `data-analytics-event` hook are never classified (this integration
