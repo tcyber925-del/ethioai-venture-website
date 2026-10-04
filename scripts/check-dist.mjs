@@ -64,10 +64,13 @@
  *     percent-encoded paths and numeric HTML entities decoded, and
  *     root-relative paths get WHATWG normalization (tab/LF/CR stripped,
  *     "\" mapped to "/") — resolves to a built file (zero dead links).
- *     References still carrying an undecodable named HTML entity
- *     (&eacute; … — the full entity table would be a dependency, and
- *     browsers decode legacy no-semicolon forms too) are
- *     skipped, never red-flagged. Relative references resolve against
+ *     References whose pathname still carries an undecodable named
+ *     HTML entity (&eacute; … — the full entity table would be a
+ *     dependency, and browsers decode legacy no-semicolon forms too)
+ *     are skipped, never red-flagged — and only on the
+ *     query/fragment-stripped path, so query text such as
+ *     ?utm_source=… (discarded before any file lookup) never silences
+ *     a reference (round 19). Relative references resolve against
  *     <base href> when the document declares one (hand-written public/ files),
  *     else the page's URL directory; the <base> tag itself is not
  *     link-checked (resolution prefix, not a fetch target), and an offsite
@@ -856,11 +859,17 @@ for (const file of htmlFiles) {
             ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[n] ?? m,
         );
       // Any other named entity (&eacute; …) needs the full HTML entity table
-      // — a dependency — so a reference still carrying one (with or without
-      // the trailing `;`: browsers decode legacy no-semicolon forms when the
-      // name isn't followed by `=` or alphanumerics) is skipped instead of
-      // red-flagging a path this check cannot decode reliably.
-      if (/&[a-z][a-z0-9]+;?(?![a-z0-9=])/i.test(target)) return;
+      // — a dependency — so a reference whose PATHNAME still carries
+      // entity-shaped text (with or without the trailing `;`: browsers decode
+      // legacy no-semicolon forms when the name isn't followed by `=` or
+      // alphanumerics) is skipped instead of red-flagging a path this check
+      // cannot decode reliably. The test runs on the query/fragment-stripped
+      // path only: query text never reaches the filesystem (targetResolves
+      // discards it), so `?a=1&utm_source=x` — `&utm_source` is no entity —
+      // must not silence the whole reference (review round 19: every
+      // utm_*-tagged campaign URL used to escape the gate).
+      if (/&[a-z][a-z0-9]+;?(?![a-z0-9=])/i.test(target.split(/[?#]/)[0]))
+        return;
     }
     if (target.startsWith("//")) return; // protocol-relative → external
     // Fragment/query-only references are same-document fetches — unless the

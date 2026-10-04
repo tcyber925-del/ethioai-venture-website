@@ -108,10 +108,13 @@ Documented skips, all specified in the script header: `data:` payloads in
 quotes nor markup, so base64/percent-encoded payloads cannot red the gate —
 the residual is a raw unencoded payload fragment that is itself a clean path
 token naming a missing file, which **can** red; bare-relative entries after a
-`data:` URI are under-checked instead), references carrying an undecodable
-named HTML entity (the full entity table would be a dependency — and the
-skip applies with or without the trailing `;`, since browsers decode legacy
-no-semicolon forms too), the non-`src`/`href` fetch attributes
+`data:` URI are under-checked instead), references whose _pathname_ carries
+an undecodable named HTML entity (the full entity table would be a
+dependency — and the skip applies with or without the trailing `;`, since
+browsers decode legacy no-semicolon forms too; the test runs on the
+query/fragment-stripped path only, so `?…&utm_source=…` query text — which
+never reaches the filesystem — is checked normally, round 19), the
+non-`src`/`href` fetch attributes
 `poster`/`action`/`formaction` (documented under-check — never red; no
 forms or video in the site today), and absolute
 scheme-bearing URLs such as canonical/OG links (external, not validated).

@@ -3,7 +3,7 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–18):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–19):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
  * inert-container stripping (attribute values can never open a strip),
@@ -791,5 +791,34 @@ t(
   inBody(
     '<form action="/dead-form"><button formaction="/dead-fc">x</button></form>',
   ),
+  0,
+);
+
+// ── Round 19: the entity skip runs on the query/fragment-stripped pathname
+//    only — query text never silences a reference ────────────────────────────
+t(
+  "utm_-tagged dead URL is checked — &utm_source is no entity",
+  inBody('<a href="/nowhere/?a=1&utm_source=x">x</a>'),
+  1,
+);
+t(
+  "live target with utm_ query passes (query discarded before lookup)",
+  inBody('<a href="/work/?utm_source=x">x</a>'),
+  0,
+  { "work/index.html": SUB_PAGE },
+);
+t(
+  "bare &gclid param at the end doesn't silence a dead target",
+  inBody('<a href="/nowhere/?a=1&gclid">x</a>'),
+  1,
+);
+t(
+  "entity-shaped text in the fragment doesn't silence a dead target",
+  inBody('<a href="/nowhere/#sec&utm">x</a>'),
+  1,
+);
+t(
+  "entity-shaped text in the PATHNAME stays a documented skip (no table)",
+  inBody('<a href="/news&events/">x</a>'),
   0,
 );
