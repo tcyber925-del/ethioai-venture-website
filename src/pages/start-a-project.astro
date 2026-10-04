@@ -1,0 +1,344 @@
+---
+/**
+ * Start a Project — the site's conversion page (ENG-83, PRD primary CTA
+ * target; spec 02: "Problem-first qualification form with clear
+ * success/error states").
+ *
+ * Copy/behavior sources:
+ * - Spec 02 UX principles: evidence early, mobile-first, semantic
+ *   structure, no decorative complexity. Lede reuses the approved CTA
+ *   question already shipped on the About page — no new claims.
+ * - Spec 04 "Form integration boundary": Formspree hosted endpoint
+ *   (founder decision, 2026-10-04) — no backend, database, CRM or auth;
+ *   spam protection is Formspree's own server-side filtering, plus two
+ *   honeypot fields below: `_gotcha` (Formspree's built-in discard field,
+ *   the one that filters server-side) and `_honey` (the AC-literal field,
+ *   inert on its own — see src/config/forms.ts).
+ * - Issue AC (privacy-conscious data handling): minimal field set only —
+ *   problem description, name, email, organization (optional); no
+ *   sensitive data. The endpoint lives in exactly one config constant
+ *   (src/config/forms.ts), pending founder provisioning.
+ *
+ * Submission behavior: without JS the native form POST falls back to
+ * Formspree's own handling; with JS the submit is intercepted, posted
+ * with `Accept: application/json`, and rendered as success/error states
+ * in the two live regions AFTER the form — outside it, so hiding the
+ * form on success never hides the status message.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Container from "../components/Container.astro";
+import MetadataLabel from "../components/MetadataLabel.astro";
+import Button from "../components/Button.astro";
+import { formspreeEndpoint } from "../config/forms";
+
+const description =
+  "Describe the AI, workflow, knowledge, or document problem you want to solve and start a project with EthioAI Venture.";
+---
+
+<BaseLayout title="Start a Project" description={description}>
+  <Container>
+    <div class="start">
+      <header class="intro">
+        <MetadataLabel>Start a Project</MetadataLabel>
+        <h1>Start a Project</h1>
+        <p class="lede">
+          Have a concrete AI, workflow, knowledge, or document problem?
+        </p>
+        <p>
+          Tell us what you are trying to solve. We only use what you send here
+          to respond to your inquiry.
+        </p>
+      </header>
+
+      <form id="project-form" method="post" action={formspreeEndpoint}>
+        <div class="field">
+          <label for="problem">What problem are you trying to solve?</label>
+          <textarea
+            id="problem"
+            name="problem"
+            rows="6"
+            required
+            aria-describedby="problem-hint"
+          ></textarea>
+          <p id="problem-hint" class="hint">
+            A few sentences on the situation, and what a good outcome would look
+            like.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="name">Name</label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            autocomplete="name"
+            maxlength="100"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            maxlength="254"
+            required
+          />
+        </div>
+
+        <div class="field">
+          <label for="organization">
+            Organization <span class="optional">(optional)</span>
+          </label>
+          <input
+            id="organization"
+            name="organization"
+            type="text"
+            autocomplete="organization"
+            maxlength="100"
+          />
+        </div>
+
+        {/* Honeypots (founder decision, 2026-10-04): ship BOTH — the
+            AC-literal `_honey` and Formspree's built-in `_gotcha`, whose
+            filled value Formspree discards server-side. display:none keeps
+            them out of the accessibility tree and the tab order
+            (tabindex="-1" for older AT). */}
+        <div class="hp">
+          <input
+            type="text"
+            name="_honey"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            name="_gotcha"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div class="actions">
+          <Button type="submit">Send inquiry</Button>
+        </div>
+      </form>
+
+      {/* Live regions live OUTSIDE the form: on success the form hides and
+          the status must stay visible/announced (role=status polite for
+          sending/success; role=alert assertive for failures). Both start
+          empty and hidden — text is set at update time so assistive tech
+          announces the change. */}
+      <p id="form-status" class="status" role="status" tabindex="-1" hidden></p>
+      <p
+        id="form-error"
+        class="status status--error"
+        role="alert"
+        tabindex="-1"
+        hidden
+      ></p>
+    </div>
+  </Container>
+</BaseLayout>
+
+<style>
+  .start {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    padding-block: var(--space-2xl);
+  }
+
+  .intro h1 {
+    margin-block: var(--space-sm) var(--space-md);
+  }
+
+  .intro p {
+    max-width: 72ch;
+  }
+
+  .lede {
+    font-size: var(--text-body-lg-size);
+    font-weight: var(--text-body-lg-weight);
+    line-height: var(--text-body-lg-leading);
+    color: var(--color-secondary);
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    max-width: 40rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+  }
+
+  /* Author display rules beat the UA [hidden] rule — without this, the
+     success state's form.hidden = true leaves computed display:flex and
+     the form stays visible (repo pattern: ProjectCard .project-card[hidden],
+     StatusFilter .filter[hidden]). */
+  form[hidden] {
+    display: none;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  label {
+    font-weight: 600;
+  }
+
+  .optional,
+  .hint {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    font-weight: 400;
+    color: var(--color-secondary);
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-on-surface);
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  .hp {
+    display: none;
+  }
+
+  .actions {
+    display: flex;
+  }
+
+  /* Success/error share one surface; the accent side distinguishes them
+     without inventing colors outside the approved palette — the message
+     text itself carries the meaning (never color alone). */
+  .status {
+    max-width: 40rem;
+    padding: var(--space-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-inline-start: 3px solid var(--color-tertiary);
+    border-radius: var(--radius-md);
+  }
+
+  .status--error {
+    border-inline-start-color: var(--color-primary);
+  }
+
+  @media (min-width: 768px) {
+    .start {
+      gap: var(--space-2xl);
+      padding-block: var(--space-3xl);
+    }
+  }
+</style>
+
+<script>
+  const form = document.getElementById("project-form");
+  const status = document.getElementById("form-status");
+  const error = document.getElementById("form-error");
+
+  if (
+    form instanceof HTMLFormElement &&
+    status instanceof HTMLElement &&
+    error instanceof HTMLElement
+  ) {
+    const submitButton = form.querySelector('button[type="submit"]');
+    let sending = false;
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (sending) return;
+      // Native constraint validation runs before submit normally; this
+      // covers programmatic submission too.
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      sending = true;
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = true;
+      }
+      error.hidden = true;
+      error.textContent = "";
+      status.hidden = false;
+      status.textContent = "Sending…";
+
+      fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { Accept: "application/json" },
+      })
+        .then(async (response) => {
+          // Success is judged against Formspree's DOCUMENTED contracts, never a
+          // guessed body flag: their AJAX docs gate on `response.ok`, and their
+          // own client treats a body carrying `next` as success — no documented
+          // contract returns `{ ok: true }`, so requiring it would show a false
+          // error for every genuine submission. The rule below accepts any 2xx
+          // JSON body that carries no server-side complaint, while keeping the
+          // two real failure shapes out of the success path:
+          //   - HTTP failure (incl. an unswapped placeholder endpoint → 404);
+          //   - HTTP 200 with `{"errors":[…]}`, which is how Formspree answers
+          //     server-side field validation failures.
+          // Unparseable bodies (proxy/HTML error pages) also stay in the error
+          // state: a false "sent" confirmation would lose the inquiry silently.
+          const body = (await response.json().catch(() => null)) as {
+            errors?: unknown;
+            error?: unknown;
+          } | null;
+          const serverSideComplaint =
+            (Array.isArray(body?.errors) && body.errors.length > 0) ||
+            Boolean(body?.error);
+          if (response.ok && body !== null && !serverSideComplaint) {
+            form.reset();
+            form.hidden = true;
+            // Release the send lock — otherwise this state is dead forever
+            // (button disabled, further submits swallowed by `sending`).
+            sending = false;
+            if (submitButton instanceof HTMLButtonElement) {
+              submitButton.disabled = false;
+            }
+            status.textContent = "Thanks — your message has been sent.";
+            status.focus();
+            return;
+          }
+          throw new Error("Formspree rejected the submission");
+        })
+        .catch(() => {
+          status.hidden = true;
+          status.textContent = "";
+          error.hidden = false;
+          error.textContent =
+            "Something went wrong sending your message. Please try again.";
+          // Move focus to the error the same way success focuses status
+          // (WCAG 2.4.3) — role="alert" alone leaves activeElement on body.
+          error.focus();
+          if (submitButton instanceof HTMLButtonElement) {
+            submitButton.disabled = false;
+          }
+          sending = false;
+        });
+    });
+  }
+</script>
