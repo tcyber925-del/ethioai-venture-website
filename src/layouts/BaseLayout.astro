@@ -22,15 +22,19 @@ const { title, description = site.description, noindex = false } = Astro.props;
 const documentTitle = title === site.name ? title : `${title} · ${site.name}`;
 
 /**
- * Canonical path form (ENG-84). Cloudflare Pages' default `auto-trailing-
- * slash` HTML handling serves directory index files (`about/index.html`)
- * with a trailing slash and flat `.html` files without one, redirecting the
- * other forms — so the canonical URL is the one form that answers 200
- * without a redirect. Root stays `/`.
+ * Canonical path form (ENG-84). Astro reports route paths (`/about/`,
+ * `/404`), never output file names; Cloudflare Pages' default
+ * `auto-trailing-slash` HTML handling serves directory index files
+ * (`about/index.html`) with a trailing slash and 307s the other form — so
+ * directory routes canonicalize with the trailing slash (the form that
+ * answers 200 without a redirect), root stays `/`.
+ *
+ * Pages flagged `noindex` (the 404 error page) emit neither `rel=canonical`
+ * nor `og:url`: the flat error file has no self-referencing form that
+ * answers 200, and a non-indexable page has no canonical to declare.
+ * scripts/check-seo.mjs enforces both halves of this contract.
  */
-const pathname = Astro.url.pathname.endsWith(".html")
-  ? Astro.url.pathname.replace(/\.html$/, "")
-  : `${Astro.url.pathname.replace(/\/+$/, "")}/`;
+const pathname = `${Astro.url.pathname.replace(/\/+$/, "")}/`;
 const canonicalUrl = new URL(pathname, site.url).href;
 
 /**
@@ -39,6 +43,10 @@ const canonicalUrl = new URL(pathname, site.url).href;
  * exactly the approved identity in src/config/site.ts, nothing invented.
  * No Organization/Person/Service/Product schema: those facts are not
  * represented in approved content.
+ *
+ * The `.replace(/</g, "\\u003c")` hardens the `set:html` injection below:
+ * no `<` survives in the serialized text, so an identity value containing
+ * `</script>` can never terminate the JSON block early.
  */
 const websiteJsonLd = JSON.stringify({
   "@context": "https://schema.org",
@@ -46,7 +54,7 @@ const websiteJsonLd = JSON.stringify({
   name: site.name,
   url: `${site.url}/`,
   description: site.description,
-});
+}).replace(/</g, "\\u003c");
 ---
 
 <!doctype html>
@@ -56,13 +64,13 @@ const websiteJsonLd = JSON.stringify({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{documentTitle}</title>
-    <link rel="canonical" href={canonicalUrl} />
+    {!noindex && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex" />}
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={site.name} />
     <meta property="og:title" content={documentTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonicalUrl} />
+    {!noindex && <meta property="og:url" content={canonicalUrl} />}
     <meta name="twitter:card" content="summary" />
     <script type="application/ld+json" is:inline set:html={websiteJsonLd} />
   </head>
