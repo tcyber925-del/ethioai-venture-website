@@ -1,0 +1,58 @@
+---
+/**
+ * Analytics — site-wide GoatCounter include + conversion-event delegation
+ * (ENG-85).
+ *
+ * Renders two pieces from the base layout, but ONLY while
+ * GOATCOUNTER_SITE_ID is configured: with an empty site ID neither the
+ * count script nor the listener module ships, so the pending-analytics
+ * baseline stays zero-JS. scripts/check-dist.mjs asserts both build
+ * states against dist/ — the enabled path's end-to-end verification
+ * (render-with-ID plus live events) rides the site-ID provisioning pass
+ * recorded on Linear ENG-85.
+ *
+ * 1. count.js — the official count script, loaded async (non-blocking)
+ *    from the base layout head. Rendered ONLY while the site ID is set:
+ *    no site ID → no script tag, no requests.
+ *
+ * 2. Conversion events — the dependency-free delegated listeners in
+ *    src/scripts/analytics-client.ts (init(win, doc)), bundled as a
+ *    deferred type=module script. Its unit tests live in
+ *    tests/analytics-client.test.mjs.
+ *
+ * Event catalog, delegation-hook contract and the in-content-only rule:
+ * see the EVENT CATALOG block in src/config/analytics.ts (the single
+ * authoritative copy — not restated here). Decision records (provider,
+ * consent posture, measurement scope): PRD "Analytics mechanism" and the
+ * ENG-85 decision comment on Linear.
+ *
+ * Note on AC1: while /start-a-project does not exist (ENG-77 dead-link
+ * rule), Start a Project CTAs render as inert non-link elements, so there
+ * is nothing to click and no event fires. The moment ENG-83 adds the
+ * route, the same delegation classifies those anchors — no further change
+ * here.
+ */
+import {
+  GOATCOUNTER_COUNT_SCRIPT,
+  GOATCOUNTER_SITE_ID,
+  goatcounterEndpoint,
+} from "../config/analytics";
+
+const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
+const enabled = endpoint !== null;
+---
+
+{enabled && (
+  <script
+    is:inline
+    async
+    data-goatcounter={endpoint}
+    src={GOATCOUNTER_COUNT_SCRIPT}
+  ></script>
+)}
+
+{enabled && <script>
+  import { init } from "../scripts/analytics-client";
+
+  init(window, document);
+</script>}

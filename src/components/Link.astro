@@ -5,15 +5,33 @@
  * hover/focus uses the tertiary accent (approved for "important links and
  * active states"). No target=_blank: links stay same-tab for predictability.
  */
+import { GOATCOUNTER_SITE_ID } from "../config/analytics";
+
 interface Props {
   href: string;
   class?: string;
+  /** ENG-85 analytics event hook; omitted from output when absent. */
+  "data-analytics-event"?: string;
 }
 
-const { href, class: className = "" } = Astro.props;
+const {
+  href,
+  class: className = "",
+  "data-analytics-event": analyticsEvent,
+} = Astro.props;
+
+// While analytics is pending (empty site ID) the hook is dropped from the
+// markup: the listener never ships in that state, so the attribute would be
+// inert bytes — and scripts/check-dist.mjs requires the disabled build to
+// carry none. Once a site ID is configured the hook renders again.
+const analyticsHook = GOATCOUNTER_SITE_ID === "" ? undefined : analyticsEvent;
 ---
 
-<a href={href} class:list={["link", className]}>
+<a
+  href={href}
+  class:list={["link", className]}
+  data-analytics-event={analyticsHook}
+>
   <slot />
 </a>
 

@@ -109,8 +109,16 @@ const relatedSolutions = solutions.filter((solution) =>
       )}
       {(data.github || data.demo) && (
         <p class="project-header__links">
-          {data.github && <Link href={data.github}>GitHub</Link>}
-          {data.demo && <Link href={data.demo}>Demo</Link>}
+          {data.github && (
+            <Link href={data.github} data-analytics-event="github-click">
+              GitHub
+            </Link>
+          )}
+          {data.demo && (
+            <Link href={data.demo} data-analytics-event="demo-click">
+              Demo
+            </Link>
+          )}
         </p>
       )}
     </header>

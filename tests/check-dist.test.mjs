@@ -58,7 +58,7 @@ after(() => {
  * given index.html, plus any extra files (`path -> content`), then assert
  * the script's exit status.
  */
-const run = (html, files = {}) => {
+const run = (html, files = {}, env = {}) => {
   rmSync(dist(), { recursive: true, force: true });
   mkdirSync(dist(), { recursive: true });
   writeFileSync(join(dist(), "index.html"), html);
@@ -75,7 +75,13 @@ const run = (html, files = {}) => {
     mkdirSync(dirname(join(dist(), rel)), { recursive: true });
     writeFileSync(join(dist(), rel), content);
   }
-  const r = spawnSync(process.execPath, [script, dist()], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, [script, dist()], {
+    encoding: "utf8",
+    // Pin the analytics state per scenario (ENG-85 invariant): verdicts must
+    // not depend on whichever way src/config/analytics.ts points — empty
+    // today, a real slug once the site ID is provisioned.
+    env: { ...process.env, ANALYTICS_SITE_ID: "", ...env },
+  });
   return { status: r.status, out: (r.stdout + r.stderr).trim() };
 };
 
@@ -862,3 +868,73 @@ t(
   0,
   { "a<b.html": SUB_PAGE },
 );
+
+// ── ENG-85: the analytics build invariant (round-2 finding 1) ─────────────────
+// Empty site ID → no text asset may carry analytics bytes. Site ID set → every
+// page must carry the count script. Scenarios pin ANALYTICS_SITE_ID so the
+// verdicts hold whichever way the real config points.
+const SITE_ID = "abc12345";
+const countScript = (id) =>
+  `<script async data-goatcounter="https://${id}.goatcounter.com/count" ` +
+  `src="https://gc.zgo.at/count.js"></script>`;
+const withCountScript = (html) =>
+  html.replace("</head>", `${countScript(SITE_ID)}</head>`);
+
+test("analytics disabled: a clean dist passes and reports the state", () => {
+  const { status, out } = run(PAGE);
+  assert.equal(status, 0, out);
+  assert.match(out, /analytics disabled, 0 problems/);
+});
+
+test("analytics disabled: count-script bytes in dist fail", () => {
+  const { status, out } = run(withCountScript(PAGE));
+  assert.equal(status, 1);
+  assert.match(out, /carries "goatcounter" bytes/);
+});
+
+test("analytics disabled: markup event hooks in dist fail", () => {
+  const { status, out } = run(
+    inBody(
+      '<a href="https://x.example" data-analytics-event="github-click">x</a>',
+    ),
+  );
+  assert.equal(status, 1);
+  assert.match(out, /carries "data-analytics-event" bytes/);
+});
+
+test("analytics disabled: listener code in a bundled asset fails", () => {
+  const { status, out } = run(PAGE, {
+    "_astro/analytics.js": "window.goatcounter={count(){}};",
+  });
+  assert.equal(status, 1);
+  assert.match(out, /_astro\/analytics\.js carries "goatcounter" bytes/);
+});
+
+test("analytics enabled: every page must carry the count script", () => {
+  const files = { "about/index.html": withCountScript(SUB_PAGE) };
+  const ok = run(withCountScript(PAGE), files, { ANALYTICS_SITE_ID: SITE_ID });
+  assert.equal(ok.status, 0, ok.out);
+  assert.match(ok.out, /analytics enabled \(abc12345\)/);
+
+  const missing = run(PAGE, files, { ANALYTICS_SITE_ID: SITE_ID });
+  assert.equal(missing.status, 1);
+  assert.match(missing.out, /\/: analytics enabled .*count script is missing/);
+});
+
+test("analytics enabled: one page missing the count script fails the build", () => {
+  const { status, out } = run(
+    withCountScript(PAGE),
+    {
+      "about/index.html": SUB_PAGE,
+    },
+    { ANALYTICS_SITE_ID: SITE_ID },
+  );
+  assert.equal(status, 1);
+  assert.match(out, /\/about\/: analytics enabled/);
+});
+
+test("an invalid site ID fails the check with the build diagnostic", () => {
+  const { status, out } = run(PAGE, {}, { ANALYTICS_SITE_ID: "abc def" });
+  assert.equal(status, 1);
+  assert.match(out, /Invalid GOATCOUNTER_SITE_ID/);
+});

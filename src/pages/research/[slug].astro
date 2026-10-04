@@ -79,7 +79,9 @@ const sources = data.sources ?? [];
       )}
       {githubUrl && (
         <p class="detail-header__github">
-          <Link href={githubUrl}>GitHub repository</Link>
+          <Link href={githubUrl} data-analytics-event="github-click">
+            GitHub repository
+          </Link>
         </p>
       )}
     </header>

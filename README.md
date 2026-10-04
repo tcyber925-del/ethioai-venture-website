@@ -124,9 +124,16 @@ interaction, performance and production-like QA stay manual — Linear
 
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
-dependencies) together with the route-pattern suite and the content-slug
-uniqueness gate, wired into both
-`npm run verify` and the CI job.
+dependencies) together with the route-pattern, analytics and content-slug
+uniqueness suites, wired into both `npm run verify` and the CI job.
+`check:dist` also asserts the **ENG-85 analytics build invariant** in both
+directions from the site ID in `src/config/analytics.ts`: while it is empty no
+text asset in `dist/` may carry a `goatcounter` / `gc.zgo.at` /
+`data-analytics-event` byte, and once a site ID is set every page must carry the
+count script (`ANALYTICS_SITE_ID` overrides the ID for the battery only — unset
+in every documented command, and a mismatch between override and build can only
+red the gate). Live-event verification with a real ID stays a browser pass —
+Linear **ENG-85**.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a
