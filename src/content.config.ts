@@ -29,11 +29,28 @@ const optionalText = text.optional();
 /** Optional list of strings — omitted when no evidence exists. */
 const stringList = z.array(text).optional();
 
+/**
+ * Approved slug pattern (ENG-97). Slugs interpolate directly into dynamic
+ * routes (/solutions/[slug], /work/[project], /research/[slug]) and into
+ * cross-page relation links, so they must be lowercase URL-safe: letters,
+ * digits and single hyphens only — no spaces, no slashes. Uniqueness
+ * within each collection is a separate rule (a zod field cannot see
+ * sibling entries); it is enforced by tests/content-slugs.test.mjs in
+ * `npm run verify`. The same slug may appear in two different collections —
+ * their routes (/solutions/, /work/, /research/) stay distinct.
+ */
+const slug = z
+  .string()
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "must match ^[a-z0-9]+(?:-[a-z0-9]+)*$ (lowercase URL-safe slug, e.g. workflow-automation)",
+  );
+
 const solutions = defineCollection({
   loader: glob({ base: "./src/content/solutions", pattern: "**/*.md" }),
   schema: z.object({
     title: text,
-    slug: text,
+    slug,
     summary: optionalText,
     problem: optionalText,
     what_we_build: optionalText,
@@ -51,7 +68,7 @@ const projects = defineCollection({
   loader: glob({ base: "./src/content/projects", pattern: "**/*.md" }),
   schema: z.object({
     title: text,
-    slug: text,
+    slug,
     status: optionalText,
     category: optionalText,
     summary: optionalText,
@@ -74,7 +91,7 @@ const research = defineCollection({
   loader: glob({ base: "./src/content/research", pattern: "**/*.md" }),
   schema: z.object({
     title: text,
-    slug: text,
+    slug,
     status: optionalText,
     topic: optionalText,
     question: optionalText,
