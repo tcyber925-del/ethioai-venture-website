@@ -22,6 +22,7 @@ import MetadataLabel from "../../components/MetadataLabel.astro";
 import Link from "../../components/Link.astro";
 import Button from "../../components/Button.astro";
 import ResearchSection from "../../components/research/ResearchSection.astro";
+import { site } from "../../config/site";
 import { getCollection, type CollectionEntry } from "astro:content";
 
 export async function getStaticPaths() {
@@ -48,13 +49,20 @@ function truncateDescription(text: string): string {
   return `${(boundary > 0 ? cut.slice(0, boundary) : cut).trimEnd()}…`;
 }
 
-/** Page description from approved fields only — never fabricated. */
+/** Page description from approved fields only — never fabricated: the
+ *  entry's own question or topic when it carries one, otherwise a
+ *  mechanical composition of the approved title (the same title the page
+ *  renders as its <h1>) with the approved site identity — the pattern
+ *  solutions/[slug] and work/[project] already use. A fallback of
+ *  `undefined` would fall through to site.description, which the home page
+ *  owns outright, and the check:seo uniqueness gate would red the build
+ *  naming an entry the author never touched. */
 const rawDescription = [data.question, data.topic].find(
   (value) => value !== undefined && value.trim() !== "",
 );
 const description = rawDescription
   ? truncateDescription(rawDescription.trim())
-  : undefined;
+  : `${data.title} — research from ${site.name}. ${site.description}.`;
 
 /** Guard the raw frontmatter href to http(s) only — same rule as sources. */
 const githubUrl =

@@ -52,4 +52,4 @@ jobs:
         run: npm run check:dist
 
       - name: SEO head contract checks
-        run: node scripts/check-seo.mjs
+        run: npm run check:seo

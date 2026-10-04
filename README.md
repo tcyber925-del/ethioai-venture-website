@@ -41,7 +41,7 @@ npm test               # node:test regression suites (tests/)
 npx astro sync         # content-collection schema validation
 npm run build          # production build
 npm run check:dist     # static accessibility/SEO checks + internal link validation
-node scripts/check-seo.mjs  # SEO head contract: titles, canonical, og:url, sitemap/robots, JSON-LD
+npm run check:seo       # SEO head contract: titles, canonical, og/twitter, sitemap/robots, JSON-LD
 ```
 
 Run everything at once:

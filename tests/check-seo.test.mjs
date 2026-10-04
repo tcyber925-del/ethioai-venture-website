@@ -41,21 +41,50 @@ const LD = JSON.stringify({
 });
 
 /**
- * Minimal contract-satisfying page. Head pieces are opt-in so a scenario
- * can omit or corrupt exactly one (`title: undefined` → no <title> tag).
+ * Minimal contract-satisfying page. Head pieces are opt-in/out so a
+ * scenario can omit or corrupt exactly one: `title: undefined` → no
+ * <title> tag, `description: undefined` → no description meta,
+ * `canonical: null` → no canonical link, `og: false`/`twitter: false` →
+ * no Open Graph/twitter tags, `ld: null` → no JSON-LD (a string is emitted
+ * verbatim, so an unparseable block can be exercised).
  */
-function page({ title, description, canonical, ogUrl, robots, body = "" }) {
+function page({
+  title,
+  description,
+  canonical = null,
+  ogUrl = canonical,
+  robots,
+  body = "",
+  extraHead = "",
+  og = true,
+  twitter = true,
+  ld = LD,
+}) {
   return [
     "<!doctype html>",
     '<html lang="en">',
     "<head>",
     '<meta charset="utf-8">',
-    `<meta name="description" content="${description}">`,
+    ...(description === undefined
+      ? []
+      : [`<meta name="description" content="${description}">`]),
     ...(title === undefined ? [] : [`<title>${title}</title>`]),
     ...(canonical ? [`<link rel="canonical" href="${canonical}">`] : []),
     ...(robots ? [`<meta name="robots" content="${robots}">`] : []),
-    ...(ogUrl ? [`<meta property="og:url" content="${ogUrl}">`] : []),
-    `<script type="application/ld+json">${LD}</script>`,
+    ...(og
+      ? [
+          '<meta property="og:type" content="website">',
+          `<meta property="og:site_name" content="${site.name}">`,
+          `<meta property="og:title" content="${title ?? site.name}">`,
+          `<meta property="og:description" content="${description ?? ""}">`,
+          ...(ogUrl ? [`<meta property="og:url" content="${ogUrl}">`] : []),
+        ]
+      : []),
+    ...(twitter ? ['<meta name="twitter:card" content="summary">'] : []),
+    ...(ld === null
+      ? []
+      : [`<script type="application/ld+json">${ld}</script>`]),
+    extraHead,
     "</head>",
     `<body>${body}</body>`,
     "</html>",
@@ -184,6 +213,86 @@ t(
   "check:seo passed",
 );
 
+t(
+  "<title> inside an inline script body does not count",
+  {
+    ...goodFiles(),
+    "index.html": page({
+      title: undefined,
+      description: "Home description.",
+      canonical: `${site.url}/`,
+      ogUrl: `${site.url}/`,
+      body: `<script>const decoy = "<title>${site.name}</title>";</script>`,
+    }),
+  },
+  1,
+  "missing or empty <title>",
+);
+
+t(
+  "<title> inside an inline style body does not count",
+  {
+    ...goodFiles(),
+    "index.html": page({
+      title: undefined,
+      description: "Home description.",
+      canonical: `${site.url}/`,
+      ogUrl: `${site.url}/`,
+      body: `<style>/* <title>${site.name}</title> */</style>`,
+    }),
+  },
+  1,
+  "missing or empty <title>",
+);
+
+t(
+  "<svg title=x/> is not self-closing — a later <title> stays foreign",
+  {
+    ...goodFiles(),
+    "index.html": page({
+      title: undefined,
+      description: "Home description.",
+      canonical: `${site.url}/`,
+      ogUrl: `${site.url}/`,
+      extraHead: `<svg title=x/><title>${site.name}</title>`,
+    }),
+  },
+  1,
+  "missing or empty <title>",
+);
+
+t(
+  "<svg/> really self-closing — a later <title> counts",
+  {
+    ...goodFiles(),
+    "index.html": page({
+      title: undefined,
+      description: "Home description.",
+      canonical: `${site.url}/`,
+      ogUrl: `${site.url}/`,
+      extraHead: `<svg/><title>${site.name}</title>`,
+    }),
+  },
+  0,
+  "check:seo passed",
+);
+
+t(
+  '<svg title="x"/> self-closes — a later <title> counts',
+  {
+    ...goodFiles(),
+    "index.html": page({
+      title: undefined,
+      description: "Home description.",
+      canonical: `${site.url}/`,
+      ogUrl: `${site.url}/`,
+      extraHead: `<svg title="x"/><title>${site.name}</title>`,
+    }),
+  },
+  0,
+  "check:seo passed",
+);
+
 // ── Title / description uniqueness ─────────────────────────────────────────
 t(
   "duplicate head title across pages reds",
@@ -285,6 +394,165 @@ t(
   },
   1,
   "noindex page must not declare rel=canonical",
+);
+
+// ── Open Graph / twitter presence and og:url == canonical ────────────────
+t(
+  "missing og:url reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: null,
+    }),
+  },
+  1,
+  "missing og:url",
+);
+
+t(
+  "og:url ≠ canonical reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: `${site.url}/elsewhere/`,
+    }),
+  },
+  1,
+  "≠ canonical",
+);
+
+t(
+  "missing twitter:card reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: `${site.url}/about/`,
+      twitter: false,
+    }),
+  },
+  1,
+  "missing twitter:card",
+);
+
+t(
+  "missing Open Graph tags red",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      og: false,
+    }),
+  },
+  1,
+  "missing og:type",
+);
+
+// ── JSON-LD: present, parseable, WebSite ─────────────────────────────────
+t(
+  "missing JSON-LD reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: `${site.url}/about/`,
+      ld: null,
+    }),
+  },
+  1,
+  "missing application/ld+json block",
+);
+
+t(
+  "unparseable JSON-LD reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: `${site.url}/about/`,
+      ld: "{not json",
+    }),
+  },
+  1,
+  "JSON-LD does not parse",
+);
+
+t(
+  "JSON-LD @type other than WebSite reds",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      canonical: `${site.url}/about/`,
+      ogUrl: `${site.url}/about/`,
+      ld: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: site.name,
+      }),
+    }),
+  },
+  1,
+  "JSON-LD @type",
+);
+
+// ── Head scoping: body-placed head tags never satisfy a check ────────────
+t(
+  "body-scoped canonical does not satisfy the check",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      description: "About description.",
+      body: `<link rel="canonical" href="${site.url}/about/">`,
+    }),
+  },
+  1,
+  "expected exactly one rel=canonical",
+);
+
+t(
+  "body-scoped meta description does not satisfy the check",
+  {
+    ...goodFiles(),
+    "about/index.html": page({
+      title: `About · ${site.name}`,
+      body: `<meta name="description" content="Body decoy description.">`,
+    }),
+  },
+  1,
+  "missing or empty meta description",
+);
+
+t(
+  "body-scoped noindex is ignored — the page still passes",
+  {
+    ...goodFiles(),
+    "misc/index.html": page({
+      title: `Misc · ${site.name}`,
+      description: "Misc description.",
+      canonical: `${site.url}/misc/`,
+      ogUrl: `${site.url}/misc/`,
+      body: `<meta name="robots" content="noindex">`,
+    }),
+  },
+  0,
+  "check:seo passed",
 );
 
 // ── Sitemap <loc> liveness ─────────────────────────────────────────────────

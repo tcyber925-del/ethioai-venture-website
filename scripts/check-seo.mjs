@@ -19,10 +19,18 @@
  *   - non-noindex pages carry exactly one rel=canonical whose href equals
  *     site.url + the page's emitted path (index.html → "/", dir/index.html
  *     → "/dir/", flat file.html → "/file" — Cloudflare's
- *     `auto-trailing-slash` forms), plus an og:url under site.url;
+ *     `auto-trailing-slash` forms), plus og:type, og:site_name, og:title,
+ *     og:description and twitter:card, and an og:url EQUAL to that
+ *     canonical (equality, not a prefix — crawlers unfurl the og:url);
  *   - noindex pages carry NO rel=canonical and NO og:url (a non-indexable
  *     error page declares no canonical target — see BaseLayout);
- *   - at least one application/ld+json block, each JSON.parse-able.
+ *   - at least one application/ld+json block, each JSON.parse-able with
+ *     @type "WebSite" (the one schema type the approved facts back).
+ *
+ * Every description / noindex / canonical / og / twitter / JSON-LD lookup
+ * is scoped to <head>, anchored at the first <body> fragment: a <body>
+ * canonical or description is inert to crawlers and must never satisfy a
+ * check.
  *
  * Across artifacts:
  *
@@ -34,17 +42,25 @@
  * Site-URL facts come from src/config/site.ts — the single constant the
  * pages, sitemap and robots.txt all derive from.
  *
- * Structural lookups run over quote-aware tag fragments (a `>` inside a
- * quoted attribute value never splits a match), so a description or title
- * legitimately containing markup characters cannot fake or hide a check.
+ * Markup handling: quote-aware tag fragments (a `>` inside a quoted
+ * attribute value never splits a match), the STATE-MACHINE self-closing
+ * verdict (a `/` only flags self-closing when it touches `>` outside a
+ * quoted value — `<svg title=x/>` is NOT self-closing per WHATWG, exactly
+ * check-dist's rule), and raw-text/RCDATA bodies skipped as text so a
+ * markup-shaped string inside <script>/<style> is never a tag.
  *
- * Local reproduction: npm run build && node scripts/check-seo.mjs
+ * Parity with check:dist is semantic, not literal: check-dist additionally
+ * drops inert/template/iframe/object bodies, comments, CDATA and bogus
+ * comments over its own token walk. Those constructs carry no head tags in
+ * this build, and unifying both scripts on one shared tokenizer stays a
+ * documented follow-up — scripts/check-dist.mjs (ENG-87) is untouched.
+ *
+ * Local reproduction: npm run build && npm run check:seo
  * Wired into `npm run verify` after build/check:dist AND mirrored as its
  * own "SEO head contract checks" step in .github/workflows/ci.yml's
- * Deterministic checks job (immediately after check:dist) — the local
- * one-shot command and CI enforce the same gate. Regression battery:
- * tests/check-seo.test.mjs (exercises the dist-path argv[2] override).
- * Exits non-zero on any problem.
+ * Deterministic checks job (immediately after check:dist, same command).
+ * Regression battery: tests/check-seo.test.mjs (exercises the dist-path
+ * argv[2] override). Exits non-zero on any problem.
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, posix, relative, resolve, sep } from "node:path";
@@ -93,9 +109,13 @@ if (htmlFiles.length === 0) {
  * attribute walk mirroring the HTML tokenizer: quote state opens only at
  * attribute-VALUE position, `>` inside a quoted value does not end the tag,
  * unquoted values end at whitespace or `>` (parse errors browsers append,
- * never terminators). -1 when the tag never terminates.
+ * never terminators). When `info` is passed it also records whether the
+ * start tag carries a REAL self-closing flag — a `/` counts only when it
+ * touches `>` outside a quoted/unquoted value (`<svg />` and
+ * `<svg title=x/>` are not self-closing per WHATWG). -1 when the tag never
+ * terminates.
  */
-function tagEndFrom(markup, start) {
+function tagEndFrom(markup, start, info) {
   let i = start + 1;
   let state = "name"; // name | attr | before-value | dq | sq | unq
   while (i < markup.length) {
@@ -111,19 +131,30 @@ function tagEndFrom(markup, start) {
       continue;
     }
     if (state === "unq") {
-      if (ch === ">") return i + 1;
+      // Unquoted values end at `>` or whitespace; quotes, `<`, `=` … are
+      // appended (parse errors in browsers, but never quote-openers).
+      if (ch === ">") {
+        if (info) info.selfClosing = false; // a `/` here was value, not flag
+        return i + 1;
+      }
       if (/\s/.test(ch)) state = "attr";
       i++;
       continue;
     }
-    if (ch === ">") return i + 1;
+    // name | attr | before-value
+    if (ch === ">") {
+      if (info) info.selfClosing = markup[i - 1] === "/"; // flag touches `>`
+      return i + 1;
+    }
     if (/\s/.test(ch)) {
       if (state === "name") state = "attr";
       i++;
       continue;
     }
     if (state === "before-value") {
-      state = ch === '"' ? "dq" : ch === "'" ? "sq" : "unq";
+      if (ch === '"') state = "dq";
+      else if (ch === "'") state = "sq";
+      else state = "unq";
       i++;
       continue;
     }
@@ -133,10 +164,41 @@ function tagEndFrom(markup, start) {
   return -1;
 }
 
+/** Does a complete start-tag fragment carry a real self-closing flag? */
+function isSelfClosingTag(fragment) {
+  const info = {};
+  const end = tagEndFrom(fragment, 0, info);
+  return end === fragment.length && info.selfClosing === true;
+}
+
+/** Lowercase tag name of an open or close fragment ("svg", "/svg"). */
+function fragmentName(raw) {
+  let i = raw[1] === "/" ? 2 : 1;
+  const start = i;
+  while (i < raw.length && !/[\s/>]/.test(raw[i])) i++;
+  return raw.slice(start, i).toLowerCase();
+}
+
+/** Elements whose content is literal text (raw text / RCDATA); HTML ignores
+ * a self-closing flag for them (`<script/>` still opens), `plaintext` never
+ * closes (runs to EOF). */
+const RAWTEXT_NAMES = new Set([
+  "script",
+  "style",
+  "textarea",
+  "title",
+  "noscript",
+  "xmp",
+  "noframes",
+  "plaintext",
+]);
+
 /**
  * Complete tag fragments as `{raw, start, end}` — quote-aware, so
  * markup-shaped text inside a quoted value is content of that one
- * fragment, never structure of its own.
+ * fragment, never structure of its own; raw-text/RCDATA bodies are skipped
+ * (their content is text, so a `<title>`-shaped string inside an inline
+ * <script> or <style> never becomes a tag).
  */
 function extractTags(markup) {
   const tags = [];
@@ -145,8 +207,20 @@ function extractTags(markup) {
   while ((m = open.exec(markup)) !== null) {
     const end = tagEndFrom(markup, m.index);
     if (end === -1) break;
-    tags.push({ raw: markup.slice(m.index, end), start: m.index, end });
+    const raw = markup.slice(m.index, end);
+    tags.push({ raw, start: m.index, end });
     open.lastIndex = end;
+    const name = fragmentName(raw);
+    if (raw[1] !== "/" && RAWTEXT_NAMES.has(name)) {
+      if (name === "plaintext") {
+        open.lastIndex = markup.length;
+      } else {
+        const close = new RegExp(`</${name}[\\s>]`, "i").exec(
+          markup.slice(end),
+        );
+        open.lastIndex = close ? end + close.index : markup.length;
+      }
+    }
   }
   return tags;
 }
@@ -195,22 +269,14 @@ function tagAttr(tag, attrName) {
   return found ? found.value : undefined;
 }
 
-/** Lowercase tag name of an open or close fragment ("svg", "/svg"). */
-function fragmentName(raw) {
-  let i = raw[1] === "/" ? 2 : 1;
-  const start = i;
-  while (i < raw.length && !/[\s/>]/.test(raw[i])) i++;
-  return raw.slice(start, i).toLowerCase();
-}
-
 /**
- * <svg>/<math> depth step for one fragment — same verdict shape as
- * check:dist's rule: close pops (floor 0), a self-closing open (`<svg/>`,
- * trailing `/>` only outside a quoted value) does not push.
+ * <svg>/<math> depth step for one fragment — check:dist's single rule: a
+ * close pops (floored at 0), a really self-closing open does not push,
+ * anything else leaves the depth untouched.
  */
 function stepForeignDepth(raw, depth) {
   if (raw[1] === "/") return depth > 0 ? depth - 1 : 0;
-  return /\/>$/.test(raw) ? depth : depth + 1;
+  return isSelfClosingTag(raw) ? depth : depth + 1;
 }
 
 /**
@@ -248,18 +314,28 @@ for (const file of htmlFiles) {
 
   const tags = extractTags(raw);
 
-  // --- <title> and meta description: present, non-empty, unique --------
-  // Title verdict mirrors check:dist (scripts/check-dist.mjs itself is
-  // untouched — unifying both scripts on one shared tokenizer is a
-  // documented follow-up): first <title> before the <body> anchor wins at
-  // foreign depth 0, so an <svg>/<math> <title> label never satisfies the
-  // presence check or fakes/unfairly-fails uniqueness.
+  // Head scope, anchored at the first <body> fragment (the same anchor the
+  // title verdict uses): everything below this line reads head tags only.
   const bodyTag = tags.find((t) => /^<body(?=[\s>/])/i.test(t.raw));
   const headEnd = bodyTag ? bodyTag.start : raw.length;
+  const headTags = tags.filter((t) => t.start < headEnd);
+  const headMeta = (name) =>
+    headTags.find((t) => {
+      if (!/^<meta(?=[\s>])/i.test(t.raw)) return false;
+      return (tagAttr(t.raw, "name") ?? "").toLowerCase() === name;
+    });
+  const ogTag = (property) =>
+    headTags.find((t) => {
+      if (!/^<meta(?=[\s>])/i.test(t.raw)) return false;
+      return (tagAttr(t.raw, "property") ?? "").toLowerCase() === property;
+    });
+
+  // --- <title> and meta description: present, non-empty, unique --------
+  // First <title> at foreign depth 0 wins: an <svg>/<math> <title> label
+  // never satisfies the presence check or fakes/unfairly-fails uniqueness.
   let title = "";
   let foreign = 0;
-  for (const t of tags) {
-    if (t.start >= headEnd) break;
+  for (const t of headTags) {
     const name = fragmentName(t.raw);
     if (name === "svg" || name === "math") {
       foreign = stepForeignDepth(t.raw, foreign);
@@ -275,14 +351,11 @@ for (const file of htmlFiles) {
     fail(`duplicate <title> (also on ${seenTitles.get(title)})`);
   else seenTitles.set(title, route);
 
-  let description;
-  for (const t of tags) {
-    if (!/^<meta(?=[\s>])/i.test(t.raw)) continue;
-    if ((tagAttr(t.raw, "name") ?? "").toLowerCase() === "description") {
-      description = tagAttr(t.raw, "content");
-      break;
-    }
-  }
+  const descriptionTag = headMeta("description");
+  const description =
+    descriptionTag === undefined
+      ? undefined
+      : tagAttr(descriptionTag.raw, "content");
   if (description === undefined || !description.trim())
     fail("missing or empty meta description");
   else if (seenDescriptions.has(description))
@@ -293,10 +366,9 @@ for (const file of htmlFiles) {
 
   // --- noindex iff the 404 page ----------------------------------------
   let noindex = false;
-  for (const t of tags) {
-    if (!/^<meta(?=[\s>])/i.test(t.raw)) continue;
-    if ((tagAttr(t.raw, "name") ?? "").toLowerCase() !== "robots") continue;
-    const tokens = (tagAttr(t.raw, "content") ?? "")
+  const robotsTag = headMeta("robots");
+  if (robotsTag) {
+    const tokens = (tagAttr(robotsTag.raw, "content") ?? "")
       .split(",")
       .map((s) => s.trim().toLowerCase());
     if (tokens.includes("noindex")) noindex = true;
@@ -305,43 +377,48 @@ for (const file of htmlFiles) {
   if (noindex && !is404) fail("noindex on a page that is not the 404 page");
   if (!noindex && is404) fail("404 page is missing noindex");
 
-  // --- canonical / og:url ----------------------------------------------
-  const canonicals = tags.filter((t) => {
+  // --- canonical / Open Graph / twitter (head-scoped) -------------------
+  const canonicals = headTags.filter((t) => {
     if (!/^<link(?=[\s>])/i.test(t.raw)) return false;
     const rel = (tagAttr(t.raw, "rel") ?? "").toLowerCase().split(/\s+/);
     return rel.includes("canonical");
   });
-  const ogUrlTag = tags.find(
-    (t) =>
-      /^<meta(?=[\s>])/i.test(t.raw) &&
-      (tagAttr(t.raw, "property") ?? "").toLowerCase() === "og:url",
-  );
+  const ogUrlTag = ogTag("og:url");
 
   if (noindex) {
     if (canonicals.length > 0)
       fail("noindex page must not declare rel=canonical");
     if (ogUrlTag) fail("noindex page must not declare og:url");
   } else {
+    let canonicalHref;
     if (canonicals.length !== 1) {
       fail(`expected exactly one rel=canonical, found ${canonicals.length}`);
     } else {
       const expected = `${site.url}${emittedPath(relFile)}`;
-      const href = tagAttr(canonicals[0].raw, "href");
-      if (href !== expected)
-        fail(`canonical ${href} ≠ emitted path ${expected}`);
+      canonicalHref = tagAttr(canonicals[0].raw, "href");
+      if (canonicalHref !== expected)
+        fail(`canonical ${canonicalHref} ≠ emitted path ${expected}`);
     }
-    if (!ogUrlTag) fail("missing og:url");
-    else {
+    for (const property of [
+      "og:type",
+      "og:site_name",
+      "og:title",
+      "og:description",
+      "og:url",
+    ]) {
+      if (!ogTag(property)) fail(`missing ${property}`);
+    }
+    if (!headMeta("twitter:card")) fail("missing twitter:card");
+    if (ogUrlTag && canonicalHref !== undefined) {
       const ogUrl = tagAttr(ogUrlTag.raw, "content") ?? "";
-      if (!ogUrl.startsWith(`${site.url}/`))
-        fail(`og:url ${ogUrl} not under site base ${site.url}/`);
+      if (ogUrl !== canonicalHref)
+        fail(`og:url ${ogUrl} ≠ canonical ${canonicalHref}`);
     }
   }
 
-  // --- JSON-LD: present, parses as JSON ---------------------------------
+  // --- JSON-LD: head-scoped, present, parses, WebSite ------------------
   const ldBlocks = [];
-  for (let i = 0; i < tags.length; i++) {
-    const t = tags[i];
+  for (const t of headTags) {
     if (!/^<script(?=[\s>])/i.test(t.raw)) continue;
     if ((tagAttr(t.raw, "type") ?? "").toLowerCase() !== "application/ld+json")
       continue;
@@ -355,11 +432,16 @@ for (const file of htmlFiles) {
   }
   if (ldBlocks.length === 0) fail("missing application/ld+json block");
   for (const block of ldBlocks) {
+    let parsed;
     try {
-      JSON.parse(block);
+      parsed = JSON.parse(block);
     } catch (error) {
       fail(`JSON-LD does not parse: ${error.message}`);
+      continue;
     }
+    const type = parsed?.["@type"];
+    if (type !== "WebSite")
+      fail(`JSON-LD @type ${JSON.stringify(type)} ≠ "WebSite"`);
   }
 }
 

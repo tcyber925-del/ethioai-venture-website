@@ -42,14 +42,16 @@ const solutions = (await getCollection("solutions")).sort(
  * the same no-drift rule the homepage's "N focused areas" intro follows.
  * "Solution areas" is the approved term (about page: "Our current focus
  * spans these N solution areas"); titles are the approved collection
- * titles. Falls back to the approved site proposition while empty.
+ * titles. While the collection is empty the fallback stays distinct from
+ * the home page's bare site.description (which that page owns) — derived
+ * from approved identity only, never fabricated.
  */
 const description =
   solutions.length > 0
     ? `EthioAI Venture's ${solutions.length} solution areas: ${solutions
         .map(({ data }) => data.title)
         .join(", ")}.`
-    : site.description;
+    : `Solution areas from ${site.name}. ${site.description}.`;
 ---
 
 <BaseLayout title="Solutions" description={description}>
