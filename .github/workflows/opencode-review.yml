@@ -10,7 +10,11 @@ jobs:
     # same-repo PRs — and only once they are out of draft.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Review rounds grew past the original 15-min cap once the battery and
+    # PR body expanded — two round-15 runs were killed at it (cancelled
+    # conclusion, no comment posted). 25 gives headroom over the ~12–14-min
+    # steady-state rounds.
+    timeout-minutes: 25
     concurrency:
       group: opencode-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -21,11 +25,13 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run OpenCode review
-        uses: anomalyco/opencode/github@latest
+        # SHA-pinned (ENG-87) — `latest` peels to the github-vX action line;
+        # Dependabot keeps this current.
+        uses: anomalyco/opencode/github@77fc88c8ade8e5a620ebbe1197f3a572d29ae91a # github-v1.2.19
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:

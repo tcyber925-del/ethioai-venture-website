@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Public website for EthioAI Venture — static-first Astro + TypeScript.",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "astro dev",
@@ -15,7 +15,9 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "astro check",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run build"
+    "check:dist": "node scripts/check-dist.mjs",
+    "test": "node --test",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npx astro sync && npm run build && npm run check:dist"
   },
   "dependencies": {
     "astro": "^7.3.5"
