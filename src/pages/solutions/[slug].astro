@@ -19,6 +19,7 @@ import MetadataLabel from "../../components/MetadataLabel.astro";
 import SolutionSection from "../../components/solutions/SolutionSection.astro";
 import RelatedWork from "../../components/solutions/RelatedWork.astro";
 import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
+import { site } from "../../config/site";
 
 export async function getStaticPaths() {
   const solutions = await getCollection("solutions");
@@ -46,9 +47,19 @@ const hasText = (value: string | undefined): boolean =>
 
 const hasList = (value: string[] | undefined): boolean =>
   Array.isArray(value) && value.length > 0;
+
+/**
+ * Unique meta description (ENG-84): the approved summary when the entry
+ * carries one; otherwise a mechanical composition of the approved title
+ * with the approved site identity — "solution area" is the approved term
+ * (about page), never fabricated page copy.
+ */
+const description = hasText(data.summary)
+  ? data.summary
+  : `${data.title} — a solution area from EthioAI Venture. ${site.description}.`;
 ---
 
-<BaseLayout title={data.title} description={data.summary}>
+<BaseLayout title={data.title} description={description}>
   <Container>
     <header class="hero">
       <MetadataLabel>

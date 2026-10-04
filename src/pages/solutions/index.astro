@@ -36,9 +36,25 @@ const solutions = (await getCollection("solutions")).sort(
     rank(a.data.slug) - rank(b.data.slug) ||
     a.data.title.localeCompare(b.data.title),
 );
+
+/**
+ * Unique meta description (ENG-84), derived from the collection itself —
+ * the same no-drift rule the homepage's "N focused areas" intro follows.
+ * "Solution areas" is the approved term (about page: "Our current focus
+ * spans these N solution areas"); titles are the approved collection
+ * titles. While the collection is empty the fallback stays distinct from
+ * the home page's bare site.description (which that page owns) — derived
+ * from approved identity only, never fabricated.
+ */
+const description =
+  solutions.length > 0
+    ? `EthioAI Venture's ${solutions.length} solution areas: ${solutions
+        .map(({ data }) => data.title)
+        .join(", ")}.`
+    : `Solution areas from ${site.name}. ${site.description}.`;
 ---
 
-<BaseLayout title="Solutions">
+<BaseLayout title="Solutions" description={description}>
   <Container>
     <header class="hero">
       <h1>Solutions</h1>

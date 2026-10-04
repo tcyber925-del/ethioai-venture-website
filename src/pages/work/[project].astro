@@ -81,9 +81,21 @@ const solutions = await getCollection("solutions");
 const relatedSolutions = solutions.filter((solution) =>
   (solution.data.related_work ?? []).includes(data.slug),
 );
+
+/**
+ * Unique meta description (ENG-84): the approved summary when the entry
+ * carries one; otherwise a mechanical composition of approved fields only
+ * — title always, status when the entry has one (MIS: EthioBio must show
+ * In Development). No fabricated copy.
+ */
+const description =
+  typeof data.summary === "string" && data.summary.trim() !== ""
+    ? data.summary
+    : `${data.title} — selected work from EthioAI Venture.` +
+      (data.status ? ` Status: ${data.status}.` : "");
 ---
 
-<BaseLayout title={data.title} description={data.summary}>
+<BaseLayout title={data.title} description={description}>
   <Container>
     <p class="project-back">
       <Link href="/work">All work</Link>
