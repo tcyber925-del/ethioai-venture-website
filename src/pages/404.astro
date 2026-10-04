@@ -1,0 +1,88 @@
+---
+/**
+ * /404 (ENG-84) — real error page. Builds to dist/404.html, which
+ * Cloudflare Pages serves automatically for unknown URLs.
+ *
+ * Requirements: semantic, on-brand, links back to the main routes, exactly
+ * one <h1> (check:dist), and `noindex` — the error page must never enter
+ * the search index. Links follow the shell's dead-link rule (ENG-77
+ * routes.ts): nav items render inert until their target page module exists,
+ * so this page can never ship a dead link (start-a-project activates when
+ * ENG-83 lands).
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Container from "../components/Container.astro";
+import Link from "../components/Link.astro";
+import { primaryNav } from "../config/site";
+import { routeExists } from "../config/routes";
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page you requested could not be found."
+  noindex
+>
+  <Container>
+    <section class="not-found">
+      <p class="not-found__code">404</p>
+      <h1>Page not found</h1>
+      <p class="not-found__text">
+        The page you requested does not exist. It may have moved, or the address
+        may be misspelled.
+      </p>
+      <nav aria-label="Suggested pages" class="not-found__nav">
+        <ul>
+          <li>
+            <Link href="/">Home</Link>
+          </li>
+          {primaryNav.map(({ label, href }) => (
+            <li>
+              {routeExists(href) ? (
+                <Link href={href}>{label}</Link>
+              ) : (
+                <span>{label}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </section>
+  </Container>
+</BaseLayout>
+
+<style>
+  .not-found {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding-block: var(--space-4xl);
+    max-width: 60ch;
+  }
+
+  .not-found__code {
+    font-family: var(--font-mono);
+    font-size: var(--text-body-sm-size);
+    color: var(--color-muted);
+  }
+
+  .not-found__text {
+    color: var(--color-secondary);
+  }
+
+  .not-found__nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+  }
+
+  /* Route not yet implemented (G3): plain text, no dead link. */
+  .not-found__nav span {
+    color: var(--color-secondary);
+  }
+</style>

@@ -7,6 +7,15 @@
 export const site = {
   name: "EthioAI Venture",
   description: "Practical AI systems for real-world organizations",
+  /**
+   * Absolute base URL of the deployed site (ENG-84 SEO: canonical URLs,
+   * Open Graph, sitemap and robots.txt all derive from this one constant;
+   * astro.config.mjs imports it as Astro's `site`). Founder decision
+   * 2026-10-04: V1 hosts on Cloudflare Pages under the `.pages.dev` domain
+   * until a custom domain is purchased — swapping the domain later is a
+   * one-line change here.
+   */
+  url: "https://ethioai-venture-website.pages.dev",
 } as const;
 
 /** Approved primary navigation (spec 02 / MIS V1 routes). */
