@@ -124,7 +124,8 @@ interaction, performance and production-like QA stay manual — Linear
 
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
-dependencies) together with the route-pattern suite, wired into both
+dependencies) together with the route-pattern suite and the content-slug
+uniqueness gate, wired into both
 `npm run verify` and the CI job.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
@@ -171,8 +172,35 @@ src/config/         site configuration
 src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
-tests/              node:test regression suites (route patterns, check:dist)
+tests/              node:test regression suites (route patterns, check:dist, content slugs)
 ```
+
+## Content authoring
+
+Entries live in `src/content/<collection>/` (`solutions`, `projects`, `research`).
+Every entry's frontmatter `slug` must:
+
+- **Match `^[a-z0-9]+(?:-[a-z0-9]+)*$`** — lowercase letters, digits and single
+  hyphens only (e.g. `workflow-automation`); no spaces and no leading, trailing
+  or inner `/`. The slug is interpolated directly into the route
+  (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
+  relation links; any other shape — including URL-safe ones such as `snake_case`
+  or `Upper` — is rejected by the schema.
+- **Be unique within its collection** — a duplicate does not fail the build:
+  `astro sync` and `npm run build` still exit 0, one entry silently wins the
+  route and the other's page is never written, while links resolve to the
+  winner. Astro's duplicate _warning_ is not guaranteed — on a cold content
+  store its concurrent loader can emit none at all — so the build stays silent
+  and enforcement happens in `npm test` (below).
+
+Both rules are enforced automatically (ENG-97): the pattern by the collection
+schema in `src/content.config.ts` (`npx astro sync` and `npm run build` fail,
+naming the offending entry), the uniqueness by
+`tests/content-slugs.test.mjs` (`npm test`, part of `npm run verify` and the
+CI "Deterministic checks" job). Uniqueness is detected by reconciling the
+on-disk entries against Astro's parsed content store, and the failure names the
+colliding slug and both files — attribution reads each file's own declared
+slug, so the message does not depend on that loader warning.
 
 ## Conventions
 
