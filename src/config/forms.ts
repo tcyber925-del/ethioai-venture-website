@@ -12,13 +12,10 @@
  * the founder-provisioned ID is the single config change; no other file
  * references the endpoint (tests/start-a-project.test.mjs enforces that).
  *
- * PENDING (same provisioning step, founder decision): the ENG-83
- * acceptance criteria specify a `_honey` honeypot, but Formspree's
- * built-in discard field is `_gotcha` (help.formspree.io, "Honeypot
- * spam filtering", all plans) — `_honey` is not a Formspree special
- * field, so it is inert server-side unless an equivalent spam rule is
- * configured. At go-live, decide: rename the field to `_gotcha`, add a
- * Formspree spam rule for `_honey`, or rely on Formspree's built-in
- * ML filtering alone. Escalated in the ENG-83 PR.
+ * SPAM PROTECTION (founder decision, 2026-10-04 — no longer pending):
+ * ship BOTH honeypot fields — the AC-literal `_honey` AND Formspree's
+ * built-in discard field `_gotcha` (help.formspree.io, "Honeypot spam
+ * filtering", all plans: a filled `_gotcha` is silently ignored
+ * server-side). Both render hidden in the page's `.hp` wrapper.
  */
 export const formspreeEndpoint = "https://formspree.io/f/PENDING_FORMSPREE_ID";

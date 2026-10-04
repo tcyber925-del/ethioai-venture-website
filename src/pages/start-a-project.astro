@@ -101,14 +101,22 @@ const description =
           />
         </div>
 
-        {/* Formspree honeypot spam trap: display:none keeps it out of the
-            accessibility tree and the tab order (tabindex="-1" for older
-            AT); Formspree's server-side filtering discards submissions
-            that fill it. */}
+        {/* Honeypots (founder decision, 2026-10-04): ship BOTH — the
+            AC-literal `_honey` and Formspree's built-in `_gotcha`, whose
+            filled value Formspree discards server-side. display:none keeps
+            them out of the accessibility tree and the tab order
+            (tabindex="-1" for older AT). */}
         <div class="hp">
           <input
             type="text"
             name="_honey"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            name="_gotcha"
             tabindex="-1"
             autocomplete="off"
             aria-hidden="true"

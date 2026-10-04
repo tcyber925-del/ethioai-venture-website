@@ -51,6 +51,7 @@ describe("start-a-project qualification fields are minimal and problem-first", (
       "email",
       "organization",
       "_honey",
+      "_gotcha",
     ]);
   });
   test("required fields and email typing", () => {
@@ -65,10 +66,12 @@ describe("start-a-project qualification fields are minimal and problem-first", (
 });
 
 describe("start-a-project spam protection and states", () => {
-  test("Formspree honeypot field present", () => {
-    const honey = tagNamed("_honey");
-    assert.ok(honey, "missing _honey honeypot input");
-    assert.match(honey, /tabindex="-1"/);
+  test("both honeypot fields present (founder decision 2026-10-04: AC-literal _honey + Formspree's built-in _gotcha)", () => {
+    for (const fieldName of ["_honey", "_gotcha"]) {
+      const honeypot = tagNamed(fieldName);
+      assert.ok(honeypot, `missing ${fieldName} honeypot input`);
+      assert.match(honeypot, /tabindex="-1"/);
+    }
   });
   test("client-side success and error regions exist", () => {
     assert.match(page, /role="status"/);
