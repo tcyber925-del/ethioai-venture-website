@@ -154,7 +154,7 @@ npx wrangler deploy     # reads wrangler.jsonc; uploads ./dist
 - **`public/_headers`** — `public, max-age=31536000, immutable` on `/_astro/*`
   only (content-hashed CSS/JS). Non-hashed `public/assets/` and HTML are
   deliberately excluded so they keep revalidating. Note the rule applies to
-  *every* matching response, so a 404 under `/_astro/` is also cached
+  _every_ matching response, so a 404 under `/_astro/` is also cached
   immutably; that is accepted because a content-hashed name that 404s never
   becomes valid again, and `check:dist` gates dead references at build time.
 - **Verified with wrangler 4.147.0.** Wrangler is not a project dependency, so
