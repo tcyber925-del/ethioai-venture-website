@@ -30,7 +30,10 @@ function readFrontmatterSlug(markdown) {
   if (!block) return "";
   const line = /^slug:[ \t]*(.*?)[ \t]*$/m.exec(block[1]);
   if (!line) return "";
-  let value = line[1];
+  // Strip a YAML inline comment (`#` preceded by whitespace) before
+  // unquoting, so the test compares the same value the schema sees from
+  // the parsed YAML — otherwise `slug: x # note` would mask a duplicate.
+  let value = line[1].replace(/[ \t]+#.*$/, "");
   if (
     value.length > 1 &&
     ((value.startsWith('"') && value.endsWith('"')) ||
@@ -71,6 +74,36 @@ function findDuplicateSlugs(entries) {
     .filter(([, files]) => files.length > 1)
     .map(([slug, files]) => ({ slug, files }));
 }
+
+describe("readFrontmatterSlug", () => {
+  const cases = [
+    ["plain value", "---\nslug: ethiobio\n---\n", "ethiobio"],
+    [
+      "inline YAML comment",
+      "---\nslug: ethiobio # approved route\n---\n",
+      "ethiobio",
+    ],
+    [
+      "quoted value with trailing comment",
+      '---\nslug: "ethiobio" # note\n---\n',
+      "ethiobio",
+    ],
+    [
+      "comment marker without preceding space stays in value",
+      "---\nslug: ethiobio#note\n---\n",
+      "ethiobio#note",
+    ],
+    ["CRLF line endings", "---\r\nslug: ethiobio\r\n---\r\n", "ethiobio"],
+    ["body-only slug line ignored", "---\ntitle: x\n---\nslug: nope\n", ""],
+    ["no slug key", "---\ntitle: x\n---\n", ""],
+    ["missing frontmatter", "# just markdown\n", ""],
+  ];
+  for (const [name, markdown, expected] of cases) {
+    test(name, () => {
+      assert.equal(readFrontmatterSlug(markdown), expected);
+    });
+  }
+});
 
 describe("findDuplicateSlugs", () => {
   test("reports a slug used twice, naming the colliding slug and both files", () => {
