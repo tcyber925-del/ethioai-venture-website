@@ -124,19 +124,50 @@ interaction, performance and production-like QA stay manual — Linear
 
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
-dependencies) together with the route-pattern and analytics suites, wired into
-both `npm run verify` and the CI job. `check:dist` also asserts the **ENG-85
-analytics build invariant** in both directions from the site ID in
-`src/config/analytics.ts`: while it is empty no text asset in `dist/` may carry
-a `goatcounter` / `gc.zgo.at` / `data-analytics-event` byte, and once a site ID
-is set every page must carry the count script (`ANALYTICS_SITE_ID` overrides the
-ID for the battery only — unset in every documented command, and a mismatch
-between override and build can only red the gate). Live-event verification with
-a real ID stays a browser pass — Linear **ENG-85**.
+dependencies) together with the route-pattern, analytics and content-slug
+uniqueness suites, wired into both `npm run verify` and the CI job.
+`check:dist` also asserts the **ENG-85 analytics build invariant** in both
+directions from the site ID in `src/config/analytics.ts`: while it is empty no
+text asset in `dist/` may carry a `goatcounter` / `gc.zgo.at` /
+`data-analytics-event` byte, and once a site ID is set every page must carry the
+count script (`ANALYTICS_SITE_ID` overrides the ID for the battery only — unset
+in every documented command, and a mismatch between override and build can only
+red the gate). Live-event verification with a real ID stays a browser pass —
+Linear **ENG-85**.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a
 version comment. Dependabot (`.github/dependabot.yml`) updates both weekly.
+
+## Deployment
+
+The site is a static build served by **Cloudflare Workers static assets**
+(Cloudflare migrated Pages into Workers; `wrangler pages deploy` now delegates
+to a Workers deployment). Deploys are deliberately manual and run from a
+CI-verified tree — there is no deploy automation in CI.
+
+```bash
+npm run verify          # must exit 0 before every deploy
+npx wrangler deploy     # reads wrangler.jsonc; uploads ./dist
+```
+
+- **Origin (founder decision, 2026-10-04):** `https://ethioai-venture-website.tcyber925.workers.dev`.
+  The previously planned `ethioai-venture-website.pages.dev` does not resolve.
+  The origin that canonical URLs, `og:url`, the sitemap and robots derive from
+  lives in one constant: `site.url` in `src/config/site.ts` — attaching a custom
+  domain later is a one-line change there, followed by one re-verification pass.
+- **`wrangler.jsonc`** — `assets.not_found_handling: "404-page"` is required:
+  under Workers, serving the built `404.html` is opt-in, and the default
+  answers unknown paths with an empty 404 body.
+- **`public/_headers`** — `public, max-age=31536000, immutable` on `/_astro/*`
+  only (content-hashed CSS/JS). Non-hashed `public/assets/` and HTML are
+  deliberately excluded so they keep revalidating. Note the rule applies to
+  _every_ matching response, so a 404 under `/_astro/` is also cached
+  immutably; that is accepted because a content-hashed name that 404s never
+  becomes valid again, and `check:dist` gates dead references at build time.
+- **Verified with wrangler 4.147.0.** Wrangler is not a project dependency, so
+  `npx wrangler` resolves to the latest release — if a future version changes
+  assets or `_headers` handling, re-verify the table in Linear **ENG-88**.
 
 ## Repository structure
 
@@ -148,8 +179,35 @@ src/config/         site configuration
 src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
-tests/              node:test regression suites (route patterns, check:dist)
+tests/              node:test regression suites (route patterns, check:dist, content slugs)
 ```
+
+## Content authoring
+
+Entries live in `src/content/<collection>/` (`solutions`, `projects`, `research`).
+Every entry's frontmatter `slug` must:
+
+- **Match `^[a-z0-9]+(?:-[a-z0-9]+)*$`** — lowercase letters, digits and single
+  hyphens only (e.g. `workflow-automation`); no spaces and no leading, trailing
+  or inner `/`. The slug is interpolated directly into the route
+  (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
+  relation links; any other shape — including URL-safe ones such as `snake_case`
+  or `Upper` — is rejected by the schema.
+- **Be unique within its collection** — a duplicate does not fail the build:
+  `astro sync` and `npm run build` still exit 0, one entry silently wins the
+  route and the other's page is never written, while links resolve to the
+  winner. Astro's duplicate _warning_ is not guaranteed — on a cold content
+  store its concurrent loader can emit none at all — so the build stays silent
+  and enforcement happens in `npm test` (below).
+
+Both rules are enforced automatically (ENG-97): the pattern by the collection
+schema in `src/content.config.ts` (`npx astro sync` and `npm run build` fail,
+naming the offending entry), the uniqueness by
+`tests/content-slugs.test.mjs` (`npm test`, part of `npm run verify` and the
+CI "Deterministic checks" job). Uniqueness is detected by reconciling the
+on-disk entries against Astro's parsed content store, and the failure names the
+colliding slug and both files — attribution reads each file's own declared
+slug, so the message does not depend on that loader warning.
 
 ## Conventions
 
