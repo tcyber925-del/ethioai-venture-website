@@ -3,13 +3,14 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–17):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–18):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
  * inert-container stripping (attribute values can never open a strip),
  * non-rendered content never link-scanned (plaintext/xmp/noframes run or drop
  * whole), duplicate-attribute first-wins (browsers never fetch the second),
- * <object data=> as its element's fetch target, foreign-depth title verdicts,
+ * <object data=> as its element's fetch target, foreign-depth title verdicts
+ * with state-machine self-closing (whitespace- and value-aware),
  * tag-context-only link
  * scanning (prose mentioning href="/…"
  * must not count), percent/entity decoding, WHATWG path normalization,
@@ -738,21 +739,46 @@ t(
   1,
 );
 
-// ── Round 17: whitespace-tolerant self-closing, documented fetch-attribute
-//    boundaries ──────────────────────────────────────────────────────────────
+// ── Round 17 → 18: `<svg / >` is NOT self-closing (whitespace after `/`
+//    drops the flag — WHATWG self-closing start tag state; parse5, html5lib
+//    and Chromium all agree) — verdicts flipped to browser truth at round 18;
+//    documented fetch-attribute boundaries ───────────────────────────────────
 t(
-  "<svg / > self-closes — head svg doesn't eat the real title",
+  "<svg / > stays open — its title lands in the svg, not the head",
   PAGE.replace("<title>Page</title>", "<svg / ><title>Page</title>"),
-  0,
-);
-t(
-  "<svg / > self-closes — title behind it is RCDATA, its h1 never counts",
-  PAGE.replace("<h1>Page</h1>", "<svg / ><title><h1>y</h1></title></svg>"),
   1,
 );
 t(
-  "<math / > self-closes — head math doesn't eat the real title",
+  "<svg / > stays open — title behind it is a foreign label whose h1 counts",
+  PAGE.replace("<h1>Page</h1>", "<svg / ><title><h1>y</h1></title></svg>"),
+  0,
+);
+t(
+  "<math / > stays open — its title lands in the math, not the head",
   PAGE.replace("<title>Page</title>", "<math / ><title>Page</title>"),
+  1,
+);
+// ── Round 18: value-aware self-closing via the attribute state machine
+//    (an unquoted value swallows the `/`; structural `/` before `>` sets
+//    the flag) — walk and title filter derive from one helper ──────────────
+t(
+  "<svg title=x/> — unquoted value swallows the slash, tag stays open",
+  PAGE.replace("<title>Page</title>", "<svg title=x/><title>Page</title>"),
+  1,
+);
+t(
+  "<svg /> — structural slash before `>` self-closes",
+  PAGE.replace("<title>Page</title>", "<svg /><title>Page</title>"),
+  0,
+);
+t(
+  '<svg title="x"/> — quoted value ends before the slash, self-closes',
+  PAGE.replace("<title>Page</title>", '<svg title="x"/><title>Page</title>'),
+  0,
+);
+t(
+  "<svg a=b c/> — slash glued to an attribute name still self-closes",
+  PAGE.replace("<title>Page</title>", "<svg a=b c/><title>Page</title>"),
   0,
 );
 t(

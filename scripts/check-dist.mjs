@@ -235,8 +235,15 @@ const looksLikeUrl = (token) =>
  * so `content=it's` can never open a phantom quote that swallows the
  * rest of the document. `>` inside a quoted value does not end the tag.
  * -1 when the tag never terminates (malformed markup at EOF).
+ * When `info` is passed it receives `selfClosing` — the WHATWG
+ * self-closing flag for THIS tag: set only when a structurally-positioned
+ * `/` sits immediately before the `>`. Whitespace between them (`<svg /
+ * >`) leaves the flag unset (self-closing start tag state reconsumes and
+ * never sets it), and a `/` inside an unquoted value (`title=x/`) isn't
+ * structural at all — both verified against parse5, html5lib and
+ * Chromium (review round 18).
  */
-function tagEndFrom(markup, start) {
+function tagEndFrom(markup, start, info) {
   let i = start + 1;
   let state = "name"; // name | attr | before-value | dq | sq | unq
   while (i < markup.length) {
@@ -254,13 +261,19 @@ function tagEndFrom(markup, start) {
     if (state === "unq") {
       // Unquoted values end at `>` or whitespace; quotes, `<`, `=` … are
       // appended (parse errors in browsers, but never quote-openers).
-      if (ch === ">") return i + 1;
+      if (ch === ">") {
+        if (info) info.selfClosing = false; // a `/` here was value, not flag
+        return i + 1;
+      }
       if (/\s/.test(ch)) state = "attr";
       i++;
       continue;
     }
     // name | attr | before-value
-    if (ch === ">") return i + 1;
+    if (ch === ">") {
+      if (info) info.selfClosing = markup[i - 1] === "/"; // flag touches `>`
+      return i + 1;
+    }
     if (/\s/.test(ch)) {
       if (state === "name") state = "attr";
       i++;
@@ -336,6 +349,46 @@ const RAWTEXT_NAMES = new Set([
  * stays in the output while the body — never fetched as part of THIS
  * document (child-document content or failure-only fallback) — drops. */
 const KEEP_OPEN = new Set(["script", "iframe", "object"]);
+
+/** Lowercased tag name of a complete tag fragment — `</svg>` → "svg",
+ * `<svg/>` → "svg" (the same scan `markupDropEvents`'s tagNameAt does,
+ * over the fragment instead of the document). */
+const fragmentName = (fragment) => {
+  let s = fragment[1] === "/" ? 2 : 1;
+  let e = s;
+  while (e < fragment.length && !/[\s/>]/.test(fragment[e])) e++;
+  return fragment.slice(s, e).toLowerCase();
+};
+
+/**
+ * True when a complete start-tag fragment carries a REAL self-closing
+ * flag — derived from `tagEndFrom`'s attribute state machine, never a
+ * lexical `/>` regex (round 17's regex was inverted: per WHATWG,
+ * whitespace after `/` DROPS the flag, and a `/` inside an unquoted
+ * value isn't structural). Ground truth — parse5, html5lib and Chromium
+ * all agree (review round 18):
+ *   `<svg />` `<svg/>` `<svg title="x"/>` `<svg title=x />` `<svg a=b c/>` → true
+ *   `<svg / >` (space after `/`), `<svg title=x/>` (value swallows it) → false
+ * One derivation shared by the walk's foreign-depth tracking and the
+ * title verdict, so the two can never diverge (round 18, Low 4).
+ */
+function isSelfClosingTag(fragment) {
+  const info = {};
+  const end = tagEndFrom(fragment, 0, info);
+  return end === fragment.length && info.selfClosing === true;
+}
+
+/** Foreign-depth bookkeeping for one complete tag fragment: an `<svg>`/
+ * `<math>` open increments (unless really self-closing), its close
+ * decrements (floored at 0), anything else leaves the depth untouched —
+ * THE one rule behind both the token walk and the title verdict
+ * (review round 18, Low 4). */
+function stepForeignDepth(fragment, depth) {
+  const name = fragmentName(fragment);
+  if (name !== "svg" && name !== "math") return depth;
+  if (fragment[1] === "/") return depth > 0 ? depth - 1 : depth;
+  return isSelfClosingTag(fragment) ? depth : depth + 1;
+}
 
 /**
  * One quote-aware forward pass over the raw page markup yielding drop
@@ -530,17 +583,10 @@ function markupDropEvents(raw) {
       i = close ? close.end : tagEnd;
       continue;
     }
-    // svg/math open/close tracks foreign depth for the <title> rule above;
-    // a self-closing flag is honored (never the false-red direction).
-    if (name === "svg" || name === "math") {
-      if (isClose) {
-        if (foreignDepth > 0) foreignDepth--;
-      } else if (!/\/\s*>\s*$/.test(raw.slice(lt, tagEnd))) {
-        // Whitespace between `/` and `>` self-closes too — the tokenizer's
-        // self-closing-start-tag state skips it (`<svg / >`, review round 17).
-        foreignDepth++;
-      }
-    }
+    // svg/math open/close tracks foreign depth for the <title> rule above
+    // — one shared derivation with the title verdict, and only a REAL
+    // self-closing flag suppresses the increment (round 18).
+    foreignDepth = stepForeignDepth(raw.slice(lt, tagEnd), foreignDepth);
     i = tagEnd; // ordinary tag (open/close/doctype/pi)
   }
   return events;
@@ -702,11 +748,11 @@ for (const file of htmlFiles) {
   let foreign = 0; // <svg>/<math> open depth over fragments
   for (const t of titleTags) {
     if (t.start >= headEnd) break;
-    if (/^<(?:svg|math)(?=[\s>/])/i.test(t.raw)) {
-      if (!/\/\s*>\s*$/.test(t.raw)) foreign++; // self-closing (round 17)
-    } else if (/^<\/(?:svg|math)(?=[\s>])/i.test(t.raw)) {
-      if (foreign > 0) foreign--;
-    } else if (/^<title[\s/>]/i.test(t.raw) && foreign === 0) {
+    const name = fragmentName(t.raw);
+    if (name === "svg" || name === "math") {
+      // Same derivation as the token walk (round 18, Low 4).
+      foreign = stepForeignDepth(t.raw, foreign);
+    } else if (name === "title" && t.raw[1] !== "/" && foreign === 0) {
       titleTag = t;
       break;
     }
