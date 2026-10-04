@@ -132,6 +132,36 @@ Action update policy: GitHub-owned actions (`actions/*`) float on mutable major 
 third-party actions (the OpenCode review action) are pinned to a full commit SHA with a
 version comment. Dependabot (`.github/dependabot.yml`) updates both weekly.
 
+## Deployment
+
+The site is a static build served by **Cloudflare Workers static assets**
+(Cloudflare migrated Pages into Workers; `wrangler pages deploy` now delegates
+to a Workers deployment). Deploys are deliberately manual and run from a
+CI-verified tree — there is no deploy automation in CI.
+
+```bash
+npm run verify          # must exit 0 before every deploy
+npx wrangler deploy     # reads wrangler.jsonc; uploads ./dist
+```
+
+- **Origin (founder decision, 2026-10-04):** `https://ethioai-venture-website.tcyber925.workers.dev`.
+  The previously planned `ethioai-venture-website.pages.dev` does not resolve.
+  The origin that canonical URLs, `og:url`, the sitemap and robots derive from
+  lives in one constant: `site.url` in `src/config/site.ts` — attaching a custom
+  domain later is a one-line change there, followed by one re-verification pass.
+- **`wrangler.jsonc`** — `assets.not_found_handling: "404-page"` is required:
+  under Workers, serving the built `404.html` is opt-in, and the default
+  answers unknown paths with an empty 404 body.
+- **`public/_headers`** — `public, max-age=31536000, immutable` on `/_astro/*`
+  only (content-hashed CSS/JS). Non-hashed `public/assets/` and HTML are
+  deliberately excluded so they keep revalidating. Note the rule applies to
+  _every_ matching response, so a 404 under `/_astro/` is also cached
+  immutably; that is accepted because a content-hashed name that 404s never
+  becomes valid again, and `check:dist` gates dead references at build time.
+- **Verified with wrangler 4.147.0.** Wrangler is not a project dependency, so
+  `npx wrangler` resolves to the latest release — if a future version changes
+  assets or `_headers` handling, re-verify the table in Linear **ENG-88**.
+
 ## Repository structure
 
 ```text
