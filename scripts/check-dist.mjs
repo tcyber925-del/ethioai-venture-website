@@ -535,7 +535,9 @@ function markupDropEvents(raw) {
     if (name === "svg" || name === "math") {
       if (isClose) {
         if (foreignDepth > 0) foreignDepth--;
-      } else if (!/\/>\s*$/.test(raw.slice(lt, tagEnd))) {
+      } else if (!/\/\s*>\s*$/.test(raw.slice(lt, tagEnd))) {
+        // Whitespace between `/` and `>` self-closes too — the tokenizer's
+        // self-closing-start-tag state skips it (`<svg / >`, review round 17).
         foreignDepth++;
       }
     }
@@ -701,7 +703,7 @@ for (const file of htmlFiles) {
   for (const t of titleTags) {
     if (t.start >= headEnd) break;
     if (/^<(?:svg|math)(?=[\s>/])/i.test(t.raw)) {
-      if (!/\/>\s*$/.test(t.raw)) foreign++; // self-closing flag honored
+      if (!/\/\s*>\s*$/.test(t.raw)) foreign++; // self-closing (round 17)
     } else if (/^<\/(?:svg|math)(?=[\s>])/i.test(t.raw)) {
       if (foreign > 0) foreign--;
     } else if (/^<title[\s/>]/i.test(t.raw) && foreign === 0) {
@@ -856,6 +858,11 @@ for (const file of htmlFiles) {
   // attribute-shaped text inside quoted values (`alt="use href=/x"`) can
   // never red the gate. <base> tags are skipped — resolution prefixes are
   // never fetch targets. xlink:href matches its exact name (colons fine).
+  // Non-src/href fetch attributes (poster=, form action=, formaction=) are
+  // deliberately outside the checked set — a documented under-check that
+  // can never red: no <form>/<video> exists in the site today, and scanning
+  // them would add false-red classes (empty action = self-submit, action
+  // URLs carrying query templates) nothing here exercises (review round 17).
   for (const { raw } of pageTags) {
     if (/^<base\b/i.test(raw)) continue;
     // Duplicate attributes: the parser reports a parse error and keeps the

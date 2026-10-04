@@ -111,7 +111,9 @@ token naming a missing file, which **can** red; bare-relative entries after a
 `data:` URI are under-checked instead), references carrying an undecodable
 named HTML entity (the full entity table would be a dependency — and the
 skip applies with or without the trailing `;`, since browsers decode legacy
-no-semicolon forms too), and absolute
+no-semicolon forms too), the non-`src`/`href` fetch attributes
+`poster`/`action`/`formaction` (documented under-check — never red; no
+forms or video in the site today), and absolute
 scheme-bearing URLs such as canonical/OG links (external, not validated).
 CSS-internal `url()` references are not yet validated. Responsive,
 interaction, performance and production-like QA stay manual — Linear

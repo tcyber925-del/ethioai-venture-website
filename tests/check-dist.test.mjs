@@ -3,7 +3,7 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–16):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–17):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
  * inert-container stripping (attribute values can never open a strip),
@@ -736,4 +736,34 @@ t(
   "svg <title> in head (before <body>) is not the document title",
   PAGE.replace("<title>Page</title>", "<svg><title>diagram</title></svg>"),
   1,
+);
+
+// ── Round 17: whitespace-tolerant self-closing, documented fetch-attribute
+//    boundaries ──────────────────────────────────────────────────────────────
+t(
+  "<svg / > self-closes — head svg doesn't eat the real title",
+  PAGE.replace("<title>Page</title>", "<svg / ><title>Page</title>"),
+  0,
+);
+t(
+  "<svg / > self-closes — title behind it is RCDATA, its h1 never counts",
+  PAGE.replace("<h1>Page</h1>", "<svg / ><title><h1>y</h1></title></svg>"),
+  1,
+);
+t(
+  "<math / > self-closes — head math doesn't eat the real title",
+  PAGE.replace("<title>Page</title>", "<math / ><title>Page</title>"),
+  0,
+);
+t(
+  "video poster= is a documented non-checked fetch attribute",
+  inBody('<video poster="/dead-poster.jpg"></video>'),
+  0,
+);
+t(
+  "form action=/formaction= are documented non-checked fetch attributes",
+  inBody(
+    '<form action="/dead-form"><button formaction="/dead-fc">x</button></form>',
+  ),
+  0,
 );
