@@ -216,6 +216,50 @@ function bodyOf(markdown) {
   return normalizeBody(match ? markdown.slice(match[0].length) : markdown);
 }
 
+/**
+ * The slug a file declares in its own frontmatter — ATTRIBUTION ONLY.
+ *
+ * Detection never reads frontmatter: it compares the on-disk file set against
+ * Astro's parsed store. Attribution used to ride on the loader's duplicate
+ * warning, which is racy on a cold store — Astro loads collections
+ * concurrently, so with an empty store both colliding entries can be read
+ * before either is written, no warning is emitted, and the diagnostic
+ * degraded to "(unattributed)" naming neither the slug nor the sibling file.
+ * Reading the slug the file itself declares makes the message deterministic
+ * without reopening the YAML-shape bypass a regex-based *gate* would have:
+ * an exotic shape can only degrade this label, never the detection, and the
+ * fallback below still covers whatever this cannot read.
+ */
+function declaredSlugOf(markdown) {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
+  if (frontmatter === null) return null;
+  const unquote = (value) => {
+    const trimmed = value.trim();
+    const quoted = /^(['"])([\s\S]*)\1$/.exec(trimmed);
+    return (quoted ? quoted[2] : trimmed).trim() === ""
+      ? null
+      : (quoted ? quoted[2] : trimmed).trim();
+  };
+  const lines = frontmatter[1].split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^[ \t]*slug[ \t]*:[ \t]*(.*)$/.exec(lines[index]);
+    if (match === null) continue;
+    const inline = unquote(match[1].replace(/\s+#.*$/, ""));
+    if (inline !== null) return inline;
+    // Value on the next indented, non-key line (a shape Astro accepts).
+    const next = lines[index + 1];
+    if (
+      next !== undefined &&
+      /^[ \t]+\S/.test(next) &&
+      !/^[ \t]*[\w-]+[ \t]*:/.test(next)
+    ) {
+      return unquote(next);
+    }
+    return null;
+  }
+  return null;
+}
+
 /** Attribute a store-invisible file to the entry its identical content collapsed into. */
 function identifyCollapsedEntry(collection, file, entries) {
   const raw = readFileSync(path.join(REPO_ROOT, file), "utf8");
@@ -249,6 +293,35 @@ function identifyCollapsedEntry(collection, file, entries) {
       `attribute a slug (${live.length} live/${matched.length} total ` +
       `body matches) — inspect its frontmatter`,
   };
+}
+
+/**
+ * Name the collision behind a file the store does not represent.
+ *
+ * Primary path: the file's own declared slug matched against the store — this
+ * is what makes the diagnostic independent of the loader's duplicate warning
+ * (unreliable on a cold store). Fallback: identical-content body matching,
+ * which is the only signal left for an entry whose frontmatter this cannot
+ * read.
+ */
+function attributeUnrepresented(collection, file, entries) {
+  const raw = readFileSync(path.join(REPO_ROOT, file), "utf8");
+  const declared = declaredSlugOf(raw);
+  if (declared !== null) {
+    const live = entries.filter(
+      (entry) =>
+        entry.slug === declared &&
+        existsSync(path.join(REPO_ROOT, entry.filePath)),
+    );
+    if (live.length >= 1) {
+      return {
+        collection,
+        slug: declared,
+        files: [...new Set([...live.map((entry) => entry.filePath), file])],
+      };
+    }
+  }
+  return identifyCollapsedEntry(collection, file, entries);
 }
 
 /**
@@ -287,11 +360,13 @@ function gateViolations() {
 
     // Layer of record: files on disk the store does not represent — this is
     // what detects a first-sync duplicate and any identical-content copy
-    // (digest dedupe, no warning possible).
+    // (digest dedupe, no warning possible). Attribution reads each file's own
+    // declared slug, so the message names the colliding slug and both files
+    // even when the loader emitted no warning (cold store).
     const storedPaths = new Set(entries.map((entry) => entry.filePath));
     for (const file of listCollectionMdFiles(collection)) {
       if (storedPaths.has(file) || namedInWarnings.has(file)) continue;
-      const collapsed = identifyCollapsedEntry(collection, file, entries);
+      const collapsed = attributeUnrepresented(collection, file, entries);
       if (collapsed) {
         violations.push({ ...collapsed, via: "reconciliation" });
       }
@@ -545,6 +620,15 @@ describe("frontmatter shapes (materialized through Astro's parser)", () => {
   test("detects both bypass duplicates and parses every other shape", () => {
     const created = [];
     try {
+      // Guarantee a fully hydrated store before planting probes: on a first
+      // sync (empty store) the loader emits no duplicate warnings at all, and
+      // a store entry pointing at a deleted byte-identical path suppresses
+      // them on later syncs too (the warning requires the prior occupant's
+      // file to still exist). Sync once on the clean tree, then plant.
+      rmSync(STORE_FILE, { force: true });
+      const hydrated = runAstroSync();
+      assert.equal(hydrated.status, 0, hydrated.output);
+
       for (const shape of SHAPE_CASES) {
         const file = path.join(CONTENT_DIR, shape.collection, shape.file);
         writeFileSync(file, shapeMarkdown(shape));
@@ -641,6 +725,48 @@ describe("frontmatter shapes (materialized through Astro's parser)", () => {
       // The loader's digest early-return keeps the deleted copy's path in the
       // store forever (byte-identical content never re-processes), which would
       // poison later runs and the build step — reset the store instead.
+      rmSync(STORE_FILE, { force: true });
+    }
+  });
+
+  test("attributes a duplicate on a COLD store — declared slug, no loader warning needed", () => {
+    // Astro loads collections concurrently: with an empty store both colliding
+    // entries can be read before either is written, so the glob loader emits
+    // no duplicate warning at all (and `astro sync`/`npm run build` exit 0 in
+    // silence). Detection and attribution must both survive that, and the
+    // message must still name the slug and both files.
+    rmSync(STORE_FILE, { force: true });
+    const copy = path.join(
+      CONTENT_DIR,
+      "projects",
+      "eng97tmp-cold-duplicate.md",
+    );
+    writeFileSync(
+      copy,
+      "---\ntitle: Duplicate slug\nslug: ethiobio\n---\n\nA different body, same slug.\n",
+    );
+    try {
+      const violations = gateViolations();
+      const hit = violations.find(
+        (violation) =>
+          violation.slug === "ethiobio" &&
+          violation.files.includes("src/content/projects/ethiobio.md") &&
+          violation.files.includes(
+            "src/content/projects/eng97tmp-cold-duplicate.md",
+          ),
+      );
+      assert.ok(
+        hit,
+        "a cold-store duplicate must be attributed by the slug the file " +
+          `declares\nreported:\n${formatViolations(violations) || "(none)"}`,
+      );
+      assert.equal(
+        hit.via,
+        "reconciliation",
+        "cold-store attribution must come from the layer of record",
+      );
+    } finally {
+      rmSync(copy, { force: true });
       rmSync(STORE_FILE, { force: true });
     }
   });

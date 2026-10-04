@@ -156,17 +156,21 @@ Every entry's frontmatter `slug` must:
   (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
   relation links; any other shape — including URL-safe ones such as `snake_case`
   or `Upper` — is rejected by the schema.
-- **Be unique within its collection** — a duplicate does not fail the
-  build: `astro sync` and `npm run build` still exit 0 with only a warning,
-  one entry silently wins the route while the other's page is never
-  written, and relation links between the pages break.
+- **Be unique within its collection** — a duplicate does not fail the build:
+  `astro sync` and `npm run build` still exit 0, one entry silently wins the
+  route and the other's page is never written, while links resolve to the
+  winner. Astro's duplicate _warning_ is not guaranteed — on a cold content
+  store its concurrent loader can emit none at all — so the build stays silent
+  and enforcement happens in `npm test` (below).
 
 Both rules are enforced automatically (ENG-97): the pattern by the collection
 schema in `src/content.config.ts` (`npx astro sync` and `npm run build` fail,
 naming the offending entry), the uniqueness by
 `tests/content-slugs.test.mjs` (`npm test`, part of `npm run verify` and the
-CI "Deterministic checks" job), which fails naming the colliding slug and its
-files.
+CI "Deterministic checks" job). Uniqueness is detected by reconciling the
+on-disk entries against Astro's parsed content store, and the failure names the
+colliding slug and both files — attribution reads each file's own declared
+slug, so the message does not depend on that loader warning.
 
 ## Conventions
 
