@@ -124,7 +124,8 @@ interaction, performance and production-like QA stay manual — Linear
 
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
-dependencies) together with the route-pattern suite, wired into both
+dependencies) together with the route-pattern suite and the content-slug
+uniqueness gate, wired into both
 `npm run verify` and the CI job.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
@@ -141,8 +142,28 @@ src/config/         site configuration
 src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
-tests/              node:test regression suites (route patterns, check:dist)
+tests/              node:test regression suites (route patterns, check:dist, content slugs)
 ```
+
+## Content authoring
+
+Entries live in `src/content/<collection>/` (`solutions`, `projects`, `research`).
+Every entry's frontmatter `slug` must:
+
+- **Match `^[a-z0-9]+(?:-[a-z0-9]+)*$`** — lowercase letters, digits and single
+  hyphens only (e.g. `workflow-automation`); no spaces and no leading, trailing
+  or inner `/`. The slug is interpolated directly into the route
+  (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
+  relation links, so anything else produces a broken URL.
+- **Be unique within its collection** — a duplicate collides in
+  `getStaticPaths` and in relation links between pages.
+
+Both rules are enforced automatically (ENG-97): the pattern by the collection
+schema in `src/content.config.ts` (`npx astro sync` and `npm run build` fail,
+naming the offending entry), the uniqueness by
+`tests/content-slugs.test.mjs` (`npm test`, part of `npm run verify` and the
+CI "Deterministic checks" job), which fails naming the colliding slug and its
+files.
 
 ## Conventions
 
