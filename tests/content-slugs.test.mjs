@@ -13,18 +13,29 @@
  * The gate therefore reads Astro's own parsed content data, always starting
  * with a fresh `astro sync` (so a clean checkout works standalone):
  *
- * 1. Duplicate-slug warnings emitted by the glob loader during sync —
- *    parse-accurate (every YAML shape) and already naming the collection,
- *    the colliding slug and both files.
- * 2. The content store (node_modules/.astro/data-store.json) scanned for
- *    duplicate slugs. Note the store keys entries by `data.slug`
- *    (generateIdDefault), so same-slug entries collapse into one Map entry —
- *    this layer alone cannot see today's duplicates and only pays off if
- *    the loader ever keys by path.
- * 3. Disk↔store reconciliation: `.md` files on disk that the store does not
- *    represent (identical-content duplicates are silently deduplicated by
- *    the loader's digest early-return and never warn) are reported with the
- *    collapsed slug attributed via body/frontmatter match.
+ * 1. Disk↔store reconciliation — the layer of record: `.md` files on disk
+ *    that the content store (node_modules/.astro/data-store.json) does not
+ *    represent are collapsed duplicates. Identical-content copies dedupe on
+ *    the loader's digest early-return without ever warning; the collapsed
+ *    slug is attributed via body/frontmatter match. This layer fires on a
+ *    first sync with an empty store — repro-verified (sync exit 0, zero
+ *    loader warnings, duplicate still detected).
+ * 2. Duplicate-slug warnings parsed from the sync output — a backstop that
+ *    fires only on later syncs, once the store already holds the first
+ *    entry of a colliding pair (it never fired in a first-sync repro). When
+ *    it fires it is parse-accurate for every YAML shape and already names
+ *    the collection, the colliding slug and both files.
+ * 3. The store itself scanned for duplicate slugs. It keys entries by
+ *    `data.slug` (generateIdDefault), so same-slug entries collapse into
+ *    one Map entry — this layer alone cannot see today's duplicates and
+ *    only pays off if the loader ever keys by path.
+ *
+ * Probe lifecycle: tests materialize temporary entries named `eng97tmp-*.md`
+ * under src/content/<collection>/ and delete them in a `finally` block. The
+ * `eng97tmp-` prefix is reserved for these probes — never author real
+ * content under it. sweepTempProbes() at module load only reaps leftovers
+ * from a run that crashed between write and cleanup, so probes cannot leak
+ * into later runs (a crash is the only way a probe outlives its test).
  *
  * Wired via `npm test` into `npm run verify` and the CI "Unit tests" step —
  * violations fail both with the colliding slugs and files named. Pattern
@@ -209,15 +220,25 @@ function bodyOf(markdown) {
 function identifyCollapsedEntry(collection, file, entries) {
   const raw = readFileSync(path.join(REPO_ROOT, file), "utf8");
   const body = normalizeBody(bodyOf(raw));
-  const candidates = entries.filter(
+  const matched = entries.filter(
     (entry) => normalizeBody(entry.body) === body && raw.includes(entry.slug),
   );
-  if (candidates.length === 1) {
+  // Only a LIVE attributed path is a second copy on disk. An entry whose
+  // filePath no longer exists is stale store state (a deleted probe left a
+  // byte-identical path behind — the loader's digest early-return never
+  // heals it), not a duplicate: skip it rather than fail a clean tree.
+  const live = matched.filter((entry) =>
+    existsSync(path.join(REPO_ROOT, entry.filePath)),
+  );
+  if (live.length === 1) {
     return {
       collection,
-      slug: candidates[0].slug,
-      files: [candidates[0].filePath, file],
+      slug: live[0].slug,
+      files: [live[0].filePath, file],
     };
+  }
+  if (live.length === 0 && matched.length > 0) {
+    return null;
   }
   return {
     collection,
@@ -225,7 +246,8 @@ function identifyCollapsedEntry(collection, file, entries) {
     files: [file],
     note:
       `identical-content duplicate suspected in "${collection}" but could not ` +
-      `attribute a slug (${candidates.length} body matches) — inspect its frontmatter`,
+      `attribute a slug (${live.length} live/${matched.length} total ` +
+      `body matches) — inspect its frontmatter`,
   };
 }
 
@@ -241,9 +263,12 @@ function gateViolations() {
     throw new Error(`astro sync failed (exit ${status}):\n${output}`);
   }
 
-  // Layer 1: the glob loader's duplicate-slug warnings — parse-accurate for
-  // every YAML shape and naming collection, colliding slug and both files.
-  const violations = parseDuplicateWarnings(output);
+  // Backstop (later syncs only): the glob loader's duplicate-slug warnings —
+  // parse-accurate for every YAML shape, naming collection, slug, both files.
+  const violations = parseDuplicateWarnings(output).map((violation) => ({
+    ...violation,
+    via: "warning",
+  }));
   const namedInWarnings = new Set(
     violations.flatMap((violation) => violation.files),
   );
@@ -252,23 +277,40 @@ function gateViolations() {
   for (const collection of COLLECTIONS) {
     const entries = storeCollectionEntries(store, collection);
 
-    // Layer 2: duplicate slugs visible in the store itself (no-op while the
-    // loader keys entries by data.slug and same-slug entries collapse).
+    // Store self-scan (no-op while the loader keys entries by data.slug and
+    // same-slug entries collapse into one Map entry).
     violations.push(
       ...findDuplicateSlugs(
         entries.map((entry) => ({ file: entry.filePath, slug: entry.slug })),
-      ).map((duplicate) => ({ ...duplicate, collection })),
+      ).map((duplicate) => ({ ...duplicate, collection, via: "store" })),
     );
 
-    // Layer 3: files on disk the store does not represent (identical-content
-    // duplicates dedupe silently on digest and never warn).
+    // Layer of record: files on disk the store does not represent — this is
+    // what detects a first-sync duplicate and any identical-content copy
+    // (digest dedupe, no warning possible).
     const storedPaths = new Set(entries.map((entry) => entry.filePath));
     for (const file of listCollectionMdFiles(collection)) {
       if (storedPaths.has(file) || namedInWarnings.has(file)) continue;
-      violations.push(identifyCollapsedEntry(collection, file, entries));
+      const collapsed = identifyCollapsedEntry(collection, file, entries);
+      if (collapsed) {
+        violations.push({ ...collapsed, via: "reconciliation" });
+      }
     }
   }
-  return violations;
+  // A pair whose two files are both live in the store can warn twice (each
+  // overwrite sees the other as existing), and a warning can coincide with
+  // reconciliation: one collision must be reported once.
+  const seen = new Set();
+  return violations.filter((violation) => {
+    const key = [
+      violation.collection,
+      violation.slug,
+      [...violation.files].sort().join(","),
+    ].join("|");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function formatViolations(violations) {
@@ -556,6 +598,50 @@ describe("frontmatter shapes (materialized through Astro's parser)", () => {
       }
     } finally {
       for (const file of created) rmSync(file, { force: true });
+    }
+  });
+
+  test("detects a byte-identical copy via reconciliation (digest dedupe never warns)", () => {
+    const source = path.join(
+      CONTENT_DIR,
+      "solutions",
+      "workflow-automation.md",
+    );
+    const copy = path.join(
+      CONTENT_DIR,
+      "solutions",
+      "eng97tmp-identical-copy.md",
+    );
+    writeFileSync(copy, readFileSync(source));
+    try {
+      const violations = gateViolations();
+      const hit = violations.find(
+        (violation) =>
+          violation.slug === "workflow-automation" &&
+          violation.files.includes(
+            "src/content/solutions/workflow-automation.md",
+          ) &&
+          violation.files.includes(
+            "src/content/solutions/eng97tmp-identical-copy.md",
+          ),
+      );
+      assert.ok(
+        hit,
+        "a byte-identical copy must be reported by disk↔store reconciliation " +
+          `(digest early-return means no warning can fire)\nreported:\n` +
+          (formatViolations(violations) || "(none)"),
+      );
+      assert.equal(
+        hit.via,
+        "reconciliation",
+        "identical-content detection must come from the layer of record",
+      );
+    } finally {
+      rmSync(copy, { force: true });
+      // The loader's digest early-return keeps the deleted copy's path in the
+      // store forever (byte-identical content never re-processes), which would
+      // poison later runs and the build step — reset the store instead.
+      rmSync(STORE_FILE, { force: true });
     }
   });
 });

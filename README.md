@@ -156,8 +156,10 @@ Every entry's frontmatter `slug` must:
   (`/solutions/<slug>`, `/work/<slug>`, `/research/<slug>`) and into cross-page
   relation links; any other shape — including URL-safe ones such as `snake_case`
   or `Upper` — is rejected by the schema.
-- **Be unique within its collection** — a duplicate collides in
-  `getStaticPaths` and in relation links between pages.
+- **Be unique within its collection** — a duplicate does not fail the
+  build: `astro sync` and `npm run build` still exit 0 with only a warning,
+  one entry silently wins the route while the other's page is never
+  written, and relation links between the pages break.
 
 Both rules are enforced automatically (ENG-97): the pattern by the collection
 schema in `src/content.config.ts` (`npx astro sync` and `npm run build` fail,
