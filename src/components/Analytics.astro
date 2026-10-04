@@ -4,19 +4,26 @@
  * (ENG-85, founder decision 2026-10-04: GoatCounter is the approved
  * provider, recorded in the PRD "Analytics mechanism").
  *
- * Two pieces, both from the base layout so every page gets them:
+ * Two pieces, both rendered from the base layout so every page gets
+ * them — but ONLY while GOATCOUNTER_SITE_ID is configured: with an
+ * empty site ID neither the count script nor the listeners ship, so
+ * the pending-analytics baseline stays zero-JS (listener end-to-end
+ * verification rides the pending site-ID enabled pass):
  *
- * 1. count.js — the official cookieless count script, loaded async
+ * 1. count.js — the official count script, loaded async
  *    (non-blocking) from the base layout head. Rendered ONLY while
- *    GOATCOUNTER_SITE_ID is pending: no site ID → no script, no requests.
+ *    the site ID is set: no site ID → no script tag, no requests.
  *
  * 2. Conversion events — a dependency-free delegated listener module
  *    (bundled, type=module → deferred/non-blocking) that classifies
  *    clicks and form interactions and reports them with
- *    `window.goatcounter.count({path, event: true})`, the documented
- *    GoatCounter events API. It is a hard no-op until count.js defines
- *    `window.goatcounter` (i.e. until the site ID constant is set):
- *    events that race the script are queued and flushed on `load`.
+ *    `window.goatcounter.count({path: eventName, event: true})`, the
+ *    documented GoatCounter events API (the `path` field carries the
+ *    event name — this module sends no page URL of its own). It is
+ *    a hard no-op until count.js defines `window.goatcounter`:
+ *    events that race the script are queued (bounded, drop-oldest)
+ *    and flushed on `load`; if count.js never arrives, the queue is
+ *    discarded at `load` and no further events accumulate.
  *
  * Agreed event catalog (ENG-85 acceptance criteria) — names are the
  * GoatCounter event keys, enforced by tests/analytics.test.mjs:
@@ -39,9 +46,18 @@
  *   gets `form-start` once per page on first focusin inside it and
  *   `form-submit` on submit. Field values are never read.
  *
- * Privacy: cookieless provider, no consent banner required; events are
- * counts keyed by event name only — never form contents, email addresses
- * or any other PII (binding rule, see src/config/analytics.ts).
+ * Privacy facts about THIS integration only (consent posture under
+ * applicable law is a policy question pending founder confirmation —
+ * not decided by this code):
+ * - This module sets no cookies and stores nothing client-side.
+ * - It sends only the event name (in count.js's `path` field) — never
+ *   form contents, email addresses or any other PII (binding rule,
+ *   see src/config/analytics.ts).
+ *
+ * Known verification gaps at merge (see PR body): form/CTA events
+ * need ENG-83's route+form; github-click/demo-click need content with
+ * github/demo fields (ethiobio has none, research collection empty);
+ * everything needs the GoatCounter site ID.
  *
  * Note on AC1: while /start-a-project does not exist (ENG-77 dead-link
  * rule), Start a Project CTAs render as inert non-link elements, so there
@@ -56,9 +72,10 @@ import {
 } from "../config/analytics";
 
 const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
+const enabled = endpoint !== null;
 ---
 
-{endpoint !== null && (
+{enabled && (
   <script
     is:inline
     async
@@ -67,7 +84,7 @@ const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
   ></script>
 )}
 
-<script>
+{enabled && <script>
   import {
     analyticsEventForAnchor,
     EVENT_HOOK_ATTRIBUTE,
@@ -87,28 +104,37 @@ const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
   }
 
   /**
-   * Events reported before count.js finished loading (e.g. an autofocused
-   * form field beating the async script). Flushed on `load`; dropped
-   * silently if count.js never arrives (site ID still pending).
+   * Bounded pre-load buffer for events that race count.js (e.g. an
+   * autofocused form field beating the async script). Flush — and stop
+   * accumulating — at `load`: if count.js is absent or blocked by then,
+   * the queue is discarded and further events are dropped rather than
+   * growing without bound. LIMIT drops the oldest event first.
    */
+  const QUEUE_LIMIT = 20;
   const queued: string[] = [];
+  let loadPassed = false;
 
   function report(eventName: string): void {
     const api = window.goatcounter;
     if (api && typeof api.count === "function") {
       api.count({ path: eventName, event: true });
-    } else {
-      queued.push(eventName);
+      return;
     }
+    // count.js absent/blocked after load: never accumulate.
+    if (loadPassed) return;
+    if (queued.length >= QUEUE_LIMIT) queued.shift();
+    queued.push(eventName);
   }
 
   window.addEventListener("load", () => {
+    loadPassed = true;
     const api = window.goatcounter;
-    if (!api || typeof api.count !== "function") return;
-    let name = queued.shift();
-    while (name !== undefined) {
+    if (!api || typeof api.count !== "function") {
+      queued.length = 0;
+      return;
+    }
+    for (const name of queued.splice(0)) {
       api.count({ path: name, event: true });
-      name = queued.shift();
     }
   });
 
@@ -147,4 +173,4 @@ const endpoint = goatcounterEndpoint(GOATCOUNTER_SITE_ID);
     if (!form.matches(`form[${FORM_HOOK_ATTRIBUTE}]`)) return;
     report(FORM_SUBMIT_EVENT);
   });
-</script>
+</script>}

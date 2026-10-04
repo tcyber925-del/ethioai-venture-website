@@ -12,9 +12,9 @@
  * with the catalog documented in src/components/Analytics.astro.
  *
  * Privacy rules encoded here: external links without an explicit
- * `data-analytics-event` hook are never classified (no PII, no form
- * contents, no outbound-link harvesting — GoatCounter is cookieless and
- * events are counts keyed by event name only).
+ * `data-analytics-event` hook are never classified (this integration
+ * sends no PII, no form contents, and does not harvest outbound links —
+ * events are counts carrying only the event name).
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -43,6 +43,39 @@ describe("goatcounterEndpoint", () => {
       goatcounterEndpoint("mycode123"),
       "https://mycode123.goatcounter.com/count",
     );
+  });
+
+  test("valid site slug forms are accepted", () => {
+    for (const id of ["abc12345", "my-site-1", "a", "9to5"]) {
+      assert.equal(
+        goatcounterEndpoint(id),
+        `https://${id}.goatcounter.com/count`,
+        `expected ${id} to be accepted`,
+      );
+    }
+  });
+
+  test("invalid site IDs are rejected with a diagnostic naming the value", () => {
+    const invalid = [
+      "abc def",
+      "abc.goatcounter.com",
+      "https://abc.goatcounter.com/count",
+      "abc/def",
+      "UPPER",
+      "-lead",
+      "trail-",
+      "double--hyphen",
+    ];
+    for (const id of invalid) {
+      assert.throws(
+        () => goatcounterEndpoint(id),
+        (error) =>
+          error instanceof Error &&
+          error.message.includes("Invalid GOATCOUNTER_SITE_ID") &&
+          error.message.includes(JSON.stringify(id)),
+        `expected ${JSON.stringify(id)} to be rejected`,
+      );
+    }
   });
 
   test("surrounding whitespace in the site ID is tolerated", () => {

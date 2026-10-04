@@ -3,13 +3,15 @@
  *
  * Provider decision (founder, 2026-10-04): GoatCounter, recorded in the
  * PRD ("Analytics mechanism") and on the ENG-85 issue description.
- * GoatCounter is cookieless and collects no personal data, so the site
- * ships without a consent banner (privacy stance stated in the PR).
  *
- * Privacy rules (binding on everything in this file and in
- * src/components/Analytics.astro):
- * - Events are counts keyed by an event name only — never form contents,
- *   email addresses or any other PII.
+ * Privacy facts about THIS integration (binding on everything in this
+ * file and in src/components/Analytics.astro — claims here are limited
+ * to what this code does; consent posture is a policy question pending
+ * founder confirmation and is not decided by this code):
+ * - This code sets no cookies and stores nothing client-side.
+ * - Conversion events send one piece of data: the event name (in
+ *   count.js's `path` field). No form contents, email addresses or any
+ *   other PII are read or sent.
  * - External links are classified ONLY when they carry an explicit
  *   `data-analytics-event` hook (the demo/GitHub proof links). There is
  *   no blanket outbound-link tracking.
@@ -25,10 +27,16 @@
  * GoatCounter site ID — SINGLE CONFIG CONSTANT (ENG-85).
  *
  * PENDING founder account provisioning (verified 2026-10-04: no site ID
- * exists yet). When the account is created, set this to the site ID shown
- * in GoatCounter's snippet (e.g. "abc12345" from
+ * exists yet). When the account is created, set this to the site code
+ * shown in GoatCounter's snippet (e.g. "abc12345" from
  * https://abc12345.goatcounter.com/count). Empty string = analytics
  * disabled: no count script is rendered and no events are reported.
+ *
+ * Accepted form: the site slug only — lowercase letters, digits and
+ * single hyphens ("abc12345", "my-site-1"). Anything else (spaces,
+ * dots, full hostnames or URLs) is rejected by goatcounterEndpoint()
+ * with a thrown error so a bad value fails the build instead of
+ * silently emitting requests to a wrong origin.
  */
 export const GOATCOUNTER_SITE_ID = "";
 
@@ -36,12 +44,30 @@ export const GOATCOUNTER_SITE_ID = "";
 export const GOATCOUNTER_COUNT_SCRIPT = "https://gc.zgo.at/count.js";
 
 /**
+ * Strict site-slug pattern: lowercase alphanumeric segments joined by
+ * single hyphens, no leading/trailing hyphen. Mirrors the hostname
+ * label form so the derived `${id}.goatcounter.com` is always a valid
+ * origin (rejects spaces, dots, slashes, protocol prefixes, etc.).
+ */
+const SITE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
  * Full count endpoint for the configured site ID, or null while the site
  * ID is pending (analytics disabled — the script tag is not rendered).
+ *
+ * @throws Error when the ID is non-empty but not a valid GoatCounter
+ *   site slug, with a diagnostic naming the offending value.
  */
 export function goatcounterEndpoint(siteId: string): string | null {
   const trimmed = siteId.trim();
   if (trimmed === "") return null;
+  if (!SITE_SLUG_PATTERN.test(trimmed)) {
+    throw new Error(
+      `Invalid GOATCOUNTER_SITE_ID ${JSON.stringify(trimmed)}: expected the ` +
+        `GoatCounter site slug only (lowercase letters, digits, hyphens — ` +
+        `e.g. "abc12345"), not a hostname or URL.`,
+    );
+  }
   return `https://${trimmed}.goatcounter.com/count`;
 }
 
