@@ -9,7 +9,11 @@
  *
  *   - a non-empty <title> and meta description, each UNIQUE across all
  *     built pages (emptiness is re-checked here so uniqueness never
- *     silently compares missing values);
+ *     silently compares missing values). The title verdict mirrors
+ *     check:dist's semantics: only the head's own <title> counts —
+ *     anchored at the first <body> fragment, with <svg>/<math> depth
+ *     tracked so a foreign <title> label can neither satisfy presence
+ *     nor fake/unfairly-fail uniqueness;
  *   - `noindex` is present if and only if the page is the 404 error page
  *     (dist/404.html) — nothing else may opt out of the index;
  *   - non-noindex pages carry exactly one rel=canonical whose href equals
@@ -35,8 +39,11 @@
  * legitimately containing markup characters cannot fake or hide a check.
  *
  * Local reproduction: npm run build && node scripts/check-seo.mjs
- * Wired into `npm run verify` after build/check:dist (CI runs the same
- * chain through the verify entry point's steps where applicable).
+ * Wired into `npm run verify` after build/check:dist AND mirrored as its
+ * own "SEO head contract checks" step in .github/workflows/ci.yml's
+ * Deterministic checks job (immediately after check:dist) — the local
+ * one-shot command and CI enforce the same gate. Regression battery:
+ * tests/check-seo.test.mjs (exercises the dist-path argv[2] override).
  * Exits non-zero on any problem.
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
@@ -188,9 +195,23 @@ function tagAttr(tag, attrName) {
   return found ? found.value : undefined;
 }
 
-/** First open tag of `name` in a fragment list (undefined when none). */
-const firstTagNamed = (tags, name) =>
-  tags.find((t) => new RegExp(`^<${name}(?=[\\s>/])`, "i").test(t.raw));
+/** Lowercase tag name of an open or close fragment ("svg", "/svg"). */
+function fragmentName(raw) {
+  let i = raw[1] === "/" ? 2 : 1;
+  const start = i;
+  while (i < raw.length && !/[\s/>]/.test(raw[i])) i++;
+  return raw.slice(start, i).toLowerCase();
+}
+
+/**
+ * <svg>/<math> depth step for one fragment — same verdict shape as
+ * check:dist's rule: close pops (floor 0), a self-closing open (`<svg/>`,
+ * trailing `/>` only outside a quoted value) does not push.
+ */
+function stepForeignDepth(raw, depth) {
+  if (raw[1] === "/") return depth > 0 ? depth - 1 : 0;
+  return /\/>$/.test(raw) ? depth : depth + 1;
+}
 
 /**
  * The path a dist file is served at under Cloudflare's
@@ -228,12 +249,26 @@ for (const file of htmlFiles) {
   const tags = extractTags(raw);
 
   // --- <title> and meta description: present, non-empty, unique --------
-  const titleTag = firstTagNamed(tags, "title");
+  // Title verdict mirrors check:dist (scripts/check-dist.mjs itself is
+  // untouched — unifying both scripts on one shared tokenizer is a
+  // documented follow-up): first <title> before the <body> anchor wins at
+  // foreign depth 0, so an <svg>/<math> <title> label never satisfies the
+  // presence check or fakes/unfairly-fails uniqueness.
+  const bodyTag = tags.find((t) => /^<body(?=[\s>/])/i.test(t.raw));
+  const headEnd = bodyTag ? bodyTag.start : raw.length;
   let title = "";
-  if (titleTag) {
-    const rest = raw.slice(titleTag.end);
-    const close = rest.search(/<\/title\s*>/i);
-    title = close === -1 ? "" : rest.slice(0, close);
+  let foreign = 0;
+  for (const t of tags) {
+    if (t.start >= headEnd) break;
+    const name = fragmentName(t.raw);
+    if (name === "svg" || name === "math") {
+      foreign = stepForeignDepth(t.raw, foreign);
+    } else if (name === "title" && t.raw[1] !== "/" && foreign === 0) {
+      const rest = raw.slice(t.end);
+      const close = rest.search(/<\/title\s*>/i);
+      title = close === -1 ? "" : rest.slice(0, close);
+      break;
+    }
   }
   if (!title.trim()) fail("missing or empty <title>");
   else if (seenTitles.has(title))

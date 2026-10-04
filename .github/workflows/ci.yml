@@ -50,3 +50,6 @@ jobs:
 
       - name: Static accessibility, SEO and link checks
         run: npm run check:dist
+
+      - name: SEO head contract checks
+        run: node scripts/check-seo.mjs

@@ -14,6 +14,13 @@ export const site = {
    * 2026-10-04: V1 hosts on Cloudflare Pages under the `.pages.dev` domain
    * until a custom domain is purchased — swapping the domain later is a
    * one-line change here.
+   *
+   * Constraint: origin form only — NO trailing slash. Every consumer
+   * concatenates a leading-slash path (`${site.url}/about/`), so a
+   * trailing slash would emit `//about/` double slashes in sitemap `<loc>`
+   * values and `Sitemap:` in robots.txt — and check:seo reds it (the
+   * URL-built canonical no longer equals the concatenated expected form,
+   * and og:url falls out of the site base).
    */
   url: "https://ethioai-venture-website.pages.dev",
 } as const;

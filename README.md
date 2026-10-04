@@ -41,6 +41,7 @@ npm test               # node:test regression suites (tests/)
 npx astro sync         # content-collection schema validation
 npm run build          # production build
 npm run check:dist     # static accessibility/SEO checks + internal link validation
+node scripts/check-seo.mjs  # SEO head contract: titles, canonical, og:url, sitemap/robots, JSON-LD
 ```
 
 Run everything at once:
@@ -57,7 +58,9 @@ npm run format
 
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
-locally in one go. `check:dist` inspects the generated markup outside inline
+locally in one go — both chains run the same steps in the same order and end with
+`check:dist` followed by the `check:seo` head-contract gate
+(`scripts/check-seo.mjs`). `check:dist` inspects the generated markup outside inline
 `<script>`/`<iframe>`/`<object>` bodies (the tags stay — `src=`/`data=` is a
 fetch target; iframe children live in a child document, object children are
 failure-only fallback), HTML comments (the abrupt `<!-->`/`<!--->` forms and
@@ -124,7 +127,8 @@ interaction, performance and production-like QA stay manual — Linear
 
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
-dependencies) together with the route-pattern suite, wired into both
+dependencies) together with the route-pattern suite and the `check:seo`
+head-contract battery (`tests/check-seo.test.mjs`), wired into both
 `npm run verify` and the CI job.
 
 Action update policy: GitHub-owned actions (`actions/*`) float on mutable major tags;
@@ -141,7 +145,7 @@ src/config/         site configuration
 src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
-tests/              node:test regression suites (route patterns, check:dist)
+tests/              node:test regression suites (route patterns, check:dist, check:seo)
 ```
 
 ## Conventions
