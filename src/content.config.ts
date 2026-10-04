@@ -33,9 +33,11 @@ const stringList = z.array(text).optional();
  * Approved slug pattern (ENG-97). Slugs interpolate directly into dynamic
  * routes (/solutions/[slug], /work/[project], /research/[slug]) and into
  * cross-page relation links, so they must be lowercase URL-safe: letters,
- * digits and single hyphens only — no spaces, no slashes. Cross-collection
- * uniqueness is a separate rule (a zod field cannot see sibling entries);
- * it is enforced by tests/content-slugs.test.mjs in `npm run verify`.
+ * digits and single hyphens only — no spaces, no slashes. Uniqueness
+ * within each collection is a separate rule (a zod field cannot see
+ * sibling entries); it is enforced by tests/content-slugs.test.mjs in
+ * `npm run verify`. The same slug may appear in two different collections —
+ * their routes (/solutions/, /work/, /research/) stay distinct.
  */
 const slug = z
   .string()
