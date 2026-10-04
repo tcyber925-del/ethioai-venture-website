@@ -73,7 +73,9 @@ open or close a strip; an unclosed _container_ — malformed markup Astro never
 emits — fails loudly rather than being guessed out) — for
 static accessibility/SEO problems
 (`<html lang>` with a value read off the document's first `<html>` tag,
-non-empty head `<title>` (an `<svg><title>` label doesn't count) and meta
+non-empty head `<title>` (an `<svg>`/`<math>` `<title>` label never
+counts — depth-tracked, so even a source-order-head foreign one is out)
+and meta
 description, viewport, exactly one `<h1>` per page — every structural
 lookup runs over quote-aware tag fragments: values and attribute-shaped
 prose can't fake a check, while a literal `<h1>` in text (which parsers
@@ -89,7 +91,7 @@ forms, whitespace around `=`, tag and attribute names matched
 case-insensitively — `>` inside a quoted attribute value never splits a
 match, and markup inside another attribute's value (`content="<title>…"`)
 is content, never structure)
-and validates that every internal `href`/`src`/`srcset`
+and validates that every internal `href`/`src`/`srcset`/`<object data=…>`
 reference (including SVG `xlink:href`) — matched only at real
 attribute-name positions inside parsed tag fragments, so neither prose or
 code samples nor attribute-shaped text inside quoted values

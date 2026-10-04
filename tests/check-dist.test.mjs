@@ -3,12 +3,14 @@
  *
  * Run: node --test  — wired into `npm run verify` and the CI job.
  *
- * Every case encodes a verdict proven in PR #12's review rounds (1–15):
+ * Every case encodes a verdict proven in PR #12's review rounds (1–16):
  * quoted/unquoted/whitespace attribute forms, quote-aware tag-fragment
  * lookups, token-walk-only script/iframe/object/comment/CDATA/bogus-comment/
  * inert-container stripping (attribute values can never open a strip),
  * non-rendered content never link-scanned (plaintext/xmp/noframes run or drop
- * whole), tag-context-only link
+ * whole), duplicate-attribute first-wins (browsers never fetch the second),
+ * <object data=> as its element's fetch target, foreign-depth title verdicts,
+ * tag-context-only link
  * scanning (prose mentioning href="/…"
  * must not count), percent/entity decoding, WHATWG path normalization,
  * <base> resolution (relative, offsite, fragment-under-base), data:-srcset
@@ -704,4 +706,34 @@ t(
   "<!foo ...> non-doctype markup declaration is a bogus comment",
   inBody("<!foo href=/dead-bogus>"),
   0,
+);
+
+// ── Round 16: object data= is a fetch target, duplicate attrs first-wins,
+//    foreign titles never the document title ────────────────────────────────
+t(
+  "<object data> is scanned — missing target reds",
+  inBody('<object data="/missing.bin"></object>'),
+  1,
+);
+t(
+  "<object data> present target passes",
+  inBody('<object data="obj.bin"></object>'),
+  0,
+  { "obj.bin": "b" },
+);
+t(
+  "plain data= on a non-object element is not a fetch target",
+  inBody('<div data="/nope.bin"></div>'),
+  0,
+);
+t(
+  "duplicate href: browsers keep the first — second never fetched",
+  inBody('<a href="/work/" href="/nope-dup/">x</a>'),
+  0,
+  { "work/index.html": SUB_PAGE },
+);
+t(
+  "svg <title> in head (before <body>) is not the document title",
+  PAGE.replace("<title>Page</title>", "<svg><title>diagram</title></svg>"),
+  1,
 );

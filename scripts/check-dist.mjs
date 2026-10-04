@@ -22,9 +22,10 @@
  * containers drop whole: <style>/<template>/<textarea>/<noscript>/
  * <xmp>/<noframes> for every check below (<plaintext> never closes — it
  * runs to EOF), plus <title> for all but its own check (RCDATA text;
- * only the head's title counts as the document title — an <svg><title>
- * label doesn't — while an in-foreign <title> is an HTML integration
- * point scanned as markup); an unclosed <container> is malformed markup
+ * only the head's own HTML <title> counts as the document title — an
+ * <svg>/<math> <title> label never does at any source position, tracked
+ * by foreign depth since an svg started in head pops to body — while an
+ * in-foreign <title>'s content is scanned as markup, not raw text); an unclosed <container> is malformed markup
  * Astro never emits — it fails loudly rather than being guessed out. Every structural lookup —
  * lang/title/meta/base and the <h1> count — runs over quote-aware tag
  * fragments (extractTags): `>` inside a quoted attribute value never
@@ -52,7 +53,9 @@
  *     markup, not dropped as raw text))
  * Across pages:
  *   - every internal root-relative or relative href/src/srcset reference
- *     (the href pattern also matches SVG xlink:href) — matched only at
+ *     (the href pattern also matches SVG xlink:href; <object data=…> is
+ *     its element's fetch target and is checked the same, review round
+ *     16) — matched only at
  *     real attribute-name positions inside parsed tag fragments
  *     (quote-aware tokenizer), so neither prose/code samples nor
  *     attribute-shaped text inside quoted values (alt="use href=/x")
@@ -682,15 +685,30 @@ for (const file of htmlFiles) {
 
   // <title> is RCDATA: inner markup is literal text, so the emptiness test
   // runs on the raw content (a "Page<h1>x</h1>" title is not empty). Only
-  // the head's own title counts — an <svg><title> in the body is a diagram
+  // the head's own title counts — an <svg>/<math> <title> is a diagram
   // label, not the document title — and both anchors (<title>, <body>) are
   // fragment lookups, so head-attribute values carrying title- or
   // body-shaped markup can neither shadow the real title nor truncate the
-  // head early (review round 11).
+  // head early (review round 11). Depth-tracked too: an <svg>/<math>
+  // started in head pops out into body at parse time, so even a
+  // source-order-head foreign title (before <body>) never counts —
+  // first title at foreign depth 0 wins (review round 16).
   const titleTags = extractTags(titleSrc);
   const bodyTag = tagsNamed(titleTags, "body")[0];
   const headEnd = bodyTag ? bodyTag.start : titleSrc.length;
-  const titleTag = tagsNamed(titleTags, "title").find((t) => t.start < headEnd);
+  let titleTag;
+  let foreign = 0; // <svg>/<math> open depth over fragments
+  for (const t of titleTags) {
+    if (t.start >= headEnd) break;
+    if (/^<(?:svg|math)(?=[\s>/])/i.test(t.raw)) {
+      if (!/\/>\s*$/.test(t.raw)) foreign++; // self-closing flag honored
+    } else if (/^<\/(?:svg|math)(?=[\s>])/i.test(t.raw)) {
+      if (foreign > 0) foreign--;
+    } else if (/^<title[\s/>]/i.test(t.raw) && foreign === 0) {
+      titleTag = t;
+      break;
+    }
+  }
   let titleText = "";
   if (titleTag) {
     // After the open tag the RCDATA content runs to the first </title>.
@@ -840,10 +858,22 @@ for (const file of htmlFiles) {
   // never fetch targets. xlink:href matches its exact name (colons fine).
   for (const { raw } of pageTags) {
     if (/^<base\b/i.test(raw)) continue;
+    // Duplicate attributes: the parser reports a parse error and keeps the
+    // FIRST — a later href/src/srcset is never fetched, so checking it
+    // would false-red valid markup (review round 16).
+    const seen = new Set();
+    const isObject = /^<object\b/i.test(raw);
     for (const { name, value } of tagAttributes(raw)) {
-      if (value === undefined) continue;
       const attr = name.toLowerCase();
-      if (attr === "href" || attr === "src" || attr === "xlink:href") {
+      if (seen.has(attr)) continue;
+      seen.add(attr);
+      if (value === undefined) continue;
+      if (
+        attr === "href" ||
+        attr === "src" ||
+        attr === "xlink:href" ||
+        (isObject && attr === "data") // <object>'s fetch target (round 16)
+      ) {
         checkReference(value, "link");
       } else if (attr === "srcset") {
         let inDataUri = false;
