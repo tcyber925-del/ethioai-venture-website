@@ -81,4 +81,8 @@ describe("start-a-project spam protection and states", () => {
     assert.match(page, /Accept: "application\/json"/);
     assert.match(page, /method="post"/);
   });
+  test("success requires Formspree's explicit ok:true — a 200 with a non-JSON or ok:false body must never render a false confirmation", () => {
+    assert.match(page, /body\?\.ok === true/);
+    assert.doesNotMatch(page, /body\?\.ok !== false/);
+  });
 });

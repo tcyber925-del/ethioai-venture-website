@@ -267,11 +267,13 @@ const description =
         headers: { Accept: "application/json" },
       })
         .then(async (response) => {
-          // Non-JSON bodies (e.g. a 404 page) reject → null → error state.
+          // Success requires Formspree's explicit ok:true. Non-JSON bodies
+          // and ok:false both land in the error state — a false "sent"
+          // confirmation would lose the inquiry silently.
           const body = (await response.json().catch(() => null)) as {
             ok?: boolean;
           } | null;
-          if (response.ok && body?.ok !== false) {
+          if (response.ok && body?.ok === true) {
             form.reset();
             form.hidden = true;
             status.textContent = "Thanks — your message has been sent.";
