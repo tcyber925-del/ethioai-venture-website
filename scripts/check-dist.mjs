@@ -88,17 +88,38 @@
  *     mixed after a data: URI is under-checked instead). CSS-internal
  *     url() references are not validated either (would require parsing
  *     stylesheets); that stays in ENG-86's manual asset checks.
+ * Across the whole output (ENG-85):
+ *   - the analytics build invariant, in both directions. The site ID comes
+ *     from src/config/analytics.ts (ANALYTICS_SITE_ID overrides it — test-only
+ *     seam, unset in every documented command, so CI always asserts the real
+ *     config; a mismatch between override and build can only red the gate,
+ *     never hide it). While the ID is EMPTY (analytics disabled) no text
+ *     asset may carry an analytics byte: none of "goatcounter",
+ *     "gc.zgo.at" (the count-script origin — the only spelling that omits
+ *     "goatcounter"), or "data-analytics-event" (markup hooks) may appear.
+ *     Text assets only (.html/.js/.css/.json/.svg/.xml/.txt/.map), so an
+ *     image can never red the gate on a coincidental byte run. With an ID set,
+ *     EVERY page must carry the count script (its origin and the derived
+ *     endpoint), and an invalid ID fails the check with the same diagnostic
+ *     the build throws.
  *
  * Local reproduction: npm run build && npm run check:dist
  * Regression battery: npm test (tests/check-dist.test.mjs via node:test —
- * wired into `npm run verify` and the CI job together with the route suite;
- * the suite's type-stripped .ts import needs Node >= 22.18 — the engines
- * floor, so every documented command works across the declared range).
+ * wired into `npm run verify` and the CI job together with the route and
+ * analytics suites; the type-stripped .ts imports need Node >= 22.18 — the
+ * engines floor, so every documented command works across the declared
+ * range). The battery pins ANALYTICS_SITE_ID per scenario so its verdicts
+ * hold whichever way the real config points.
  * Exits non-zero on any problem (CI gate).
  */
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  GOATCOUNTER_COUNT_SCRIPT,
+  GOATCOUNTER_SITE_ID,
+  goatcounterEndpoint,
+} from "../src/config/analytics.ts";
 
 // Default to the repo's dist/; an explicit path (tests, ad-hoc runs against
 // another build) is taken as-is.
@@ -131,9 +152,8 @@ if (!existsSync(distDir)) {
   process.exit(1);
 }
 
-const htmlFiles = walk(distDir).filter((f) =>
-  f.toLowerCase().endsWith(".html"),
-);
+const distFiles = walk(distDir);
+const htmlFiles = distFiles.filter((f) => f.toLowerCase().endsWith(".html"));
 if (htmlFiles.length === 0) {
   console.error("check:dist failed — no HTML files in dist/.");
   process.exit(1);
@@ -962,12 +982,65 @@ for (const file of htmlFiles) {
   }
 }
 
+// ENG-85 — the analytics build invariant (header contract: "Across the whole
+// output"). Disabled (empty site ID): zero analytics bytes in any text asset.
+// Enabled (site ID set): every page carries the count script. An invalid ID
+// fails with the same diagnostic the build throws.
+const analyticsSiteId =
+  process.env.ANALYTICS_SITE_ID === undefined
+    ? GOATCOUNTER_SITE_ID
+    : process.env.ANALYTICS_SITE_ID;
+const ANALYTICS_DISABLED_MARKERS = [
+  "goatcounter",
+  "gc.zgo.at",
+  "data-analytics-event",
+];
+const TEXT_ASSET = /\.(?:html?|js|mjs|css|json|svg|xml|txt|map)$/i;
+try {
+  const analyticsEndpoint = goatcounterEndpoint(analyticsSiteId);
+  if (analyticsEndpoint === null) {
+    for (const file of distFiles.filter((f) => TEXT_ASSET.test(f))) {
+      const text = readFileSync(file, "utf8");
+      const marker = ANALYTICS_DISABLED_MARKERS.find((m) => text.includes(m));
+      if (marker !== undefined) {
+        failures.push(
+          `analytics disabled (empty site ID) but ${relative(distDir, file).split(sep).join("/")} carries "${marker}" bytes`,
+        );
+      }
+    }
+  } else {
+    for (const file of htmlFiles) {
+      const text = readFileSync(file, "utf8");
+      const route =
+        "/" +
+        relative(distDir, file)
+          .split(sep)
+          .join("/")
+          .replace(/(^|\/)index\.html$/i, "$1");
+      if (
+        !text.includes(GOATCOUNTER_COUNT_SCRIPT) ||
+        !text.includes(analyticsEndpoint)
+      ) {
+        failures.push(
+          `${route}: analytics enabled (site ID ${analyticsSiteId}) but the count script is missing`,
+        );
+      }
+    }
+  }
+} catch (error) {
+  failures.push(`analytics: ${error.message}`);
+}
+
 if (failures.length > 0) {
   console.error(`check:dist failed — ${failures.length} problem(s):\n`);
   for (const problem of failures) console.error(`  ✗ ${problem}`);
   process.exit(1);
 }
 
+const analyticsState =
+  goatcounterEndpoint(analyticsSiteId) === null
+    ? "disabled"
+    : `enabled (${analyticsSiteId})`;
 console.log(
-  `check:dist passed — ${htmlFiles.length} page(s), ${referencesChecked} internal reference(s), 0 problems.`,
+  `check:dist passed — ${htmlFiles.length} page(s), ${referencesChecked} internal reference(s), analytics ${analyticsState}, 0 problems.`,
 );
