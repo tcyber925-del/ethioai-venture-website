@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="EthioAI Venture">
+  <title>EthioAI Venture</title>
+  <!--
+    Typographic monogram (founder decision 2026-10-05: monogram, not new brand
+    imagery). A geometric "E" drawn from the wordmark's own letterform at the
+    heading-3 weight's proportions, with the shortened middle arm a sans "E"
+    uses. Colours are design-system tokens: the tertiary teal as ground, the
+    neutral off-white as glyph. Flat geometry so it stays legible at 16px.
+
+    Note for editors: this file is XML, not HTML. XML comments may not contain
+    a double hyphen, so do not mention CSS custom properties (whose names
+    start with two hyphens) in the comment above. tests/site-assets.test.mjs
+    enforces that rule, because an unparseable icon fails silently in some
+    browsers and loudly in others.
+  -->
+  <rect width="64" height="64" rx="12" fill="#0f5b5a" />
+  <g fill="#fafaf8">
+    <rect x="18" y="16" width="8" height="32" />
+    <rect x="18" y="16" width="28" height="8" />
+    <rect x="18" y="28" width="23" height="8" />
+    <rect x="18" y="40" width="28" height="8" />
+  </g>
+</svg>
