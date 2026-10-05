@@ -65,6 +65,16 @@ const websiteJsonLd = JSON.stringify({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{documentTitle}</title>
+    <!--
+      Site icon. Declared explicitly because a browser with no icon link
+      requests /favicon.ico on its own: that request 404'd on every page load
+      (ENG-86 audit minor). The SVG monogram is primary for modern browsers;
+      the .ico is the fallback for legacy agents, generated from the same
+      geometry. check:dist validates both as internal references, so a missing
+      file reds the build.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     {!noindex && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex" />}
     <meta property="og:type" content="website" />
