@@ -42,6 +42,43 @@ describe("the head declares the site icon", () => {
 });
 
 describe("the icon assets exist and are well formed", () => {
+  test("favicon.svg is parseable XML", () => {
+    // The deployed icon was once unparseable: an XML comment may not contain a
+    // double hyphen, and the comment referenced CSS custom properties (whose
+    // names start with two). Chrome reported a parsererror; other consumers
+    // would have failed silently. A browser check caught it, not the suite —
+    // so the rules a hand-authored XML asset can violate are asserted here.
+    // A full XML parser would need a dependency the repo deliberately avoids.
+    const svg = readFileSync(
+      path.join(REPO_ROOT, "public/favicon.svg"),
+      "utf8",
+    );
+    for (const comment of svg.matchAll(/<!--([\s\S]*?)-->/g)) {
+      assert.ok(
+        !comment[1].includes("--"),
+        "an XML comment may not contain a double hyphen (this is how a CSS " +
+          "custom-property name silently breaks an SVG)",
+      );
+    }
+    // Exactly one root element, closed, and no stray angle brackets in text.
+    assert.equal(svg.match(/<svg\b/g)?.length, 1, "one root <svg>");
+    assert.equal(svg.match(/<\/svg>/g)?.length, 1, "the root must be closed");
+    const withoutComments = svg.replace(/<!--[\s\S]*?-->/g, "");
+    for (const tag of withoutComments.matchAll(
+      /<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g,
+    )) {
+      const [, name, attrs] = tag;
+      assert.ok(
+        !attrs.includes("<"),
+        `attribute list of <${name}> contains a stray "<"`,
+      );
+    }
+    assert.ok(
+      !/>\s+[a-zA-Z][^<]*</.test(withoutComments),
+      "unwrapped text nodes are fine, but a stray tag is not",
+    );
+  });
+
   test("favicon.svg is an SVG with an intrinsic size", () => {
     const svg = readFileSync(
       path.join(REPO_ROOT, "public/favicon.svg"),
