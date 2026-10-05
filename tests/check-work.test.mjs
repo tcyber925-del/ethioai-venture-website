@@ -45,6 +45,7 @@ function fixture({
   pages: builtPages = ["work/index.html", "work/ethiobio/index.html"],
   slugs = ["ethiobio"],
   html = "",
+  nestedSlugs = [],
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "check-work-"));
   const dist = join(root, "dist");
@@ -65,6 +66,11 @@ function fixture({
       `---\nslug: ${slug}\n---\n`,
     ),
   );
+  for (const [index, slug] of nestedSlugs.entries()) {
+    const dir = join(projects, "nested");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `deep-${index}.md`), `---\nslug: ${slug}\n---\n`);
+  }
   return { root, dist, projects };
 }
 
@@ -191,7 +197,7 @@ test("fails when a declared project page is missing from the build", () => {
   try {
     const result = run(f.dist, f.projects);
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /missing built page: \/work\/ethiobio\//);
+    assert.match(result.stderr, /missing built page: \/work\/ethiobio/);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -202,7 +208,7 @@ test("fails when the /work index itself is missing", () => {
   try {
     const result = run(f.dist, f.projects);
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /missing built page: \/work\//);
+    assert.match(result.stderr, /missing built page: \/work/);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -218,7 +224,7 @@ test("requires a page for every declared project slug, not a fixed list", () => 
   try {
     const result = run(f.dist, f.projects);
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /missing built page: \/work\/newcomer\//);
+    assert.match(result.stderr, /missing built page: \/work\/newcomer/);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -276,5 +282,126 @@ test("still requires the /work index when no content collection is present", () 
     assert.equal(run(dist, join(root, "absent-projects")).code, 0);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- Negative cases the gate must NOT pass -------------------------------
+// Review round 1 found the <style> "extraction" was a no-op, so the gate
+// scanned raw page text: a selector named in prose, in an HTML comment, or in an
+// attribute value satisfied it with the real rule deleted from the stylesheet.
+// These lock that down.
+
+test("fails when the rule appears only as prose in the page body", () => {
+  const f = fixture({
+    css: ":root{--color-primary:#171717}",
+    html: "<p>Remember to keep .project-card[hidden] { display: none } working.</p>",
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /missing project card hide rule/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("fails when both rules sit in an HTML comment with zero shipped CSS", () => {
+  const f = fixture({
+    css: ":root{--color-primary:#171717}",
+    html: "<!-- .project-card[hidden] { display: none } .filter[hidden] { display: none } -->",
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /missing project card hide rule/);
+    assert.match(result.stderr, /missing status filter hide rule/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("fails when the rule is only a CSS comment inside a real style block", () => {
+  const f = fixture({
+    css: ":root{--color-primary:#171717}",
+    html: "<style>/* .project-card[hidden] { display: none } */</style>",
+  });
+  try {
+    assert.equal(run(f.dist, f.projects).code, 1);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("fails when the rule appears only inside an attribute value", () => {
+  const f = fixture({
+    css: ":root{--color-primary:#171717}",
+    html: '<div data-note=".project-card[hidden] { display: none }"></div>',
+  });
+  try {
+    assert.equal(run(f.dist, f.projects).code, 1);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("still passes when the rule is inside a real style block, and names the carrier", () => {
+  const f = fixture({
+    css: ":root{--color-primary:#171717}",
+    html: ASTRO_SCOPED_STYLE,
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /project card hide rule/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("discovers slugs in nested collection directories", () => {
+  const f = fixture({
+    pages: ["work/index.html", "work/ethiobio/index.html"],
+    nestedSlugs: ["deep-project"],
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /deep-project/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("ignores a slug: line in the body and a trailing comment", () => {
+  const root = mkdtempSync(join(tmpdir(), "check-work-"));
+  const dist = join(root, "dist");
+  const projects = join(root, "src/content/projects");
+  mkdirSync(join(dist, "_astro"), { recursive: true });
+  mkdirSync(projects, { recursive: true });
+  writeFileSync(join(dist, "_astro", "a.css"), GOOD_CSS);
+  mkdirSync(join(dist, "work"), { recursive: true });
+  writeFileSync(join(dist, "work", "index.html"), "<!doctype html>");
+  writeFileSync(
+    join(projects, "entry.md"),
+    "---\nslug: real-slug  # trailing comment\n---\n\nslug: body-mention\n",
+  );
+  try {
+    const result = run(dist, projects);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /real-slug/);
+    assert.doesNotMatch(result.stderr, /body-mention/);
+    assert.doesNotMatch(result.stderr, /trailing comment/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("accepts flat file.html build output as well as directory format", () => {
+  const f = fixture({ pages: ["work.html", "work/ethiobio.html"] });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 0, result.stderr);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
   }
 });
