@@ -42,6 +42,7 @@ npx astro sync         # content-collection schema validation
 npm run build          # production build
 npm run check:dist     # static accessibility/SEO checks + internal link validation
 npm run check:seo       # SEO head contract: titles, canonical, og/twitter, sitemap/robots, JSON-LD
+npm run check:work      # /work regression gate: status-filter hide rules + expected pages in the built output
 ```
 
 Run everything at once:
@@ -60,7 +61,8 @@ The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as t
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go — both chains run the same steps in the same order and end with
 `check:dist` followed by the `check:seo` head-contract gate
-(`scripts/check-seo.mjs`). `check:dist` inspects the generated markup outside inline
+(`scripts/check-seo.mjs`) and then the `check:work` /work regression gate
+(`scripts/check-work.mjs`). `check:dist` inspects the generated markup outside inline
 `<script>`/`<iframe>`/`<object>` bodies (the tags stay — `src=`/`data=` is a
 fetch target; iframe children live in a child document, object children are
 failure-only fallback), HTML comments (the abrupt `<!-->`/`<!--->` forms and
@@ -128,7 +130,8 @@ interaction, performance and production-like QA stay manual — Linear
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
 dependencies) together with the route-pattern, analytics and content-slug
-uniqueness suites, plus the `check:seo` head-contract battery
+uniqueness suites, plus the `check:seo` head-contract battery and the `check:work`
+/work regression battery
 (`tests/check-seo.test.mjs`), wired into both `npm run verify` and the CI job.
 `check:dist` also asserts the **ENG-85 analytics build invariant** in both
 directions from the site ID in `src/config/analytics.ts`: while it is empty no
@@ -184,7 +187,7 @@ src/layouts/        page layouts
 src/pages/          routes
 src/styles/         global styles
 <<<<<<< HEAD
-tests/              node:test regression suites (route patterns, check:dist, check:seo)
+tests/              node:test regression suites (route patterns, check:dist, check:seo, check:work)
 =======
 tests/              node:test regression suites (route patterns, check:dist, content slugs)
 >>>>>>> origin/main
