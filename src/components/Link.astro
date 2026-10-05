@@ -20,11 +20,14 @@ const {
   "data-analytics-event": analyticsEvent,
 } = Astro.props;
 
-// While analytics is pending (empty site ID) the hook is dropped from the
+// While analytics is disabled (empty site ID) the hook is dropped from the
 // markup: the listener never ships in that state, so the attribute would be
 // inert bytes — and scripts/check-dist.mjs requires the disabled build to
 // carry none. Once a site ID is configured the hook renders again.
-const analyticsHook = GOATCOUNTER_SITE_ID === "" ? undefined : analyticsEvent;
+// `.trim().length` rather than `=== ""`: the constant's literal type means a
+// direct comparison is a type error once a real ID is configured.
+const analyticsHook =
+  GOATCOUNTER_SITE_ID.trim().length === 0 ? undefined : analyticsEvent;
 ---
 
 <a

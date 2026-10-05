@@ -5,11 +5,10 @@
  *
  * Renders two pieces from the base layout, but ONLY while
  * GOATCOUNTER_SITE_ID is configured: with an empty site ID neither the
- * count script nor the listener module ships, so the pending-analytics
- * baseline stays zero-JS. scripts/check-dist.mjs asserts both build
+ * count script nor the listener module ships, so the disabled build stays
+ * zero-JS. scripts/check-dist.mjs asserts both build
  * states against dist/ — the enabled path's end-to-end verification
- * (render-with-ID plus live events) rides the site-ID provisioning pass
- * recorded on Linear ENG-85.
+ * (render-with-ID plus live events) is tracked on Linear ENG-85.
  *
  * 1. count.js — the official count script, loaded async (non-blocking)
  *    from the base layout head. Rendered ONLY while the site ID is set:

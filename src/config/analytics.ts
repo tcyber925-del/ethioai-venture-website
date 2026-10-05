@@ -11,8 +11,8 @@
  * this file only implements them.
  *
  * Privacy facts about THIS integration (claims here are limited to what
- * this code does; consent posture is a policy question pending founder
- * confirmation, tracked in the records named above):
+ * this code does; the consent posture is a founder policy decision recorded
+ * in the records named above — no consent banner for V1):
  * - This code sets no cookies and stores nothing client-side.
  * - Conversion events send one piece of data: the event name (in
  *   count.js's `path` field). No form contents, email addresses or any
@@ -20,8 +20,8 @@
  * - External links are classified ONLY when they carry an explicit
  *   `data-analytics-event` hook (the demo/GitHub proof links). There is
  *   no blanket outbound-link tracking.
- * - While GOATCOUNTER_SITE_ID is pending, nothing is loaded and nothing
- *   is reported.
+ * - With an empty GOATCOUNTER_SITE_ID nothing is loaded and nothing is
+ *   reported; the ID is provisioned (2026-10-05).
  *
  * This module is pure (no DOM APIs) so the classification rules are
  * covered by tests/analytics.test.mjs via `node --test`. The DOM wiring
@@ -32,10 +32,10 @@
 /**
  * GoatCounter site ID — SINGLE CONFIG CONSTANT (ENG-85).
  *
- * PENDING founder account provisioning (status recorded on Linear
- * ENG-85). When the account is created, set this to the site code
- * shown in GoatCounter's snippet (e.g. "abc12345" from
- * https://abc12345.goatcounter.com/count). Empty string = analytics
+ * Provisioned by the founder 2026-10-05 (status recorded on Linear
+ * ENG-85): the account name doubles as the site code, so this is the
+ * "ethioaiventure" in
+ * https://ethioaiventure.goatcounter.com/count. Empty string = analytics
  * disabled: no count script is rendered, no listeners ship, and no
  * events are reported (scripts/check-dist.mjs asserts this invariant
  * against dist/).
@@ -46,7 +46,7 @@
  * with a thrown error so a bad value fails the build instead of
  * silently emitting requests to a wrong origin.
  */
-export const GOATCOUNTER_SITE_ID = "";
+export const GOATCOUNTER_SITE_ID = "ethioaiventure";
 
 /** Origin of the official count script (dependency-free, loaded async). */
 export const GOATCOUNTER_COUNT_SCRIPT = "https://gc.zgo.at/count.js";
@@ -61,7 +61,7 @@ const SITE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * Full count endpoint for the configured site ID, or null while the site
- * ID is pending (analytics disabled — the script tag is not rendered).
+ * ID is empty (analytics disabled — the script tag is not rendered).
  *
  * @throws Error when the ID is non-empty but not a valid GoatCounter
  *   site slug, with a diagnostic naming the offending value.
