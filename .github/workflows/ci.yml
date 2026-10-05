@@ -53,3 +53,7 @@ jobs:
 
       - name: SEO head contract checks
         run: npm run check:seo
+      # ENG-95 — additive gate; runs after Build so dist/ exists. Fails the
+      # "Deterministic checks" job if the /work hide rules or pages vanish.
+      - name: Work page regression checks
+        run: npm run check:work
