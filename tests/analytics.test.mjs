@@ -22,6 +22,9 @@
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 import {
   EVENT_HOOK_ATTRIBUTE,
@@ -215,4 +218,39 @@ describe("untracked surfaces stay null (privacy: counts only, no surprises)", ()
       assert.equal(analyticsEventForAnchor(href), null);
     });
   }
+});
+
+describe("the Start a Project form is wired to the analytics client", () => {
+  // Found by live verification: the page shipped without the hook the client
+  // listens for, so form-start/form-submit could never fire in production
+  // while every unit test still passed. The attribute name is a literal in
+  // the template (Astro cannot interpolate an attribute name), so pin it
+  // against the constant the client actually queries.
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "..",
+  );
+  const page = readFileSync(
+    path.join(repoRoot, "src/pages/start-a-project.astro"),
+    "utf8",
+  );
+
+  test("the form renders FORM_HOOK_ATTRIBUTE", () => {
+    assert.ok(
+      page.includes(
+        `${FORM_HOOK_ATTRIBUTE}={analyticsEnabled ? "" : undefined}`,
+      ),
+      `the form must render ${FORM_HOOK_ATTRIBUTE}, gated on the analytics ` +
+        "enabled flag",
+    );
+  });
+
+  test("the gate is the analytics enabled flag, not a literal", () => {
+    assert.match(page, /GOATCOUNTER_SITE_ID\.trim\(\)\.length > 0/);
+    assert.ok(
+      !page.includes(`${FORM_HOOK_ATTRIBUTE}=""`),
+      "the hook must be absent while analytics is disabled - check:dist " +
+        "requires the disabled build to carry no analytics bytes",
+    );
+  });
 });

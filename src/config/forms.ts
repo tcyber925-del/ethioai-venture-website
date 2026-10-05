@@ -6,11 +6,10 @@
  * (founder decision, 2026-10-04, recorded in PRD "Conversion mechanism"
  * and spec 04).
  *
- * PENDING: the Formspree form endpoint ID has not been provisioned by the
- * founder yet. Until it arrives, this constant keeps its placeholder value
- * and submissions cannot succeed — replacing `PENDING_FORMSPREE_ID` with
- * the founder-provisioned ID is the single config change; no other file
- * references the endpoint (tests/start-a-project.test.mjs enforces that).
+ * PROVISIONED 2026-10-05: the founder created the form and supplied the
+ * endpoint ID; replacing the placeholder with the real ID was the single
+ * config change, and no other file references the endpoint
+ * (tests/start-a-project.test.mjs enforces that).
  *
  * SPAM PROTECTION (founder decision, 2026-10-04 — no longer pending):
  * ship BOTH honeypot fields — the AC-literal `_honey` AND Formspree's
@@ -18,4 +17,4 @@
  * filtering", all plans: a filled `_gotcha` is silently ignored
  * server-side). Both render hidden in the page's `.hp` wrapper.
  */
-export const formspreeEndpoint = "https://formspree.io/f/PENDING_FORMSPREE_ID";
+export const formspreeEndpoint = "https://formspree.io/f/xrpeggll";

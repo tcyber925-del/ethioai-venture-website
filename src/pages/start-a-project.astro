@@ -30,6 +30,21 @@ import Container from "../components/Container.astro";
 import MetadataLabel from "../components/MetadataLabel.astro";
 import Button from "../components/Button.astro";
 import { formspreeEndpoint } from "../config/forms";
+import { GOATCOUNTER_SITE_ID } from "../config/analytics";
+
+/**
+ * The analytics form hook is rendered only while analytics is enabled.
+ *
+ * src/scripts/analytics-client.ts listens for focusin/submit on
+ * `form[data-analytics-form]`, so without this attribute the conversion
+ * events (`form-start`, `form-submit`) can never fire — found by live
+ * verification, not by the unit suite. The attribute must also be absent
+ * while analytics is disabled: scripts/check-dist.mjs requires the disabled
+ * build to carry no analytics bytes at all. Same pattern as Link.astro's
+ * event hook; tests/analytics.test.mjs pins this page's attribute literal
+ * against FORM_HOOK_ATTRIBUTE so the two cannot drift.
+ */
+const analyticsEnabled = GOATCOUNTER_SITE_ID.trim().length > 0;
 
 const description =
   "Describe the AI, workflow, knowledge, or document problem you want to solve and start a project with EthioAI Venture.";
@@ -50,7 +65,12 @@ const description =
         </p>
       </header>
 
-      <form id="project-form" method="post" action={formspreeEndpoint}>
+      <form
+        id="project-form"
+        method="post"
+        action={formspreeEndpoint}
+        data-analytics-form={analyticsEnabled ? "" : undefined}
+      >
         <div class="field">
           <label for="problem">What problem are you trying to solve?</label>
           <textarea
