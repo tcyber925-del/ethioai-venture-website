@@ -10,10 +10,25 @@ jobs:
     # same-repo PRs — and only once they are out of draft.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
-    # Review rounds grew past the original 15-min cap once the battery and
-    # PR body expanded — two round-15 runs were killed at it (cancelled
-    # conclusion, no comment posted). 25 gives headroom over the ~12–14-min
-    # steady-state rounds.
+    # 15-min cap was raised to 25 when review rounds grew past it (two runs
+    # killed at 15, `cancelled`, no comment posted). Steady-state rounds ran
+    # ~12–14 min, so 25 looked like headroom.
+    #
+    # It was not, and the job log shows why: the agent requested an
+    # `external_directory` permission for `/tmp/*`, whose default effect is
+    # `ask`. This job is non-interactive, so nobody answers — the agent sat
+    # blocked for 13.3 of the 25 minutes and was then killed by this timeout,
+    # posting nothing. Two consecutive runs on PR #26 did exactly that; the run
+    # that succeeded never touched /tmp at all.
+    #
+    # `anomalyco/opencode/github` exposes no permissions input, so the only
+    # config lever is a repo-level opencode.json — which would apply to every
+    # opencode session on this repo. Widening an advisory reviewer that is
+    # explicitly read-only is the wrong trade for a scratch directory. The
+    # prompt below instead tells it to stay inside the workspace, which removes
+    # the prompt rather than pre-approving it. Raising this cap further would
+    # only lengthen the stall; if it ever needs revisiting, raise it together
+    # with a real answer for permission prompts.
     timeout-minutes: 25
     concurrency:
       group: opencode-review-${{ github.event.pull_request.number }}
@@ -45,3 +60,9 @@ jobs:
             - Check for code quality issues and potential bugs.
             - Cite file paths for each finding, ordered by severity. If nothing
               needs attention, say so briefly.
+            - Work inside the checked-out repository only. Do NOT write to /tmp,
+              /var/tmp, or any path outside the workspace, and do not run
+              commands that need a temporary directory. This job is
+              non-interactive: a permission prompt for an external directory is
+              never answered, so requesting one blocks until the job is killed.
+              See the timeout note above.
