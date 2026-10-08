@@ -312,11 +312,13 @@ function readField(file, field) {
     continuation.push(line.trim());
   }
   const first = m[1].trim();
-  if (first === "|") {
-    const value = continuation.join("\n").trim();
+  // `>`, `>-`, `>`, `|`, `|-` — every block scalar indicator, with or without
+  // a chomping marker.
+  if (first !== "" && /^[>|][+-]?$/.test(first)) {
+    const value = continuation.join(" ").trim();
     return value === "" ? null : value;
   }
-  if (first === "" || first === ">" || first === ">-") {
+  if (first === "") {
     const value = continuation.join(" ").trim();
     return value === "" ? null : value;
   }
@@ -527,6 +529,23 @@ describe("check:pending catches the regressions it exists for", () => {
       /claims no relationship is declared, but Related Work is not listed/,
     ],
     [
+      // Round 10. The converse of the chip cases above: nothing required a card
+      // to have an evidenced entry BEHIND it, so a card with no chips and no
+      // prose — presenting a project that approves neither — passed clean.
+      "a chip-less, prose-less card presents an entry with no evidence",
+      {
+        home: (b, ctx) =>
+          b.replace(
+            ctx.cards,
+            ctx.cards +
+              `<li class="evidence"><p class="evidence__title">` +
+              `<a href="/work/ethiobio">EthioBio</a></p>` +
+              `<p class="evidence__text"></p></li>`,
+          ),
+      },
+      /presents ethiobio as evidence, but that entry approves no evidence prose/,
+    ],
+    [
       // Round 5. The link is gone from the card but the same href sits just
       // past the list's closing tag. An unbounded card slice accepted it.
       "an evidence card drops a link its prose claims, and the href reappears later on the page",
@@ -553,10 +572,11 @@ describe("check:pending catches the regressions it exists for", () => {
       /technology chips do not match the entry's approved list/,
     ],
     [
-      // A card carrying chips for a slug no entry backs. Written against an
-      // invented slug rather than an entry that "has no stack", because the
-      // first approved stack on every entry made that lookup return undefined
-      // and crash — another false red on an ordinary content addition.
+      // A card for a slug no entry backs. Written against an invented slug
+      // rather than an entry that "has no stack", because the first approved
+      // stack on every entry made that lookup return undefined and crash —
+      // another false red on an ordinary content addition. The no-entry case
+      // now reports first, which is the more accurate diagnosis.
       "a chip is invented for an entry that does not exist",
       {
         home: (b, ctx) =>
@@ -570,7 +590,7 @@ describe("check:pending catches the regressions it exists for", () => {
               `<p class="evidence__links"></p></li>`,
           ),
       },
-      /renders technology chips for .* which declares no approved technologies/,
+      /presents no-such-project as evidence, but no approved entry has that slug/,
     ],
     [
       "the approved summary is no longer rendered",
@@ -611,7 +631,7 @@ describe("check:pending catches the regressions it exists for", () => {
             '<p class="card__summary">An invented summary</p></main>',
           ),
       },
-      /summary\/summaryies with no approved entry behind/,
+      /renders 1 summary with no approved entry behind/,
     ],
     [
       // Round 7 finding 2: the prose claims both links ("see the links on this

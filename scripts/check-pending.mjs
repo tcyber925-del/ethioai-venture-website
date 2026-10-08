@@ -518,15 +518,40 @@ if (!existsSync(homeFile)) {
     }
   }
 
-  // A chip that belongs to no entry is a fabricated claim. Matched by the
-  // entry's `slug:` field, since that is the slug the card links to.
+  // Anything the homepage presents as evidence must be backed by an approved
+  // entry that actually HAS evidence. Matched by the entry's `slug:` field,
+  // since that is the slug the card links to.
+  //
+  // The converse of the checks above, and the one that was missing: they
+  // required every evidenced entry to have a card, nothing required every card
+  // to have an evidenced entry. So an injected card with NO chips and NO prose
+  // — presenting a project that approves neither — passed clean. That is the
+  // fabricated-claim direction this gate exists to stop, one level below the
+  // chip case.
   for (const [slug, card] of cards) {
     const file = projectFiles.find((f) => slugOf(f) === slug);
     const listed = file ? approvedTechnologies(file) : [];
+    const prose = file
+      ? frontmatterValue(readFileSync(file, "utf8"), "evidence")
+      : null;
+    if (!file) {
+      fail(
+        `/ engineering depth presents ${slug} as evidence, but no approved ` +
+          "entry has that slug — the card is fabricated",
+      );
+      continue;
+    }
     if (card.chips.length > 0 && listed.length === 0) {
       fail(
         `/ engineering depth renders technology chips for ${slug}, which ` +
           "declares no approved technologies",
+      );
+    }
+    if (card.chips.length === 0 && prose === null && listed.length === 0) {
+      fail(
+        `/ engineering depth presents ${slug} as evidence, but that entry ` +
+          "approves no evidence prose and no technology stack — the card has " +
+          "nothing behind it",
       );
     }
   }
@@ -569,7 +594,13 @@ if (!existsSync(homeFile)) {
         }
         continue;
       }
-      if (!card.block.includes(`href="${url}"`)) {
+      // Compare against the DECODED href. Astro escapes `&` in an attribute, so a
+      // `demo:` URL carrying a query string (`?ref=a&x=1`) renders as
+      // `&amp;` and a raw comparison false-reds a correct page.
+      const renderedHrefs = [...card.block.matchAll(/href="([^"]*)"/g)].map(
+        (m) => decodeEntities(m[1]),
+      );
+      if (!renderedHrefs.includes(decodeEntities(url))) {
         fail(
           `/ the ${field} link for ${slug} is missing from engineering depth` +
             (claimed
@@ -581,16 +612,19 @@ if (!existsSync(homeFile)) {
 
     // The prose itself is the public claim on this page — "tagged release",
     // "deployed dashboard". It is reused verbatim from the entry, so assert it
-    // is still there verbatim (whitespace-normalised, since the template wraps
-    // it through Astro's whitespace handling).
-    const rendered = card.block
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (!rendered.includes(evidence.replace(/\s+/g, " ").trim())) {
+    // is still there verbatim.
+    //
+    // BOTH sides are whitespace-normalised AND entity-decoded. An earlier
+    // version normalised only the approved side and compared against raw
+    // rendered text, so a literal `|` block — valid YAML, rendered correctly —
+    // and any ampersand in the prose both false-red a correct page.
+    const rendered = normalise(
+      decodeEntities(card.block.replace(/<[^>]+>/g, " ")),
+    );
+    if (!rendered.includes(normalise(evidence))) {
       fail(
         `/ the evidence prose for ${slug} does not match the approved text\n` +
-          `      approved: ${evidence}`,
+          `      approved: ${normalise(evidence)}`,
       );
     }
   }
@@ -610,7 +644,11 @@ if (!existsSync(homeFile)) {
   // its summary.
   const renderedSummaries = [
     ...home.matchAll(/class="card__summary"[^>]*>([^<]+)/g),
-  ].map((m) => decodeEntities(m[1].trim()));
+    // Normalise the RENDERED side too. Comparing a normalised approved value
+    // against raw rendered text was an asymmetry: a `|` literal block, or any
+    // run of spaces the folded source collapsed, failed with two messages for
+    // one cause.
+  ].map((m) => normalise(decodeEntities(m[1])));
 
   // Consume one rendered summary per approved entry, so two entries approving
   // the same text each claim one.
@@ -635,8 +673,9 @@ if (!existsSync(homeFile)) {
   // in exactly that state.
   if (remaining.length > 0) {
     fail(
-      `/ selected work renders ${remaining.length} summary/summaryies with no ` +
-        `approved entry behind ${remaining.length === 1 ? "it" : "them"}:\n` +
+      `/ selected work renders ${remaining.length} ` +
+        `${remaining.length === 1 ? "summary" : "summaries"} with no approved ` +
+        `entry behind ${remaining.length === 1 ? "it" : "them"}:\n` +
         remaining.map((t) => `      ${t}`).join("\n"),
     );
   }
@@ -696,14 +735,15 @@ function frontmatterValue(front, field) {
   const continuation = indentedLinesAfter(front, match.index);
 
   const first = match[1].trim();
-  if (first === ">" || first === ">-") {
-    // Folded scalar: line breaks become spaces.
+  // Block scalar indicators: `>` folded, `|` literal, each with an optional
+  // chomping indicator (`-` strip, `+` keep). All four combinations are valid
+  // YAML that the schema accepts; an earlier reader knew only `>`, `>-` and `|`,
+  // so `|-` — very common for a summary — was read as the literal string "|-".
+  if (/^[>|][+-]?$/.test(first)) {
+    // Folded and literal blocks differ in whether line breaks survive, but the
+    // rendering Astro produces is whitespace-insensitive and `normalise`
+    // collapses it, so one form serves both comparisons.
     const value = continuation.join(" ").trim();
-    return value === "" ? null : value;
-  }
-  if (first === "|") {
-    // Literal scalar: line breaks are kept, so only trim the edges.
-    const value = continuation.join("\n").trim();
     return value === "" ? null : value;
   }
   if (first === "") {
