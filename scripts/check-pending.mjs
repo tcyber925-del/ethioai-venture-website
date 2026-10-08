@@ -44,15 +44,20 @@
  * the form is narrow and stated in its own section: the live regions must
  * survive the build OUTSIDE <form>.
  *
- * There is no separate fixture battery file: this
- * gate reads the real content collections, so a hand-built fixture would have
- * to re-state the approved sequences and could pass while the real ones drifted.
+ * There IS a fixture battery: tests/check-pending.test.mjs asserts this gate
+ * REDS on each regression below. It builds its fixture dist/ from the REAL
+ * src/content rather than a fixture content tree, because this gate's whole
+ * design is that its expectations derive from approved content — a fixture
+ * content tree would test a different contract than the one that ships.
  *
- * No source-level suite covers this contract; an earlier version of this comment
- * claimed one did, which is how it stayed wrong while being re-read. Only
- * tests/content-predicate.test.mjs touches the underlying predicate — the
- * pending/evidence contract itself is held solely here, so this gate is the
- * only thing standing between a regression and a merged PR.
+ * That battery exists because five of the seven review rounds on this branch
+ * found a real defect in this one gate, two of them false-PASSES, and every one
+ * had been found by hand. An earlier version of this comment said no suite
+ * covered the contract at all; that was true when written and false within a
+ * commit, which is how a comment outlives the code it describes.
+ *
+ * tests/content-predicate.test.mjs covers the underlying `hasContent` rule; the
+ * pending/evidence contract is held here, and its RED battery there.
  *
  * Local reproduction: npm run build && npm run check:pending
  * Exits non-zero on any problem (CI gate).

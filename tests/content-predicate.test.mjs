@@ -103,6 +103,11 @@ const COLLECTION_FIELDS = [
   "github",
   "demo",
   "images",
+  // research collection fields. The research collection is empty today, so
+  // nothing renders them — but the routes exist, and this ban is about the
+  // source, not about what currently happens to have content.
+  "topic",
+  "question",
 ];
 
 describe("every surface uses the shared predicate", () => {
@@ -128,6 +133,7 @@ describe("every surface uses the shared predicate", () => {
     "src/components/work/ProjectCard.astro",
     "src/components/solutions/SolutionCard.astro",
     "src/components/research/ResearchCard.astro",
+    "src/pages/research/[slug].astro",
   ];
 
   for (const component of components) {

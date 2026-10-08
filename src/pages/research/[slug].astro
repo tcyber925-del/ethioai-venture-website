@@ -24,6 +24,7 @@ import Button from "../../components/Button.astro";
 import ResearchSection from "../../components/research/ResearchSection.astro";
 import { site } from "../../config/site";
 import { getCollection, type CollectionEntry } from "astro:content";
+import { hasContent as carries, hasContentOrAny } from "../../lib/content";
 
 export async function getStaticPaths() {
   const entries = await getCollection("research");
@@ -66,7 +67,9 @@ const description = rawDescription
 
 /** Guard the raw frontmatter href to http(s) only — same rule as sources. */
 const githubUrl =
-  data.github && /^https?:\/\//.test(data.github) ? data.github : undefined;
+  carries(data.github) && /^https?:\/\//.test(data.github)
+    ? data.github
+    : undefined;
 
 const sources = data.sources ?? [];
 ---
@@ -79,10 +82,10 @@ const sources = data.sources ?? [];
       </p>
       <MetadataLabel>Research</MetadataLabel>
       <h1>{data.title}</h1>
-      {(data.topic || data.status) && (
+      {hasContentOrAny([data.topic, data.status]) && (
         <p class="detail-header__meta">
-          {data.topic && <MetadataLabel>{data.topic}</MetadataLabel>}
-          {data.status && <MetadataLabel>{data.status}</MetadataLabel>}
+          {carries(data.topic) && <MetadataLabel>{data.topic}</MetadataLabel>}
+          {carries(data.status) && <MetadataLabel>{data.status}</MetadataLabel>}
         </p>
       )}
       {githubUrl && (
@@ -94,7 +97,7 @@ const sources = data.sources ?? [];
       )}
     </header>
 
-    {data.question && (
+    {carries(data.question) && (
       <ResearchSection id="question" title="Question">
         <p>{data.question}</p>
       </ResearchSection>
@@ -125,10 +128,10 @@ const sources = data.sources ?? [];
         )}
       </ResearchSection>
     )}
-    {(data.learnings || data.limitations) && (
+    {hasContentOrAny([data.learnings, data.limitations]) && (
       <ResearchSection id="learnings" title="What We Learned">
-        {data.learnings && <p>{data.learnings}</p>}
-        {data.limitations && (
+        {carries(data.learnings) && <p>{data.learnings}</p>}
+        {carries(data.limitations) && (
           <>
             <h3>Limitations</h3>
             <p>{data.limitations}</p>
@@ -136,7 +139,7 @@ const sources = data.sources ?? [];
         )}
       </ResearchSection>
     )}
-    {data.next && (
+    {carries(data.next) && (
       <ResearchSection id="next" title="What Comes Next">
         <p>{data.next}</p>
       </ResearchSection>

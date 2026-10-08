@@ -32,3 +32,16 @@ export function hasListItem(
 ): value is readonly string[] {
   return Array.isArray(value) && value.some(hasContent);
 }
+
+/**
+ * True when any of the given fields carries content.
+ *
+ * For the "one of these two, or neither" shape — `{(topic || status) && …}`
+ * guarding a pair of labels. Expressed once so the wrapper and its children
+ * cannot disagree: if the wrapper kept truthiness while the children used
+ * `hasContent`, a whitespace-only value would print an empty `<p>` there while
+ * counting as absence everywhere else.
+ */
+export function hasContentOrAny(values: readonly unknown[]): boolean {
+  return values.some(hasContent);
+}

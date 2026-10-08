@@ -124,26 +124,32 @@ const SOLUTION_FIELD = {
 
 const RELATED_REASON = "no approved related-work relationship is declared";
 
-/** The project step titles a given entry actually renders. */
+/**
+ * The project step titles a given entry actually renders.
+ *
+ * Reads every field through `readField`, not the single-line `frontmatter()`
+ * helper: a folded block (`evidence: >-`) or a block list (`images:` continued
+ * on indented lines) reads as `""` there, which is how the images-only Evidence
+ * shape — round 1's real bug, where a step whose content is images rendered
+ * nothing — went unexercised in this battery.
+ */
 function presentProjectSteps(file) {
-  const fm = frontmatter(file);
-  const has = (v) => typeof v === "string" && v.trim() !== "";
+  const has = (field) => readField(file, field) !== null;
+  const hasList = (field) => readList(file, field).length > 0;
   return PROJECT_STEPS.filter((title) => {
     if (title === "Related Work") return false; // always rendered, never pending
     const field = PROJECT_FIELD[title];
     // Evidence is the one step with two content shapes: prose, or images.
-    if (title === "Evidence") return has(fm.evidence) || has(fm.images);
-    return field ? has(fm[field]) : false;
+    if (title === "Evidence") return has("evidence") || hasList("images");
+    return field ? has(field) : false;
   });
 }
 
 function presentSolutionSteps(file) {
-  const fm = frontmatter(file);
-  const has = (v) => typeof v === "string" && v.trim() !== "";
   return SOLUTION_STEPS.filter((title) => {
     if (title === "Related work") return false;
     const field = SOLUTION_FIELD[title];
-    return field ? has(fm[field]) : false;
+    return field ? readField(file, field) !== null : false;
   });
 }
 
@@ -230,10 +236,17 @@ function evidenceCard(file, { withChips = true } = {}) {
 
 /** A correct homepage: the engineering-depth section built from the content. */
 function homePage(mutate = (b) => b, content = CONTENT_DIR) {
-  const evidenced = collectionFiles("projects", content).filter((f) => {
-    const fm = frontmatter(f);
-    return Boolean(fm.evidence) || Boolean(fm.technologies);
-  });
+  // Read BOTH shapes properly. The single-line `frontmatter()` helper above
+  // reads a block list (`technologies:` continued on indented lines) as `""`,
+  // so `Boolean(fm.technologies)` is false for it — which made this fixture
+  // omit the card for the first entry to declare a stack, and reddened the
+  // suite on the most ordinary content addition this site exists for. That is
+  // the false-red class rounds 2, 4 and 5 removed, reintroduced one layer down.
+  const evidenced = collectionFiles("projects", content).filter(
+    (f) =>
+      readField(f, "evidence") !== null ||
+      readList(f, "technologies").length > 0,
+  );
   const cards = evidenced.map((f) => evidenceCard(f)).join("");
 
   const summaries = collectionFiles("projects", content)
@@ -450,6 +463,33 @@ describe("check:pending catches the regressions it exists for", () => {
       /is neither rendered nor named pending/,
     ],
     [
+      // Round 2. Related Work is rendered from its own branch, so naming it
+      // pending means the note must carry the honest reason — not the old
+      // "no approved content published" placeholder.
+      "Related Work is named pending without the honest reason",
+      {
+        project: (b) =>
+          b.replace(
+            "</ul></section>",
+            "<li>Related Work — not yet published</li></ul></section>",
+          ),
+      },
+      /Related Work is pending, so it must state that no approved relationship/,
+    ],
+    [
+      // The other direction: the note claims no relationship is declared while
+      // Related Work is rendered, so one of the two is wrong.
+      "the pending note claims no relationship while Related Work is rendered",
+      {
+        project: (b) =>
+          b.replace(
+            "</ul></section>",
+            `<li>Some Step — ${RELATED_REASON}</li></ul></section>`,
+          ),
+      },
+      /claims no relationship is declared, but Related Work is not listed/,
+    ],
+    [
       // Round 5. The link is gone from the card but the same href sits just
       // past the list's closing tag. An unbounded card slice accepted it.
       "an evidence card drops a link its prose claims, and the href reappears later on the page",
@@ -476,22 +516,22 @@ describe("check:pending catches the regressions it exists for", () => {
       /technology chips do not match the entry's approved list/,
     ],
     [
-      // A card for an entry that declares no technologies, but showing chips.
-      "a chip is invented for an entry that declares no stack",
+      // A card carrying chips for a slug no entry backs. Written against an
+      // invented slug rather than an entry that "has no stack", because the
+      // first approved stack on every entry made that lookup return undefined
+      // and crash — another false red on an ordinary content addition.
+      "a chip is invented for an entry that does not exist",
       {
-        home: (b, ctx) => {
-          const noStack = ctx.files.find(
-            (f) => !ctx.card(f).includes('class="evidence__tech"'),
-          );
-          const invented = ctx
-            .card(noStack)
-            .replace(
-              '<li class="evidence">',
-              '<li class="evidence"><ul class="evidence__stack" role="list">' +
-                '<li class="evidence__tech">Pinecone</li></ul>',
-            );
-          return b.replace(ctx.cards, ctx.cards + invented);
-        },
+        home: (b, ctx) =>
+          b.replace(
+            ctx.cards,
+            ctx.cards +
+              `<li class="evidence"><p class="evidence__title">` +
+              `<a href="/work/no-such-project">No Such Project</a></p>` +
+              `<ul class="evidence__stack" role="list">` +
+              `<li class="evidence__tech">Pinecone</li></ul>` +
+              `<p class="evidence__links"></p></li>`,
+          ),
       },
       /renders technology chips for .* which declares no approved technologies/,
     ],
@@ -600,6 +640,96 @@ describe("check:pending catches the regressions it exists for", () => {
       assertReds(fixture, expected, label);
     });
   }
+});
+
+describe("two evidenced entries coexist", () => {
+  /**
+   * Round 4's bug was a chip check that concatenated every chip on the homepage
+   * and compared it to ONE entry, so the first second entry with a stack would
+   * redden CI. Every RED chip case above reddens under both the old and the new
+   * implementation, and the real collections have exactly one evidenced entry —
+   * so nothing in the battery could tell the two apart.
+   *
+   * This is the state that distinguishes them, and it must be GREEN: two cards,
+   * each matching its own approved list.
+   */
+  function withSecondStack() {
+    const root = mkdtempSync(join(tmpdir(), "check-pending-two-"));
+    for (const name of ["projects", "solutions"]) {
+      mkdirSync(join(root, name), { recursive: true });
+      for (const file of collectionFiles(name)) {
+        writeFileSync(
+          join(root, name, file.split("/").pop()),
+          readFileSync(file),
+        );
+      }
+    }
+    writeFileSync(
+      join(root, "projects", "second-stack.md"),
+      [
+        "---",
+        "title: Second Stack",
+        "slug: second-stack",
+        "status: In Development",
+        "technologies:",
+        "  - Rust",
+        "  - WASM",
+        "---",
+        "",
+      ].join("\n"),
+    );
+    return root;
+  }
+
+  test("both entries' chips match their own lists, in either card order", () => {
+    const content = withSecondStack();
+    try {
+      for (const reverse of [false, true]) {
+        const result = runGate({
+          content,
+          home: (b, ctx) => {
+            if (!reverse) return b;
+            // Split on the card's OPENING tag, not a `</li>`: a card contains a
+            // nested `<ul>` of chips, so a `[\s\S]*?</li>` match stops at the
+            // first chip and truncates the card.
+            const OPEN = '<li class="evidence"';
+            const parts = ctx.cards.split(OPEN).slice(1);
+            return b.replace(
+              ctx.cards,
+              parts
+                .map((p) => OPEN + p)
+                .reverse()
+                .join(""),
+            );
+          },
+        });
+        assert.ok(
+          result.ok,
+          `two evidenced entries must pass (reversed=${reverse}):\n${result.output}`,
+        );
+      }
+    } finally {
+      rmSync(content, { recursive: true, force: true });
+    }
+  });
+
+  test("a stack-declaring entry with no card at all is still caught", () => {
+    const content = withSecondStack();
+    try {
+      const result = runGate({
+        content,
+        home: (b) =>
+          b.replace(
+            /<li class="evidence"[\s\S]*?second-stack[\s\S]*?<\/li>/,
+            "",
+          ),
+      });
+      assert.ok(!result.ok, "expected a missing card to redden");
+      assert.match(result.output, /second-stack/);
+    } finally {
+      rmSync(content, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("the gate follows the `slug:` field, not the filename", () => {
