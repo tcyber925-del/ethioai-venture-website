@@ -23,8 +23,9 @@
  * DEFAULTS TO FALSE on purpose: a caller that forgets the prop gets a dropped
  * section rather than a fabricated-looking placeholder. The cost of that
  * default is that a forgotten prop is silent — the call sites on
- * solutions/[slug].astro therefore all pass it explicitly, and a test asserts
- * each one agrees with the `sequence` list beside them.
+ * solutions/[slug].astro therefore all pass it explicitly, and
+ * scripts/check-pending.mjs fails the build if a step ends up neither rendered
+ * nor named pending.
  */
 interface Props {
   /** Approved section heading (verbatim from the spec sequence). */

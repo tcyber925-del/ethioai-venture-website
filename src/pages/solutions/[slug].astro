@@ -57,9 +57,14 @@ const hasList = (value: string[] | undefined): boolean =>
  * This list drives what the PendingNote names as pending. It is NOT the single
  * source of truth for rendering: the `<SolutionSection>` call sites below carry
  * their own `hasContent={...}` test for the same field, so the two are parallel
- * and could drift. They are kept adjacent and commented for that reason, and a
- * test asserts the agreement — but the invariant is enforced by that test, not
- * by construction.
+ * and COULD drift — nothing compares them directly.
+ *
+ * What does hold them together is scripts/check-pending.mjs, which reads the
+ * approved sequence from this page's own rendered output and asserts that every
+ * approved step appears exactly once across the rendered headings and the
+ * pending note. That catches drift in the direction that matters (a step
+ * rendered twice, named twice, or neither), though not a pending entry that
+ * matches a step the call sites have forgotten entirely.
  *
  * `Related work` is always considered present — RelatedWork renders its own
  * honest state (declared relations, or that none are declared yet) rather than

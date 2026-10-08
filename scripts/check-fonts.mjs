@@ -166,6 +166,10 @@ for (const file of distFiles.filter((f) => TEXT_ASSET.test(f))) {
 // 6. Every page preloads the latin face, with crossorigin (font fetches are
 //    always CORS mode; a preload without it is fetched twice). latin-ext is
 //    deliberately NOT preloaded — no page needs a codepoint it covers.
+//
+//    Matched against the FONT preloads only, not the first `rel="preload"` on the
+//    page: taking the first preload reports a false failure the moment anything
+//    else preloads ahead of it (a script, a stylesheet).
 const htmlFiles = distFiles.filter((f) => f.toLowerCase().endsWith(".html"));
 for (const file of htmlFiles) {
   const text = readFileSync(file, "utf8");
@@ -175,24 +179,32 @@ for (const file of htmlFiles) {
       .split(sep)
       .join("/")
       .replace(/(^|\/)index\.html$/i, "$1");
-  if (!/<link\s[^>]*rel="preload"[^>]*>/i.test(text)) {
+
+  const fontPreloads = [...text.matchAll(/<link\s[^>]*rel="preload"[^>]*>/gi)]
+    .map((m) => m[0])
+    .filter((tag) => /as="font"/i.test(tag));
+
+  if (fontPreloads.length === 0) {
     fail(`${route}: no font preload`);
     continue;
   }
-  const preload = text.match(/<link\s[^>]*rel="preload"[^>]*>/i)[0];
-  if (!preload.includes("inter-latin.woff2")) {
-    fail(`${route}: preload does not point at the latin subset`);
-  }
-  if (!/as="font"/i.test(preload)) {
-    fail(`${route}: font preload is missing as="font"`);
-  }
-  if (!/\bcrossorigin\b/i.test(preload)) {
+  if (fontPreloads.length > 1) {
     fail(
-      `${route}: font preload is missing crossorigin (it would be fetched twice)`,
+      `${route}: ${fontPreloads.length} font preloads; exactly one is expected`,
     );
   }
-  if (preload.includes("inter-latin-ext")) {
-    fail(`${route}: preloads inter-latin-ext, which no page needs`);
+  for (const preload of fontPreloads) {
+    if (!preload.includes("inter-latin.woff2")) {
+      fail(`${route}: a font preload does not point at the latin subset`);
+    }
+    if (!/\bcrossorigin\b/i.test(preload)) {
+      fail(
+        `${route}: font preload is missing crossorigin (it would be fetched twice)`,
+      );
+    }
+    if (preload.includes("inter-latin-ext")) {
+      fail(`${route}: preloads inter-latin-ext, which no page needs`);
+    }
   }
 }
 

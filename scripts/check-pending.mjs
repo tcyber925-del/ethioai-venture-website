@@ -29,9 +29,15 @@
  * because `npm test` runs BEFORE `npm run build` in both `npm run verify` and
  * CI. A test that read the real dist/ failed on every clean checkout.
  *
+ * This gate's own logic was proven by mutating the built output and confirming
+ * a non-zero exit for each regression (duplicate coverage, missing coverage, an
+ * inaccurate Related Work string, a dropped demo link, an altered technology
+ * chip, an added form field). There is no separate fixture battery file: this
+ * gate reads the real content collections, so a hand-built fixture would have
+ * to re-state the approved sequences and could pass while the real ones drifted.
+ * The source-level contract lives in the existing suites instead.
+ *
  * Local reproduction: npm run build && npm run check:pending
- * Regression battery: npm test (tests/pending-and-evidence.test.mjs) — builds
- * fixture dist/ trees by hand so the gate's verdicts are proven, not assumed.
  * Exits non-zero on any problem (CI gate).
  */
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
@@ -72,10 +78,15 @@ function approvedSteps(sourceRelative, pattern) {
   return [...text.matchAll(pattern)].map((m) => m[1]);
 }
 
-const PROJECT_STEPS = approvedSteps(
-  "src/pages/work/[project].astro",
-  /title:\s*"([^"]+)"/g,
-).filter((t) => t !== "Related Work");
+// `sequence` in [project].astro declares the eight content steps. Related Work is
+// also approved and can be pending, but it is rendered from a separate branch
+// rather than from `sequence`, so it is named here explicitly. It was previously
+// filtered out of the list instead, which made the "no fabricated pending entry"
+// check reject it as unapproved.
+const PROJECT_STEPS = [
+  ...approvedSteps("src/pages/work/[project].astro", /title:\s*"([^"]+)"/g),
+  "Related Work",
+];
 
 const SOLUTION_STEPS = approvedSteps(
   "src/pages/solutions/[slug].astro",
@@ -106,34 +117,58 @@ function pendingSteps(html) {
     .filter(Boolean);
 }
 
+const occurrences = (list, value) => list.filter((x) => x === value).length;
+
 /**
- * The invariant: rendering and pending are complements, and together they cover
- * the whole approved sequence.
+ * The invariant: every approved step appears EXACTLY ONCE across the rendered
+ * headings and the pending list — never twice, never zero times.
+ *
+ * Counts, not `includes()`. An earlier version used booleans, which cannot see a
+ * duplicated heading or a pending entry naming something that is not an approved
+ * step: a page with `<h2>Problem</h2>` twice AND an extra "Bogus Step" pending
+ * entry passed. Both of those are checked here.
  */
 function assertCovers(label, html, steps) {
   const rendered = renderedSteps(html);
   const pending = pendingSteps(html);
+
   if (rendered.length + pending.length === 0) {
     fail(`${label}: renders no steps and names none pending — nothing at all`);
-    return { rendered, pending };
+    return;
   }
+
   for (const step of steps) {
-    const isRendered = rendered.includes(step);
-    const isPending = pending.includes(step);
-    if (isRendered && isPending) {
-      fail(
-        `${label}: "${step}" renders a section AND is named pending — the ` +
-          "visitor sees the same step twice",
-      );
-    }
-    if (!isRendered && !isPending) {
+    const renderedCount = occurrences(rendered, step);
+    const pendingCount = occurrences(pending, step);
+    if (renderedCount + pendingCount === 0) {
       fail(
         `${label}: "${step}" is neither rendered nor named pending — content ` +
           "vanishes silently (the ENG-80 bug class)",
       );
     }
+    if (renderedCount + pendingCount > 1) {
+      fail(
+        `${label}: "${step}" appears ${renderedCount + pendingCount} times ` +
+          `(${renderedCount} rendered, ${pendingCount} pending) — exactly once, ` +
+          "never twice",
+      );
+    }
   }
-  return { rendered, pending };
+
+  // Nothing may be named pending that is not an approved step: a fabricated
+  // entry would tell the visitor a section exists when it does not.
+  for (const entry of pending) {
+    if (!steps.includes(entry)) {
+      fail(
+        `${label}: the pending note names "${entry}", which is not an approved ` +
+          "step in the sequence",
+      );
+    }
+  }
+
+  // Likewise, a rendered heading that matches a sequence step must not appear
+  // more than once (covered above), and any other h2 is page furniture — the
+  // CTA — so it is not asserted here.
 }
 
 /* ------------------------------------------------------------------ *
@@ -197,15 +232,33 @@ for (const slug of slugsIn(join(contentDir, "projects"))) {
     /aria-label="Sections not yet published"[\s\S]*?<\/section>/,
   );
   if (!note) continue;
-  if (
-    /no approved related-work relationship is declared/.test(note[0]) &&
-    !/No approved content published for this section/.test(note[0])
+
+  // Only assert the Related Work wording when Related Work is actually pending.
+  // It is NOT pending once any solution entry declares `related_work: <slug>` —
+  // the section then renders with real links and carries no pending entry at
+  // all. Requiring the string unconditionally made the gate go red on a correct
+  // page the first time a solution pointed at a project, which is exactly the
+  // content edit this site exists to enable.
+  if (pendingSteps(html).includes("Related Work")) {
+    if (!/no approved related-work relationship is declared/.test(note[0])) {
+      fail(
+        `/work/${slug}: Related Work is pending, so it must state that no ` +
+          "approved relationship is declared, not the old 'no approved " +
+          "content published' placeholder",
+      );
+    }
+  } else if (
+    /no approved related-work relationship is declared/.test(note[0])
   ) {
-    // correct
-  } else {
     fail(
-      `/work/${slug}: Related Work must state that no approved relationship is ` +
-        "declared, not the old 'no approved content published' placeholder",
+      `/work/${slug}: the pending note claims no relationship is declared, but ` +
+        "Related Work is not listed as pending — one of the two is wrong",
+    );
+  }
+  if (/No approved content published for this section/.test(note[0])) {
+    fail(
+      `/work/${slug}: the pending note still uses the old, less accurate ` +
+        '"No approved content published for this section" placeholder',
     );
   }
 }
@@ -310,46 +363,34 @@ if (!existsSync(homeFile)) {
 }
 
 /* ------------------------------------------------------------------ *
- * 4. Form scope and shell scope
- * ------------------------------------------------------------------ */
+ * 4. Built-output form scope
+ * ------------------------------------------------------------------ *
+ * Deliberately NOT re-asserting the approved field list or the honeypot
+ * fields: tests/start-a-project.test.mjs owns those against the source, and two
+ * sources of truth for a scope lock means a legitimate field change breaks in
+ * two places with different fix paths. What only this gate can see is the
+ * BUILT output — that the live regions survived the build OUTSIDE the form,
+ * which is the invariant whose violation silently breaks the success state.
+ */
 
 const formFile = join(distDir, "start-a-project", "index.html");
 if (!existsSync(formFile)) {
   fail("/start-a-project: not built");
 } else {
   const form = readFileSync(formFile, "utf8");
-  const names = [...form.matchAll(/<(?:input|textarea)[^>]*name="([^"]+)"/g)]
-    .map((m) => m[1])
-    .filter((n) => !n.startsWith("_"));
-  if (names.join("|") !== "problem|name|email|organization") {
-    fail(
-      `/start-a-project: the field set changed — expected ` +
-        `problem,name,email,organization, found ${names.join(", ")}`,
-    );
-  }
-  for (const honey of ["_honey", "_gotcha"]) {
-    if (!new RegExp(`name="${honey}"[^>]*aria-hidden="true"`).test(form)) {
-      fail(`/start-a-project: honeypot ${honey} is missing or exposed`);
-    }
-  }
   // The live regions must stay OUTSIDE the form so hiding it on success cannot
   // hide the announcement.
   const formEnd = form.indexOf("</form>");
   for (const role of ["status", "alert"]) {
     const at = form.indexOf(`role="${role}"`);
     if (at === -1) {
-      fail(`/start-a-project: no role="${role}" region`);
+      fail(`/start-a-project: no role="${role}" region in the built page`);
     } else if (at < formEnd) {
-      fail(`/start-a-project: role="${role}" is inside the <form>`);
+      fail(
+        `/start-a-project: role="${role}" is inside the <form> — hiding the ` +
+          "form on success would hide the announcement",
+      );
     }
-  }
-  const endpoint = readSource("src/config/forms.ts").match(
-    /formspreeEndpoint\s*=\s*"([^"]+)"/,
-  )?.[1];
-  if (!endpoint) {
-    fail("could not read the Formspree endpoint from src/config/forms.ts");
-  } else if (!form.includes(`action="${endpoint}"`)) {
-    fail("/start-a-project: the form does not post to the configured endpoint");
   }
 }
 

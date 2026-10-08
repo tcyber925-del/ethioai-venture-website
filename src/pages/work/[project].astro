@@ -7,11 +7,14 @@
  * Built from the `projects` collection glob, so any future entry routes
  * automatically. Fields without approved source content never render a
  * heading or a body: they are named once, quietly, in a single PendingNote
- * after the last real section (ENG-102). The evidence policy is unchanged — a
- * step is either real approved content or an honest statement that it is not
- * published yet, never fabricated copy (MIS evidence policy). Related Work
- * resolves only from solution entries whose `related_work` names this project
- * — the research collection is empty and no relation is invented for it.
+ * (ENG-102). The note sits after the last content step, and before the Related
+ * Work section when that section has real links to show — Related Work is the
+ * one step rendered from a separate branch rather than from `sequence`, so it
+ * can be either a rendered section or a pending entry. Related Work resolves
+ * only from solution entries whose `related_work` names this project, and no
+ * relation is invented for it. The evidence policy is unchanged — a step is
+ * either real approved content or an honest statement that it is not published
+ * yet, never fabricated copy (MIS evidence policy).
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Container from "../../components/Container.astro";
