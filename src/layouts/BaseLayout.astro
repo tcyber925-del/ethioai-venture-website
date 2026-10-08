@@ -100,7 +100,8 @@ const websiteJsonLd = JSON.stringify({
     <!--
       Inter (ENG-102) rationale lives in the frontmatter above, not here: Astro
       ships HTML comments to the browser, so a note this long would be sent on
-      every page load. Everything it explains applies to the tag below.
+      every page load. This 122-byte pointer is the part that has to be in the
+      markup — a reader of dist/ has no frontmatter to go back to.
     -->
     <link
       rel="preload"

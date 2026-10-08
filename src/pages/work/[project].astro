@@ -25,7 +25,7 @@ import StatusBadge from "../../components/work/StatusBadge.astro";
 import ProjectSection from "../../components/work/ProjectSection.astro";
 import PendingNote from "../../components/PendingNote.astro";
 import { routeExists } from "../../config/routes";
-import { hasContent } from "../../lib/content";
+import { hasContent, hasListItem } from "../../lib/content";
 import { site } from "../../config/site";
 import { getCollection, type CollectionEntry } from "astro:content";
 
@@ -110,7 +110,7 @@ const sequence = [
     body: data.evidence,
     // An entry whose only evidence is images still has a real Evidence
     // section: the images are the evidence.
-    hasImages: images.length > 0,
+    hasImages: hasListItem(images),
   },
   {
     id: "limitations",
@@ -168,11 +168,15 @@ const description = carries(data.summary)
       <MetadataLabel>Project</MetadataLabel>
       <h1>{data.title}</h1>
       <div class="project-header__meta">
-        {data.status && <StatusBadge status={data.status} />}
-        {data.category && <MetadataLabel>{data.category}</MetadataLabel>}
+        {carries(data.status) && <StatusBadge status={data.status} />}
+        {carries(data.category) && (
+          <MetadataLabel>{data.category}</MetadataLabel>
+        )}
       </div>
-      {data.summary && <p class="project-header__summary">{data.summary}</p>}
-      {technologies.length > 0 && (
+      {carries(data.summary) && (
+        <p class="project-header__summary">{data.summary}</p>
+      )}
+      {hasListItem(technologies) && (
         <div class="project-header__tech">
           <MetadataLabel>Technologies</MetadataLabel>
           <ul class="tech-list">
@@ -182,14 +186,14 @@ const description = carries(data.summary)
           </ul>
         </div>
       )}
-      {(data.github || data.demo) && (
+      {(carries(data.github) || carries(data.demo)) && (
         <p class="project-header__links">
-          {data.github && (
+          {carries(data.github) && (
             <Link href={data.github} data-analytics-event="github-click">
               GitHub
             </Link>
           )}
-          {data.demo && (
+          {carries(data.demo) && (
             <Link href={data.demo} data-analytics-event="demo-click">
               Demo
             </Link>
@@ -211,7 +215,7 @@ const description = carries(data.summary)
         body={section.body}
         hasContent={carries(section.body) || section.hasImages}
       >
-        {section.id === "evidence" && images.length > 0 && (
+        {section.id === "evidence" && hasListItem(images) && (
           <ul class="evidence-images">
             {images.map((image) => (
               <li>

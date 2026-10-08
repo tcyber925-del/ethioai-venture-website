@@ -18,7 +18,17 @@ export function hasContent(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-/** True when a list carries at least one non-empty entry. */
-export function hasListItem(value: readonly string[] | undefined): boolean {
+/**
+ * True when a list carries at least one non-empty entry.
+ *
+ * A type predicate, not a boolean. `astro check` rejected
+ * `{hasListItem(data.technologies) && data.technologies.map(…)}` with
+ * "'data.technologies' is possibly 'undefined'" — a presence test that cannot
+ * narrow tells the caller nothing, so the natural guard does not typecheck and
+ * the local `&& data.technologies.length > 0` creeps back in alongside it.
+ */
+export function hasListItem(
+  value: readonly string[] | undefined,
+): value is readonly string[] {
   return Array.isArray(value) && value.some(hasContent);
 }

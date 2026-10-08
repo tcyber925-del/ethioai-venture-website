@@ -10,8 +10,10 @@
  * "No approved content published for this section yet." line, so /work/ethiobio
  * shipped ten full-size headings and the same eight-word sentence nine times.
  * The approved structure is still visible — the caller lists pending section
- * titles in a single PendingNote at the end — but a heading now appears only
- * where it introduces real evidence, which is the only reason a heading exists.
+ * titles in a single PendingNote — but a heading now appears only where it
+ * introduces real evidence, which is the only reason a heading exists. The note
+ * is not necessarily last: Related Work and the CTA render after it. This
+ * component does not place the note; see src/pages/work/[project].astro.
  *
  * The optional slot adds structured content (lists, links, images) after the
  * body. The caller decides what renders; nothing here invents content.

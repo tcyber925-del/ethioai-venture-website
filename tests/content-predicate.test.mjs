@@ -74,6 +74,37 @@ describe("hasListItem — the same rule, applied to a list", () => {
   });
 });
 
+/** Comment-stripped source: a pattern named in a comment is documentation. */
+const stripComments = (source) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+/**
+ * Collection fields whose presence these pages decide. The truthiness ban is
+ * field-scoped rather than a blanket `&&` ban: `&&` is ordinary Astro
+ * conditional rendering, and banning it wholesale would forbid `{items.length >
+ * 0 && …}` on derived local state, which is not a content predicate at all.
+ */
+const COLLECTION_FIELDS = [
+  "status",
+  "summary",
+  "category",
+  "evidence",
+  "architecture",
+  "implementation",
+  "limitations",
+  "problem",
+  "built",
+  "what_we_build",
+  "applications",
+  "capabilities",
+  "how_it_works",
+  "engagement_path",
+  "technologies",
+  "github",
+  "demo",
+  "images",
+];
+
 describe("every page uses the shared predicate", () => {
   // The point of the shared module is that pages stop rolling their own. If a
   // page reintroduces a local test, the divergence this replaced can return.
@@ -94,11 +125,12 @@ describe("every page uses the shared predicate", () => {
 
     test(`${page} has no local "has content" test`, () => {
       const source = readFileSync(join(REPO_ROOT, page), "utf8");
-      // A local reimplementation would be a `.trim().length > 0` or a bare
-      // `typeof … === "string"` outside a comment.
-      const code = source
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/\/\/.*$/gm, "");
+      // A local reimplementation shows up as one of three shapes, outside a
+      // comment: a trim, a bare typeof, or — the one this originally missed —
+      // plain truthiness on a collection field. Truthiness was nine of the
+      // sixteen remaining sites, so a test that only banned the first two
+      // shapes passed while the migration was barely started.
+      const code = stripComments(source);
       assert.doesNotMatch(
         code,
         /\.trim\(\)\.length\s*>\s*0/,
@@ -109,6 +141,39 @@ describe("every page uses the shared predicate", () => {
         /typeof\s+\w[\w.]*\.\w+\s*===\s*"string"/,
         "local typeof-based content test reintroduced",
       );
+      for (const field of COLLECTION_FIELDS) {
+        // The lookbehind is what makes this precise: the field must be a bare
+        // reference, not an argument. `{hasListItem(technologies) && …}` and
+        // `{hasList(data.applications) && …}` are the shared predicate doing its
+        // job — the first attempt at this ban matched both and failed on them.
+        // `(?<![\w.]\()` exempts exactly a call argument: the `(` in
+        // `hasListItem(` is preceded by a word character, the `(` in
+        // `(data.github || …` is preceded by a dot.
+        //
+        // `??` alone is deliberately NOT banned. `data.technologies ?? []` is a
+        // default, not a presence test: it normalises an optional list to an
+        // array so `.map` is safe, and decides nothing about whether the entry
+        // has content. `?.` likewise. Only truthiness (`&&`, `||`), a ternary
+        // that is not optional chaining, and a length comparison can render or
+        // suppress a section, so only those are banned.
+        const bare = `(?<!\\w)(?<![\\w.]\\()(?:data\\.)?${field}`;
+        assert.doesNotMatch(
+          code,
+          new RegExp(bare + `\\s*(?:&&|\\|\\||\\?(?![?.:]))`),
+          `local truthiness test on \`${field}\` reintroduced`,
+        );
+        assert.doesNotMatch(
+          code,
+          // `x.length > 0`, `x.length ?? 0) > 0` — the second shape is what
+          // the homepage used to filter evidenced projects.
+          new RegExp(
+            bare +
+              `\\s*(?:\\?\\.)?\\.?length\\s*` +
+              `(?:\\?\\?\\s*[^)\\s]+\\s*\\)?\\s*)?(?:>|!==|>=)`,
+          ),
+          `local length test on \`${field}\` reintroduced`,
+        );
+      }
     });
   }
 });

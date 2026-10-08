@@ -35,7 +35,12 @@
  * chip, an added form field). There is no separate fixture battery file: this
  * gate reads the real content collections, so a hand-built fixture would have
  * to re-state the approved sequences and could pass while the real ones drifted.
- * The source-level contract lives in the existing suites instead.
+ *
+ * No source-level suite covers this contract; an earlier version of this comment
+ * claimed one did, which is how it stayed wrong while being re-read. Only
+ * tests/content-predicate.test.mjs touches the underlying predicate — the
+ * pending/evidence contract itself is held solely here, so this gate is the
+ * only thing standing between a regression and a merged PR.
  *
  * Local reproduction: npm run build && npm run check:pending
  * Exits non-zero on any problem (CI gate).
@@ -319,18 +324,24 @@ if (!existsSync(homeFile)) {
     }
   }
 
-  // Technology chips must be the entry's own approved list, in order — read from
-  // the content file so this cannot drift.
-  const entryFile = join(contentDir, "projects", "ethiosci.md");
-  if (!existsSync(entryFile)) {
-    fail("cannot read src/content/projects/ethiosci.md to verify the chips");
-  } else {
-    const front = readFileSync(entryFile, "utf8");
-    // Walk the frontmatter a line at a time. An earlier version used one regex
-    // with a `$` boundary; under the `m` flag `$` matches at EVERY line end, so
-    // the capture came back empty. Line-walking also states the rule plainly:
-    // indented `- item` lines under `technologies:` are entries, and the first
-    // line that is not one ends the list.
+  // Technology chips must be each entry's own approved list, in order — read from
+  // the content files so this cannot drift.
+  //
+  // Scoped PER CARD, not across the whole page. An earlier version concatenated
+  // every `evidence__tech` chip on the homepage and compared it to ethiosci.md
+  // alone, so the first approved project to add a `technologies:` list would
+  // turn CI red — the same false-red class round 2 fixed for `related_work`.
+  // Adding content is the normal case here, not an edge case.
+  const projectFiles = slugsIn(join(contentDir, "projects"))
+    .map((slug) => join(contentDir, "projects", `${slug}.md`))
+    .filter((file) => existsSync(file));
+  if (projectFiles.length === 0) {
+    fail("cannot read the project collection to verify the chips");
+  }
+
+  /** Approved `technologies` entries for one markdown file. */
+  const approvedTechnologies = (file) => {
+    const front = readFileSync(file, "utf8");
     const lines = front.split("\n");
     const keyAt = lines.findIndex((line) => /^technologies:\s*$/.test(line));
     const listed = [];
@@ -341,27 +352,81 @@ if (!existsSync(homeFile)) {
         listed.push(item[1].trim());
       }
     }
-    const chips = [
-      ...home.matchAll(/class="evidence__tech"[^>]*>([^<]+)</g),
-    ].map((m) => m[1].trim());
-    if (listed.length === 0) {
-      fail("could not read the approved technologies from ethiosci.md");
-    } else if (chips.join("|") !== listed.join("|")) {
+    return listed;
+  };
+
+  // Each evidence card on the homepage, keyed by the project it links to.
+  // Split positionally on the card's opening tag rather than matching its closing
+  // tag: a card contains a nested `<ul>` for its stack, so a matcher of the shape
+  // `</li></ul></section>` silently finds no card at all — which surfaces as "the
+  // entry has no card" and looks like a content problem rather than a broken
+  // matcher.
+  const cards = new Map();
+  {
+    const listStart = home.indexOf('<ul class="evidence-list"');
+    const listHtml = listStart === -1 ? "" : home.slice(listStart);
+    for (const part of listHtml.split('<li class="evidence"').slice(1)) {
+      const slug = part.match(/href="\/work\/([^"]+)"/)?.[1];
+      if (!slug) continue;
+      cards.set(slug, {
+        block: part,
+        chips: [...part.matchAll(/class="evidence__tech"[^>]*>([^<]+)</g)].map(
+          (m) => m[1].trim(),
+        ),
+      });
+    }
+  }
+
+  for (const file of projectFiles) {
+    const slug = file.split("/").pop().replace(/\.md$/, "");
+    const listed = approvedTechnologies(file);
+    const card = cards.get(slug);
+    if (listed.length === 0) continue; // this entry declares no stack
+    if (!card) {
       fail(
-        `/ technology chips do not match the entry's approved list\n` +
+        `/ ${slug} declares an approved technology stack but engineering depth ` +
+          "renders no evidence card for it",
+      );
+      continue;
+    }
+    if (card.chips.join("|") !== listed.join("|")) {
+      fail(
+        `/ ${slug}: technology chips do not match the entry's approved list\n` +
           `      expected: ${listed.join(", ")}\n` +
-          `      rendered: ${chips.join(", ")}`,
+          `      rendered: ${card.chips.join(", ")}`,
       );
     }
+  }
 
-    // The reused `evidence` prose ends "See the links on this page for both."
-    // Rendering only the repository made the homepage state something false.
+  // A chip that belongs to no entry is a fabricated claim.
+  for (const [slug, card] of cards) {
+    const file = projectFiles.find((f) => f.endsWith(`/${slug}.md`));
+    const listed = file ? approvedTechnologies(file) : [];
+    if (card.chips.length > 0 && listed.length === 0) {
+      fail(
+        `/ engineering depth renders technology chips for ${slug}, which ` +
+          "declares no approved technologies",
+      );
+    }
+  }
+
+  // The reused `evidence` prose ends "See the links on this page for both."
+  // Rendering only the repository made the homepage state something false.
+  for (const file of projectFiles) {
+    const front = readFileSync(file, "utf8");
+    if (!/^evidence:\s*>-/m.test(front) && !/^evidence:\s*\S/m.test(front))
+      continue;
+    const slug = file.split("/").pop().replace(/\.md$/, "");
+    if (!cards.has(slug)) continue;
     for (const field of ["github", "demo"]) {
       const url = front.match(new RegExp(`^${field}:\\s*(\\S+)`, "m"))?.[1];
       if (!url) {
-        fail(`ethiosci.md has no ${field} URL to render`);
-      } else if (!home.includes(`href="${url}"`)) {
-        fail(`/ the ${field} link is missing from engineering depth`);
+        fail(`${slug}.md has no ${field} URL to render`);
+      } else if (!cards.get(slug).block.includes(`href="${url}"`)) {
+        fail(
+          `/ the ${field} link for ${slug} is missing from engineering depth, ` +
+            "so the reused evidence sentence is false on this page",
+        );
       }
     }
   }

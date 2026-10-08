@@ -62,8 +62,12 @@ jobs:
               needs attention, say so briefly.
             - Work inside the checked-out repository only. If a command needs a
               temporary directory, point TMPDIR (and any npm cache) at a
-              directory inside the workspace rather than using /tmp:
-              `mkdir -p .tmp && TMPDIR=$PWD/.tmp npm test`.
+              directory inside the workspace rather than using /tmp. Use the
+              full invocation, not just TMPDIR — an npm cache left on the
+              default path is both the same permission class and thousands of
+              files in `git status`:
+              `mkdir -p .tmp && TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm test`
+              (and the same prefix for `npm run verify`).
               Do NOT write to /tmp, /var/tmp, or any path outside the workspace.
               This job is non-interactive: a permission prompt for an external
               directory is never answered, so requesting one blocks until the

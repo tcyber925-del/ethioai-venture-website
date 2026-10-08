@@ -8,7 +8,7 @@ import Section from "../components/home/Section.astro";
 import StatusBadge from "../components/home/StatusBadge.astro";
 import { getCollection } from "astro:content";
 import { routeExists } from "../config/routes";
-import { hasContent as carries } from "../lib/content";
+import { hasContent as carries, hasListItem } from "../lib/content";
 
 /*
  * Homepage — ENG-78.
@@ -66,8 +66,7 @@ const research = (await getCollection("research")).sort((a, b) =>
  */
 const evidencedProjects = projects.filter(
   (project) =>
-    carries(project.data.evidence) ||
-    (project.data.technologies?.length ?? 0) > 0,
+    carries(project.data.evidence) || hasListItem(project.data.technologies),
 );
 
 /* Built in frontmatter: Astro trims whitespace between text and an inline
@@ -148,7 +147,7 @@ if (solutions.length === 1) {
             a placeholder.
           */}
           {carries(data.summary) && <p class="card__summary">{data.summary}</p>}
-          {data.status && (
+          {carries(data.status) && (
             <p class="card__status">
               <StatusBadge status={data.status} />
             </p>
@@ -239,7 +238,7 @@ if (solutions.length === 1) {
           {/* The entry's own approved `technologies` values (LangGraph,
               pgvector, BM25, …) — the approved list, not a homepage rewrite
               of it. */}
-          {data.technologies && data.technologies.length > 0 && (
+          {hasListItem(data.technologies) && (
             <ul class="evidence__stack" role="list">
               {data.technologies.map((technology) => (
                 <li class="evidence__tech">{technology}</li>

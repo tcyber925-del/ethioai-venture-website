@@ -13,7 +13,10 @@
  * published.", so a solution detail page shipped 2,266px and 89 words with six
  * identical placeholders under 48px headings — indistinguishable from a broken
  * build. The approved structure stays visible: the caller lists pending step
- * titles in a single quiet PendingNote after the last real step.
+ * titles in a single quiet PendingNote — placed BEFORE Related work, because
+ * Related work always renders and putting the note last left the page reading
+ * "step 6, then a list of steps 1–5 and 7". This component does not place that
+ * note; see src/pages/solutions/[slug].astro.
  *
  * The evidence policy is untouched (MIS: leave a field empty or use truthful
  * status language — never fabricate). Only the presentation of absence changed.
