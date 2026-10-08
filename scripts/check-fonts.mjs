@@ -122,23 +122,64 @@ if (ranges.length !== 2) {
 //    section and /about render "Ethiopia → Africa → Global"; Google's
 //    published Inter subset omits that codepoint, so a stock subset renders a
 //    system arrow inside an Inter heading.
-const latinFace = css.match(
-  /url\(\/?(?:[^)]*\/)?inter-latin\.woff2\)\s*format\("woff2"\)\s*;\s*unicode-range:\s*([^;}]+)/,
-);
+//
+//    Asserted SEMANTICALLY, by parsing the range into codepoint bounds rather
+//    than by matching its text. `U+1-FF`, `U+01-FF` and `U+0001-00FF` are the
+//    same range and a minifier may emit any of them; an earlier version compared
+//    the literal string and false-red a correct build on the others. Declaration
+//    order is not a contract either — the earlier regex required `unicode-range`
+//    to directly follow `src:`.
+const latinFace = (() => {
+  const block = css.match(
+    /@font-face\s*\{[^}]*inter-latin\.woff2[^}]*\}/i,
+  )?.[0];
+  return block
+    ? { block, range: block.match(/unicode-range:\s*([^;}]+)/i)?.[1] }
+    : null;
+})();
 if (!latinFace) {
-  fail("could not locate the latin face's declaration in the built stylesheet");
+  fail("could not locate the latin face's @font-face block in the built CSS");
+} else if (!latinFace.range) {
+  fail("the latin face declares no unicode-range");
 } else {
-  const range = latinFace[1];
-  if (!/U\+0?1-FF/i.test(range)) {
-    fail(
-      `the latin range does not start at U+0001-00FF (found: ${range.slice(0, 40)})`,
-    );
-  }
-  if (!range.includes("U+2192")) {
-    fail(
-      "the latin range omits U+2192 (→) — the arrows the site renders would " +
-        "fall back to a system font mid-heading",
-    );
+  const { range } = latinFace;
+  // Each comma-separated term is one codepoint or an inclusive `lo-hi` range.
+  const spans = range
+    .split(",")
+    .map((term) => {
+      const m = term
+        .trim()
+        .match(/^U\+([0-9a-f]+)(?:\s*-\s*(?:U\+)?([0-9a-f]+))?$/i);
+      if (!m) return null;
+      const lo = parseInt(m[1], 16);
+      return [lo, m[2] ? parseInt(m[2], 16) : lo];
+    })
+    .filter(Boolean);
+  const covers = (cp) => spans.some(([lo, hi]) => cp >= lo && cp <= hi);
+
+  if (spans.length === 0) {
+    fail(`the latin range could not be parsed (found: ${range.slice(0, 60)})`);
+  } else {
+    // Basic Latin. U+0000 is excluded on purpose: it is NULL, never rendered,
+    // and the minifier corrupts a range that starts at it.
+    if (!covers(0x0020) || !covers(0x0041) || !covers(0x007a)) {
+      fail(
+        `the latin range does not cover basic Latin (found: ${range.slice(0, 40)})`,
+      );
+    }
+    if (spans.some(([lo]) => lo === 0)) {
+      fail(
+        `the latin range starts at U+0000 (found: ${range.slice(0, 40)}) — the ` +
+          "minifier corrupts a range starting at 0 into the invalid `U+??`; " +
+          "use U+0001-00FF (NULL is never rendered)",
+      );
+    }
+    if (!covers(0x2192)) {
+      fail(
+        "the latin range omits U+2192 (→) — the arrows the site renders would " +
+          "fall back to a system font mid-heading",
+      );
+    }
   }
 }
 

@@ -60,9 +60,15 @@ jobs:
             - Check for code quality issues and potential bugs.
             - Cite file paths for each finding, ordered by severity. If nothing
               needs attention, say so briefly.
-            - Work inside the checked-out repository only. Do NOT write to /tmp,
-              /var/tmp, or any path outside the workspace, and do not run
-              commands that need a temporary directory. This job is
-              non-interactive: a permission prompt for an external directory is
-              never answered, so requesting one blocks until the job is killed.
-              See the timeout note above.
+            - Work inside the checked-out repository only. If a command needs a
+              temporary directory, point TMPDIR (and any npm cache) at a
+              directory inside the workspace rather than using /tmp:
+              `mkdir -p .tmp && TMPDIR=$PWD/.tmp npm test`.
+              Do NOT write to /tmp, /var/tmp, or any path outside the workspace.
+              This job is non-interactive: a permission prompt for an external
+              directory is never answered, so requesting one blocks until the
+              job is killed. See the timeout note above.
+              Running the suites is expected — `npm test` and `npm run verify`
+              are the documented way to check a change, and TMPDIR is the only
+              adjustment either needs. (Several suites build fixture
+              directories under the system temp dir.)

@@ -66,7 +66,6 @@ if (!existsSync(distDir) || !statSync(distDir).isDirectory()) {
  * ------------------------------------------------------------------ */
 
 const readSource = (relative) => readFileSync(join(repoRoot, relative), "utf8");
-const readDist = (relative) => readFileSync(join(distDir, relative), "utf8");
 
 /**
  * Step titles as declared in the page source, so this gate cannot assert a
@@ -78,15 +77,25 @@ function approvedSteps(sourceRelative, pattern) {
   return [...text.matchAll(pattern)].map((m) => m[1]);
 }
 
-// `sequence` in [project].astro declares the eight content steps. Related Work is
-// also approved and can be pending, but it is rendered from a separate branch
-// rather than from `sequence`, so it is named here explicitly. It was previously
-// filtered out of the list instead, which made the "no fabricated pending entry"
-// check reject it as unapproved.
-const PROJECT_STEPS = [
-  ...approvedSteps("src/pages/work/[project].astro", /title:\s*"([^"]+)"/g),
-  "Related Work",
-];
+/**
+ * The eight content steps, read from `sequence` in [project].astro, plus
+ * Related Work.
+ *
+ * Related Work is rendered from a separate branch, but the page still declares
+ * its title in a `title: "Related Work"` shape that the extraction regex picks
+ * up — so it is already in the list and must NOT be appended again. Appending it
+ * unconditionally made every Related Work failure print twice (verified: "2
+ * problems" for one issue). Deduplicated rather than hardcoded, so a future
+ * rename cannot silently drop the step.
+ */
+const PROJECT_STEP_TITLES = approvedSteps(
+  "src/pages/work/[project].astro",
+  /title:\s*"([^"]+)"/g,
+);
+if (!PROJECT_STEP_TITLES.includes("Related Work")) {
+  PROJECT_STEP_TITLES.push("Related Work");
+}
+const PROJECT_STEPS = [...new Set(PROJECT_STEP_TITLES)];
 
 const SOLUTION_STEPS = approvedSteps(
   "src/pages/solutions/[slug].astro",
@@ -396,19 +405,24 @@ if (!existsSync(formFile)) {
 
 // ENG-102 forbids a navigation redesign. Assert the header still renders plain
 // links with no button treatment migrated into it.
-const nav = readDist("index.html").match(
-  /<nav aria-label="Primary"[\s\S]*?<\/nav>/,
-)?.[0];
-if (!nav) {
-  fail("/: primary nav not found");
+const homeNavFile = join(distDir, "index.html");
+if (!existsSync(homeNavFile)) {
+  fail("/: not built — cannot check the primary navigation");
 } else {
-  for (const label of ["Solutions", "Work", "Research", "About"]) {
-    if (!nav.includes(`>${label}<`)) fail(`/ primary nav lost "${label}"`);
-  }
-  if (/class="btn/.test(nav)) {
-    fail(
-      "/ primary nav was restyled as buttons — navigation redesign is out of scope",
-    );
+  const nav = readFileSync(homeNavFile, "utf8").match(
+    /<nav aria-label="Primary"[\s\S]*?<\/nav>/,
+  )?.[0];
+  if (!nav) {
+    fail("/: primary nav not found");
+  } else {
+    for (const label of ["Solutions", "Work", "Research", "About"]) {
+      if (!nav.includes(`>${label}<`)) fail(`/ primary nav lost "${label}"`);
+    }
+    if (/class="btn/.test(nav)) {
+      fail(
+        "/ primary nav was restyled as buttons — navigation redesign is out of scope",
+      );
+    }
   }
 }
 

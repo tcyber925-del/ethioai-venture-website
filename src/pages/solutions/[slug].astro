@@ -22,6 +22,7 @@ import PendingNote from "../../components/PendingNote.astro";
 import RelatedWork from "../../components/solutions/RelatedWork.astro";
 import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
 import { site } from "../../config/site";
+import { hasContent, hasListItem } from "../../lib/content";
 
 export async function getStaticPaths() {
   const solutions = await getCollection("solutions");
@@ -43,12 +44,14 @@ const [projects, research] = await Promise.all([
   getCollection("research"),
 ]);
 
-/** Whether an optional content field carries approved content. */
-const hasText = (value: string | undefined): boolean =>
-  typeof value === "string" && value.trim().length > 0;
-
-const hasList = (value: string[] | undefined): boolean =>
-  Array.isArray(value) && value.length > 0;
+/**
+ * ENG-102 — `hasContent` / `hasListItem` come from src/lib/content.ts, the one
+ * shared definition of "this field carries approved content". They were local
+ * helpers here; the homepage and /work had grown their own, which meant the same
+ * field could be judged present on one page and absent on another.
+ */
+const hasText = hasContent;
+const hasList = hasListItem;
 
 /**
  * ENG-102 — the approved problem-first sequence, in order, with the honest

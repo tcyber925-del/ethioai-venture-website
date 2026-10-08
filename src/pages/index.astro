@@ -8,6 +8,7 @@ import Section from "../components/home/Section.astro";
 import StatusBadge from "../components/home/StatusBadge.astro";
 import { getCollection } from "astro:content";
 import { routeExists } from "../config/routes";
+import { hasContent as carries } from "../lib/content";
 
 /*
  * Homepage — ENG-78.
@@ -56,10 +57,16 @@ const research = (await getCollection("research")).sort((a, b) =>
  * evidence (`evidence` text and/or a declared technology stack) can appear.
  * Deriving the list means the section cannot claim depth no entry supports, and
  * it stays correct as entries are added — no homepage copy to drift.
+ *
+ * `carries` is the shared predicate from src/lib/content.ts, so an entry whose
+ * evidence is an empty or whitespace-only string is treated as having none here,
+ * on /work and on /solutions alike. This page previously used a bare
+ * `typeof === "string"`, which counted `evidence: ""` as content and rendered an
+ * empty card the rest of the site called pending.
  */
 const evidencedProjects = projects.filter(
   (project) =>
-    typeof project.data.evidence === "string" ||
+    carries(project.data.evidence) ||
     (project.data.technologies?.length ?? 0) > 0,
 );
 
@@ -140,7 +147,7 @@ if (solutions.length === 1) {
             approved summary and the absence stays silent rather than becoming
             a placeholder.
           */}
-          {data.summary && <p class="card__summary">{data.summary}</p>}
+          {carries(data.summary) && <p class="card__summary">{data.summary}</p>}
           {data.status && (
             <p class="card__status">
               <StatusBadge status={data.status} />
@@ -249,15 +256,17 @@ if (solutions.length === 1) {
               ENG-102 lists the live demo as approved evidence to communicate,
               so both are rendered and the sentence is true here as it is on
               /work/ethiosci. */}
-          {data.evidence && <p class="evidence__text">{data.evidence}</p>}
-          {(data.github || data.demo) && (
+          {carries(data.evidence) && (
+            <p class="evidence__text">{data.evidence}</p>
+          )}
+          {(carries(data.github) || carries(data.demo)) && (
             <p class="evidence__links">
-              {data.github && (
+              {carries(data.github) && (
                 <Link href={data.github} data-analytics-event="github-click">
                   Repository
                 </Link>
               )}
-              {data.demo && (
+              {carries(data.demo) && (
                 <Link href={data.demo} data-analytics-event="demo-click">
                   Live demo
                 </Link>

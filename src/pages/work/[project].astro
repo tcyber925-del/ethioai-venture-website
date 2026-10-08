@@ -25,6 +25,7 @@ import StatusBadge from "../../components/work/StatusBadge.astro";
 import ProjectSection from "../../components/work/ProjectSection.astro";
 import PendingNote from "../../components/PendingNote.astro";
 import { routeExists } from "../../config/routes";
+import { hasContent } from "../../lib/content";
 import { site } from "../../config/site";
 import { getCollection, type CollectionEntry } from "astro:content";
 
@@ -42,6 +43,12 @@ interface Props {
 
 const { project } = Astro.props;
 const { data } = project;
+
+// ENG-102 — `hasContent` is the shared predicate from src/lib/content.ts, so a
+// field that is an empty or whitespace-only string counts as absence here exactly
+// as it does on the homepage and on /solutions. Without the shared rule, the same
+// field could render a section on one page and be reported pending on another.
+const carries = hasContent;
 
 const technologies = data.technologies ?? [];
 const images = data.images ?? [];
@@ -73,8 +80,18 @@ const images = data.images ?? [];
  * happen and a uniform shape keeps both the filter and the render honest.
  */
 const sequence = [
-  { id: "problem", title: "Problem", body: data.problem, hasImages: false },
-  { id: "built", title: "What We Built", body: data.built, hasImages: false },
+  {
+    id: "problem",
+    title: "Problem",
+    body: data.problem,
+    hasImages: false,
+  },
+  {
+    id: "built",
+    title: "What We Built",
+    body: data.built,
+    hasImages: false,
+  },
   {
     id: "architecture",
     title: "Architecture",
@@ -111,11 +128,13 @@ const sequence = [
 ];
 
 /** Steps with approved content, in approved order. */
-const sections = sequence.filter((step) => step.body || step.hasImages);
+const sections = sequence.filter(
+  (step) => carries(step.body) || step.hasImages,
+);
 
 /** Steps without it — named once, quietly, by PendingNote. */
 const pendingSteps = sequence
-  .filter((step) => !step.body && !step.hasImages)
+  .filter((step) => !carries(step.body) && !step.hasImages)
   .map((step) => step.title);
 
 const solutions = await getCollection("solutions");
@@ -128,12 +147,15 @@ const relatedSolutions = solutions.filter((solution) =>
  * carries one; otherwise a mechanical composition of approved fields only
  * — title always, status when the entry has one (MIS: EthioBio must show
  * In Development). No fabricated copy.
+ *
+ * `carries` rather than a local typeof/trim test — this was the fourth copy of
+ * that rule in this file's neighbourhood, and a description must agree with
+ * whether the page itself treats the summary as content.
  */
-const description =
-  typeof data.summary === "string" && data.summary.trim() !== ""
-    ? data.summary
-    : `${data.title} — selected work from EthioAI Venture.` +
-      (data.status ? ` Status: ${data.status}.` : "");
+const description = carries(data.summary)
+  ? data.summary
+  : `${data.title} — selected work from EthioAI Venture.` +
+    (carries(data.status) ? ` Status: ${data.status}.` : "");
 ---
 
 <BaseLayout title={data.title} description={description}>
@@ -187,7 +209,7 @@ const description =
         id={section.id}
         title={section.title}
         body={section.body}
-        hasContent={Boolean(section.body) || section.hasImages}
+        hasContent={carries(section.body) || section.hasImages}
       >
         {section.id === "evidence" && images.length > 0 && (
           <ul class="evidence-images">
