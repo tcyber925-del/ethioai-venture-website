@@ -14,8 +14,8 @@
  * absence honestly rather than fabricating). Only the presentation does:
  *
  *  - one note per page instead of one per section,
- *  - at `body-sm` in `--color-muted`, so a pending state is visibly subordinate
- *    to real content rather than typographically identical to it,
+ *  - at `body-sm` in `--color-secondary`, so a pending state is subordinate to
+ *    real content by size and rule rather than typographically identical to it,
  *  - naming the steps that are pending, so the approved structure stays visible
  *    without a heading per section.
  *
@@ -73,11 +73,16 @@ const items = sections.map((section) =>
   /*
    * Subordination comes from size and the rule, not from greying the text out:
    * `body-sm` against `body`/`body-lg` prose plus a 2px left rule reads as
-   * quiet, and it keeps the note at --color-secondary's 7.48:1 rather than
-   * --color-muted's 4.54:1 — which is only 0.04 above the AA floor and would
-   * leave the page one token change away from failing. An earlier pass used
-   * --color-muted for the step names and --color-secondary for their detail
-   * clauses, which made each explanation louder than the thing it explained.
+   * quiet, and it keeps the note at --color-secondary rather than
+   * --color-muted. Measured against this component's own background
+   * (--color-neutral #FAFAF8): secondary 7.48:1, muted 4.54:1 — muted passes
+   * AA but by only 0.04, one token change from failing. On --color-surface
+   * (#FFFFFF) the pair is 7.81 and 4.74. Both figures are stated because the
+   * ratio depends on which background the note lands on.
+   *
+   * An earlier pass used --color-muted for the step names and --color-secondary
+   * for their detail clauses, which made each explanation louder than the thing
+   * it explained.
    */
   .pending__lead,
   .pending__item {

@@ -61,16 +61,28 @@ const images = data.images ?? [];
  *
  * Evidence is the one step with two content shapes: evidence text, or evidence
  * images when the text is absent. An entry carrying images therefore has a real
- * Evidence section (the images slot renders instead of a body paragraph).
+ * Evidence section (the images slot renders instead of a body paragraph), so
+ * `hasImages` participates in the presence test below.
+ *
+ * Every entry carries `hasImages` explicitly rather than only the evidence
+ * step. Omitting it on the others makes the array a union whose members do not
+ * all have the property, so reading `step.hasImages` is a type error waiting to
+ * happen and a uniform shape keeps both the filter and the render honest.
  */
 const sequence = [
-  { id: "problem", title: "Problem", body: data.problem },
-  { id: "built", title: "What We Built", body: data.built },
-  { id: "architecture", title: "Architecture", body: data.architecture },
+  { id: "problem", title: "Problem", body: data.problem, hasImages: false },
+  { id: "built", title: "What We Built", body: data.built, hasImages: false },
+  {
+    id: "architecture",
+    title: "Architecture",
+    body: data.architecture,
+    hasImages: false,
+  },
   {
     id: "implementation",
     title: "Technical Implementation",
     body: data.implementation,
+    hasImages: false,
   },
   {
     id: "evidence",
@@ -80,9 +92,19 @@ const sequence = [
     // section: the images are the evidence.
     hasImages: images.length > 0,
   },
-  { id: "limitations", title: "Limitations", body: data.limitations },
-  { id: "learnings", title: "What We Learned", body: data.learnings },
-  { id: "next", title: "Next", body: data.next },
+  {
+    id: "limitations",
+    title: "Limitations",
+    body: data.limitations,
+    hasImages: false,
+  },
+  {
+    id: "learnings",
+    title: "What We Learned",
+    body: data.learnings,
+    hasImages: false,
+  },
+  { id: "next", title: "Next", body: data.next, hasImages: false },
 ];
 
 /** Steps with approved content, in approved order. */
@@ -152,7 +174,18 @@ const description =
     </header>
 
     {sections.map((section) => (
-      <ProjectSection id={section.id} title={section.title} body={section.body}>
+      // hasContent is passed EXPLICITLY. ProjectSection defaults it to
+      // `body !== undefined`, which silently drops an Evidence step whose
+      // content is images rather than text — the images slot renders inside
+      // the section, so without this the step would render nothing at all
+      // while also being excluded from pendingSteps. The field is in the schema
+      // (content.config.ts), so that case is reachable.
+      <ProjectSection
+        id={section.id}
+        title={section.title}
+        body={section.body}
+        hasContent={Boolean(section.body) || section.hasImages}
+      >
         {section.id === "evidence" && images.length > 0 && (
           <ul class="evidence-images">
             {images.map((image) => (

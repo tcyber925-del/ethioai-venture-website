@@ -107,6 +107,12 @@ describe("the Inter subsets are present and well formed", () => {
     // value would tune this site's 60px h1 and 48px h2 for body copy (measured
     // from upstream Inter, opsz 14 -> 32 moves a 15-character bold heading at
     // 60px by 23px, ~5%) while every font-family check still passed.
+    //
+    // Regenerating on a different fontTools/brotli version produces a different
+    // compression, not different content (verified: 44,480 vs 44,612 bytes with
+    // identical codepoints, glyphs and axes), so a mismatch here means "review
+    // this deliberately", not "the build is broken". See the reproducibility
+    // caveat in tools/build-fonts.py.
     for (const [file, sha] of Object.entries(SUBSET_SHA256)) {
       const actual = createHash("sha256")
         .update(readFileSync(join(FONTS_DIR, file)))

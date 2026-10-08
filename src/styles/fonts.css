@@ -66,7 +66,9 @@
    *
    * U+0000 is NULL: no page renders it and it should never render. Starting at
    * U+0001 keeps the range valid through the build and costs nothing.
-   * tests/fonts.test.mjs pins this against the BUILT stylesheet.
+   * tests/fonts.test.mjs pins this in the source, and scripts/check-fonts.mjs
+   * pins it again in the BUILT stylesheet (the only place the corruption can
+   * be observed).
    */
   unicode-range:
     U+0001-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02D9-02DC, U+0304,

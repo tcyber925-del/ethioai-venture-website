@@ -6,10 +6,11 @@
  * Problem → What we build → Typical applications → How it works →
  * Capabilities → Related work → Engagement path → CTA.
  *
- * Every step renders its approved heading; sections whose content field is
- * empty in the collection show an honest pending note (MIS evidence policy —
- * no invented copy). Routes are generated from the solutions collection so
- * page URLs stay equal to the approved V1 routes.
+ * Every step renders its approved heading when it carries approved content;
+ * steps whose content field is empty render no heading and are named once in a
+ * quiet PendingNote after the last real step (ENG-102). Routes are generated
+ * from the solutions collection so page URLs stay equal to the approved V1
+ * routes.
  */
 import { getCollection, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -51,9 +52,14 @@ const hasList = (value: string[] | undefined): boolean =>
 
 /**
  * ENG-102 — the approved problem-first sequence, in order, with the honest
- * "does this step carry approved content" test for each. Drives both what
- * renders as a section and what the single PendingNote names as pending, so the
- * two can never drift: one list, one source of truth.
+ * "does this step carry approved content" test for each.
+ *
+ * This list drives what the PendingNote names as pending. It is NOT the single
+ * source of truth for rendering: the `<SolutionSection>` call sites below carry
+ * their own `hasContent={...}` test for the same field, so the two are parallel
+ * and could drift. They are kept adjacent and commented for that reason, and a
+ * test asserts the agreement — but the invariant is enforced by that test, not
+ * by construction.
  *
  * `Related work` is always considered present — RelatedWork renders its own
  * honest state (declared relations, or that none are declared yet) rather than

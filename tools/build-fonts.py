@@ -19,9 +19,23 @@ Reproduce:
       https://github.com/rsms/inter/releases/download/v4.0/Inter-4.0.zip
     PYTHONPATH=/tmp/fonts-libs python3 tools/build-fonts.py /tmp/Inter-4.0.zip
 
-Then copy `InterVariable.ttf` and `LICENSE.txt` out of the archive root. The
-outputs are written to public/fonts/ and their sha256 sums are printed — compare
-them against the committed files.
+`--target` is used rather than a user install so nothing lands on PATH; the
+script invokes `fontTools.subset` as a module for the same reason (a
+`--target` install puts console scripts in `<dir>/bin`, which is not on PATH).
+`brotli` is required because the WOFF2 writer needs it.
+
+The outputs are written to public/fonts/ and their sha256 sums are printed —
+compare them against the committed files and against the hashes recorded in
+tests/fonts.test.mjs.
+
+REPRODUCIBILITY CAVEAT: byte-identical output needs the same fontTools and
+brotli versions. Regenerating with a newer pair produced a 44,480-byte latin
+subset against the committed 44,612, with identical codepoints (285), glyphs
+(389) and axes — a compression-level difference, not a content one. What is
+reproducible from this script is the SUBSET and the AXES, which is exactly
+what verify() asserts. The recorded sha256 in tests/fonts.test.mjs is a pin on
+the committed bytes, so regenerating on another machine will fail it; treat that
+as "review the change deliberately", not as a broken build.
 
 Licensing: Inter is SIL Open Font License 1.1, which requires the license text
 to accompany the font binaries. `LICENSE.txt` is copied verbatim from the same
@@ -125,9 +139,9 @@ LATIN_EXT = ",".join(
 # interpolation: ~15 KB on the latin face.
 PINNED_AXES = {"wght": (400, 400, 700)}
 
-# Axes that must NOT survive subsetting. wght is pinned, so it is the only one
-# expected; opsz is intentionally absent from PINNED_AXES.
-UNEXPECTED_AXES = {"opsz"}
+# Axes that must NOT survive subsetting: wght and opsz are both intentional, so
+# anything else appearing in the output means an axis crept in. Checked below.
+EXPECTED_AXES = frozenset({"wght", "opsz"})
 
 # Asserted after subsetting, so a bad range can never ship silently.
 REQUIRED_CODEPOINTS = {
@@ -177,9 +191,16 @@ def pin_axes(source: Path, dest: Path) -> None:
 
 
 def subset(source: Path, unicodes: str, dest: Path) -> None:
+    # `python -m fontTools.subset`, not the `pyftsubset` console script.
+    # `pip install --target <dir>` puts console scripts in `<dir>/bin`, which is
+    # never on PATH, so shelling out to `pyftsubset` fails for anyone following
+    # the reproduction recipe. Running the module needs only the documented
+    # PYTHONPATH, and it is the same code path.
     result = subprocess.run(
         [
-            "pyftsubset",
+            sys.executable,
+            "-m",
+            "fontTools.subset",
             str(source),
             f"--unicodes={unicodes}",
             "--flavor=woff2",
@@ -194,7 +215,7 @@ def subset(source: Path, unicodes: str, dest: Path) -> None:
         text=True,
     )
     if result.returncode != 0:
-        raise SystemExit(f"pyftsubset failed:\n{result.stderr}")
+        raise SystemExit(f"fontTools.subset failed:\n{result.stderr}")
 
 
 def verify(path: Path, label: str) -> None:
@@ -224,9 +245,12 @@ def verify(path: Path, label: str) -> None:
             f"{path.name}: expected the native opsz range 14-32 so optical "
             f"sizing tracks rendered size, found {axes}"
         )
-    unexpected = set(axes) - {"wght", "opsz"}
+    unexpected = set(axes) - EXPECTED_AXES
     if unexpected:
-        raise SystemExit(f"{path.name}: unexpected axes survived: {unexpected}")
+        raise SystemExit(
+            f"{path.name}: unexpected axes survived subsetting: "
+            f"{sorted(unexpected)} (expected only {sorted(EXPECTED_AXES)})"
+        )
 
     size = path.stat().st_size
     digest = hashlib.sha256(path.read_bytes()).hexdigest()

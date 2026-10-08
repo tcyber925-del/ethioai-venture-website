@@ -19,7 +19,12 @@
  * status language — never fabricate). Only the presentation of absence changed.
  *
  * `hasContent` is explicit rather than inferred, so a step whose content
- * arrives through the slot (Related work) is not mistaken for an empty one.
+ * arrives through the slot (Related work) is not mistaken for an empty one. It
+ * DEFAULTS TO FALSE on purpose: a caller that forgets the prop gets a dropped
+ * section rather than a fabricated-looking placeholder. The cost of that
+ * default is that a forgotten prop is silent — the call sites on
+ * solutions/[slug].astro therefore all pass it explicitly, and a test asserts
+ * each one agrees with the `sequence` list beside them.
  */
 interface Props {
   /** Approved section heading (verbatim from the spec sequence). */

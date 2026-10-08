@@ -62,3 +62,9 @@ jobs:
       # by the minifier, or if the font preload is missing.
       - name: Self-hosted font regression checks
         run: npm run check:fonts
+      # ENG-102 — additive gate; runs after Build so dist/ exists. Fails if any
+      # step of the approved project/solution sequences is rendered twice, named
+      # pending twice, or neither — the last of which is the bug class that
+      # shipped through a green run before.
+      - name: Pending-state and evidence regression checks
+        run: npm run check:pending

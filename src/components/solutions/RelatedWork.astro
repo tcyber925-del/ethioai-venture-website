@@ -142,13 +142,16 @@ const relatedItems = related.map((slug) => {
   }
 
   /*
-   * ENG-102: pending states read at body-sm in --color-muted, matching
-   * PendingNote.astro, so "no related work linked yet" is visually subordinate
-   * to real content on every surface rather than only on project pages.
+   * ENG-102: pending states read at body-sm in --color-secondary, matching
+   * PendingNote.astro — the same token on every surface, so "no related work
+   * linked yet" is subordinate to real content by size and the surrounding
+   * rules rather than by greying the text out. --color-secondary measures
+   * 7.81:1 on white and 7.48:1 on the page's #FAFAF8 neutral; --color-muted
+   * would be 4.74 / 4.54, which passes AA but leaves under 0.25 of margin.
    */
   .pending-note {
     font-size: var(--text-body-sm-size);
     line-height: var(--text-body-sm-leading);
-    color: var(--color-muted);
+    color: var(--color-secondary);
   }
 </style>
