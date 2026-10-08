@@ -1,25 +1,48 @@
 /**
- * Self-hosted Inter (ENG-102).
+ * ENG-102 — regression battery for scripts/check-fonts.mjs, plus the
+ * source-level font contract.
  *
- * Why this exists: DESIGN.md names Inter as the primary expression of the
- * site's identity and `--font-sans` lists it first, but no `@font-face` ever
- * shipped — every visit rendered in the OS fallback face. Nothing in the
- * existing suite would have noticed if the font were removed again, because
- * `check:dist` only link-checks assets and cannot tell a served font from a
- * served string. These cases pin both halves: the assets exist and are valid
- * WOFF2, and the CSS actually references them.
+ * Two halves, deliberately separated:
  *
- * The checks that would catch a silent regression are the ones that read the
- * BUILT stylesheet, not the source: a `@font-face` that survives in
- * `src/styles/fonts.css` but is dropped by the build renders exactly like the
- * pre-ENG-102 site while every source-level assertion still passes.
+ *  1. Source contract (reads src/ and public/fonts/): the subsets exist, are
+ *     valid WOFF2, ship the OFL licence, are byte-identical to what
+ *     tools/build-fonts.py produces, the CSS declares the faces, the head
+ *     preloads the latin face, and the locked `--font-sans` token is
+ *     untouched. These hold with or without a build.
+ *
+ *  2. Built-output gate (runs scripts/check-fonts.mjs against a hand-built
+ *     fixture dist/): the compiled stylesheet still declares Inter, no
+ *     unicode-range was corrupted, and the preload survives. Fixture-built
+ *     rather than read from the repo's dist/ because `npm test` runs BEFORE
+ *     `npm run build` in both `npm run verify` and CI — a suite that read the
+ *     real dist/ failed on every clean checkout. (It did, once.) It is also why
+ *     each scenario below is pinned rather than run against whatever happens to
+ *     be built: the battery proves the gate REDS on the regressions it exists
+ *     to catch.
+ *
+ * Wired into `npm run verify` and the CI job alongside the check-dist,
+ * check-seo and check-work suites.
  */
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  readFileSync,
+  existsSync,
+  readdirSync,
+  mkdirSync,
+  writeFileSync,
+  mkdtempSync,
+  rmSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const FONTS_DIR = join(REPO_ROOT, "public/fonts");
+const CHECK_SCRIPT = join(REPO_ROOT, "scripts/check-fonts.mjs");
 
 /**
  * sha256 of each committed subset, as printed by tools/build-fonts.py.
@@ -32,68 +55,74 @@ const SUBSET_SHA256 = {
     "552f7b35ca3957236dfb10a05c46e1b9b286508810677ec896e02d9e38e20d1d",
 };
 
-const REPO_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
-const FONTS_DIR = path.join(REPO_ROOT, "public/fonts");
-const DIST = path.join(REPO_ROOT, "dist");
-const builtStylesheet = () => {
-  const dir = path.join(DIST, "_astro");
-  assert.ok(
-    existsSync(dir),
-    "dist/_astro not found — run `npm run build` before this suite.",
-  );
-  const css = readdirSync(dir).filter((f) => f.endsWith(".css"));
-  assert.equal(
-    css.length,
-    1,
-    `expected one built stylesheet, found ${css.length}`,
-  );
-  return readFileSync(path.join(dir, css[0]), "utf8");
-};
+/* ------------------------------------------------------------------ *
+ * Source contract — holds without a build
+ * ------------------------------------------------------------------ */
 
-/** WOFF2 signature is the ASCII "wOF2" — a truncated or HTML error page
- * would otherwise be served as a font and fail silently in the browser. */
+/** WOFF2 signature is the ASCII "wOF2" — a truncated file, or an HTML error
+ * page, would otherwise be served as a font and fail silently in the browser. */
 function assertWoff2(file) {
   const buf = readFileSync(file);
   assert.equal(
     buf.subarray(0, 4).toString("latin1"),
     "wOF2",
-    `${path.basename(file)} is not a WOFF2 container`,
+    `${file.split("/").pop()} is not a WOFF2 container`,
   );
-  assert.ok(buf.length > 1000, `${path.basename(file)} is suspiciously small`);
-  return buf;
+  assert.ok(
+    buf.length > 1000,
+    `${file.split("/").pop()} is suspiciously small`,
+  );
 }
 
 describe("the Inter subsets are present and well formed", () => {
-  test("the latin subset ships", () => {
-    assert.ok(existsSync(path.join(FONTS_DIR, "inter-latin.woff2")));
-    assertWoff2(path.join(FONTS_DIR, "inter-latin.woff2"));
+  test("both subsets ship", () => {
+    for (const file of Object.keys(SUBSET_SHA256)) {
+      assert.ok(
+        existsSync(join(FONTS_DIR, file)),
+        `public/fonts/${file} is missing`,
+      );
+      assertWoff2(join(FONTS_DIR, file));
+    }
   });
 
-  test("the latin-ext subset ships", () => {
-    assert.ok(existsSync(path.join(FONTS_DIR, "inter-latin-ext.woff2")));
-    assertWoff2(path.join(FONTS_DIR, "inter-latin-ext.woff2"));
-  });
-
-  test("the OFL license travels with the binaries", () => {
-    // Inter is SIL Open Font License 1.1, which requires the license to
+  test("the OFL licence travels with the binaries", () => {
+    // Inter is SIL Open Font License 1.1, which requires the licence to
     // accompany the font files. Shipping the binaries without it is a
     // licensing defect, not a cosmetic omission.
-    const license = readFileSync(path.join(FONTS_DIR, "LICENSE.txt"), "utf8");
+    const license = readFileSync(join(FONTS_DIR, "LICENSE.txt"), "utf8");
     assert.ok(
       /SIL OPEN FONT LICENSE/i.test(license),
       "public/fonts/LICENSE.txt does not contain the OFL text",
     );
   });
+
+  test("the shipped subsets are the ones tools/build-fonts.py produces", () => {
+    // Pins the exact bytes. That script asserts the axis configuration it
+    // builds (wght pinned to 400-700, opsz kept on its native 14-32 range so
+    // `font-optical-sizing: auto` tracks rendered size, no unexpected axis),
+    // so a regenerated file that changes any of that fails here and has to be
+    // updated deliberately.
+    //
+    // A CSS-only assertion cannot see this: pinning `opsz` at the 14px body
+    // value would tune this site's 60px h1 and 48px h2 for body copy (measured
+    // from upstream Inter, opsz 14 -> 32 moves a 15-character bold heading at
+    // 60px by 23px, ~5%) while every font-family check still passed.
+    for (const [file, sha] of Object.entries(SUBSET_SHA256)) {
+      const actual = createHash("sha256")
+        .update(readFileSync(join(FONTS_DIR, file)))
+        .digest("hex");
+      assert.equal(
+        actual,
+        sha,
+        `${file} differs from the recorded build — regenerate with ` +
+          "tools/build-fonts.py and update this hash deliberately",
+      );
+    }
+  });
 });
 
 describe("the stylesheet declares the faces", () => {
-  const css = readFileSync(
-    path.join(REPO_ROOT, "src/styles/fonts.css"),
-    "utf8",
-  );
+  const css = readFileSync(join(REPO_ROOT, "src/styles/fonts.css"), "utf8");
 
   test("Inter is declared for the weights the design system uses", () => {
     // tokens.css: 400 body, 600 h3/labels, 700 h1/h2/display.
@@ -115,26 +144,24 @@ describe("the stylesheet declares the faces", () => {
     );
   });
 
-  test("U+2192 (→) is in the latin range the site renders in", () => {
-    // The homepage Geography section and /about render "Ethiopia → Africa →
-    // Global" as real content. Google Fonts' published latin subset omits
-    // that codepoint, so a stock subset falls back to a system arrow inside
-    // an Inter heading.
-    //
-    // Asserted against the BUILT stylesheet, whose unicode-range survives
-    // minification — matching the source file would also match the prose in
-    // this suite's own reference to the codepoint and pass on a face that no
-    // longer declares it. (That is not hypothetical: a plain /U\+2192/ check
-    // on the source survived a mutation that removed it from the range.)
-    assert.match(
-      builtStylesheet(),
-      /unicode-range:[^}]*U\+2192/,
-      "the latin face no longer covers U+2192 — the → arrows would fall back",
+  test("the latin range starts at U+0001 and covers U+2192", () => {
+    // U+0001, not U+0000: Astro's minifier corrupts any range starting at 0
+    // into the invalid bytes `U+??`. U+0000 is NULL — never rendered.
+    // U+2192 (→): the homepage Geography section and /about render
+    // "Ethiopia → Africa → Global", and Google's published subset omits it, so
+    // a stock subset falls back to a system arrow inside an Inter heading.
+    const ranges = [...css.matchAll(/unicode-range:\s*([^;]+);/g)].map(
+      (m) => m[1],
     );
-    const latinRange = css.match(/unicode-range:\s*([^;]*U\+2192[^;]*);/);
+    assert.equal(ranges.length, 2, "expected two unicode-range declarations");
+    assert.match(
+      ranges[0],
+      /U\+0001-00FF/,
+      "the latin range must start at U+0001, not U+0000",
+    );
     assert.ok(
-      latinRange,
-      "the latin face must declare U+2192 in unicode-range",
+      ranges[0].includes("U+2192"),
+      "the latin range must cover U+2192 (→)",
     );
   });
 
@@ -147,106 +174,9 @@ describe("the stylesheet declares the faces", () => {
   });
 });
 
-describe("the built output loads the font", () => {
-  test("the shipped subsets are the ones tools/build-fonts.py produces", () => {
-    // Pins the exact bytes. tools/build-fonts.py asserts the axis
-    // configuration it builds (wght pinned to 400-700, opsz kept on its native
-    // 14-32 range so `font-optical-sizing: auto` tracks rendered size, and no
-    // unexpected axis surviving), so a regenerated file that changes any of
-    // that fails here and has to be updated deliberately.
-    //
-    // A CSS-only assertion cannot see this: pinning `opsz` at the 14px body
-    // value would tune this site's 60px h1 and 48px h2 for body copy
-    // (measured from upstream Inter, opsz 14 -> 32 moves a 15-character bold
-    // heading at 60px by 23px, ~5%) while every font-family check still passed.
-    for (const [file, sha] of Object.entries(SUBSET_SHA256)) {
-      const actual = createHash("sha256")
-        .update(readFileSync(path.join(FONTS_DIR, file)))
-        .digest("hex");
-      assert.equal(
-        actual,
-        sha,
-        `${file} differs from the recorded build — regenerate with ` +
-          "tools/build-fonts.py and update this hash deliberately",
-      );
-    }
-  });
-
-  test("the built stylesheet still declares Inter", () => {
-    const built = builtStylesheet();
-    assert.match(built, /@font-face\{font-family:Inter/);
-    assert.match(built, /url\(\/fonts\/inter-latin\.woff2\)/);
-  });
-
-  test("no unicode-range was corrupted by the build", () => {
-    // Astro's CSS minifier rewrites any unicode-range token starting at 0
-    // into the literal bytes `U+??` — not valid CSS. Chromium recovers it
-    // because its parser treats `?` as a wildcard, but that is a lenient-
-    // parser accident; another engine can drop the descriptor and fall back
-    // to a system font for the whole Latin block. The fix is U+0001-00FF (NULL
-    // is never rendered), asserted here against the BUILT bytes so the
-    // minifier can never silently reintroduce it.
-    const built = builtStylesheet();
-    for (const range of built.match(/unicode-range:([^}]*)}/g) ?? []) {
-      assert.doesNotMatch(
-        range,
-        /U\?\?/,
-        "a unicode-range was mangled to U+?? by the minifier — the latin range " +
-          "must start at U+0001, not U+0000",
-      );
-      assert.match(range, /unicode-range:U\+[0-9a-f]/i);
-    }
-    assert.equal(
-      (built.match(/unicode-range:/g) ?? []).length,
-      2,
-      "both faces must still declare a range",
-    );
-  });
-
-  test("the latin face covers basic Latin and the site's arrows", () => {
-    const built = builtStylesheet();
-    const latin =
-      built.match(/unicode-range:([^}]*inter-latin[^}]*)}/) ??
-      built.match(
-        /inter-latin\.woff2\)format\("woff2"\);unicode-range:([^}]*)}/,
-      );
-    assert.ok(latin, "could not locate the latin face's unicode-range");
-    const range = latin[1];
-    assert.match(range, /U\+1-FF/, "the basic Latin block must be covered");
-    assert.match(
-      range,
-      /U\+2192/,
-      "the → arrows the site renders must be covered",
-    );
-  });
-
-  test("the font files are emitted to dist", () => {
-    assert.ok(existsSync(path.join(DIST, "fonts/inter-latin.woff2")));
-    assert.ok(existsSync(path.join(DIST, "fonts/inter-latin-ext.woff2")));
-    assert.ok(existsSync(path.join(DIST, "fonts/LICENSE.txt")));
-  });
-
-  test("no built asset reaches an external font host", () => {
-    // check:dist deliberately treats absolute URLs as external and skips
-    // them; a font CDN reference is exactly what this must catch.
-    const files = [path.join(DIST, "index.html"), path.join(DIST, "_astro")];
-    for (const target of files) {
-      const text = readFileSync(
-        existsSync(target) && target.endsWith(".html")
-          ? target
-          : readdirSync(target)
-              .find((f) => f.endsWith(".css"))
-              .replace(/^/, target + "/"),
-        "utf8",
-      );
-      assert.doesNotMatch(text, /fonts\.(googleapis|gstatic)\.com/);
-    }
-  });
-});
-
 describe("the head preloads the face every page needs", () => {
   const layout = readFileSync(
-    path.join(REPO_ROOT, "src/layouts/BaseLayout.astro"),
+    join(REPO_ROOT, "src/layouts/BaseLayout.astro"),
     "utf8",
   );
 
@@ -265,11 +195,8 @@ describe("the head preloads the face every page needs", () => {
   test("latin-ext is not preloaded", () => {
     // No page needs a codepoint outside the latin subset, so preloading it
     // would spend bandwidth on a face the browser never selects.
-    const preloadBlock = layout.slice(
-      layout.indexOf('rel="preload"'),
-      layout.indexOf('rel="preload"') + 400,
-    );
-    assert.doesNotMatch(preloadBlock, /inter-latin-ext/);
+    const start = layout.indexOf('rel="preload"');
+    assert.doesNotMatch(layout.slice(start, start + 400), /inter-latin-ext/);
   });
 
   test("fonts.css is imported before the token and global stylesheets", () => {
@@ -282,16 +209,257 @@ describe("the head preloads the face every page needs", () => {
 });
 
 describe("the locked font token is untouched", () => {
-  const tokens = readFileSync(
-    path.join(REPO_ROOT, "src/styles/tokens.css"),
-    "utf8",
-  );
+  const tokens = readFileSync(join(REPO_ROOT, "src/styles/tokens.css"), "utf8");
 
   test("--font-sans still names Inter first", () => {
     assert.match(
       tokens,
       /--font-sans:\s*Inter,\s*system-ui/,
       "ENG-102 locks the typography tokens — the stack must be unchanged",
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Built-output gate — fixture dist/ per scenario
+ * ------------------------------------------------------------------ */
+
+/** The compiled stylesheet as the real build emits it. */
+const GOOD_CSS =
+  "@font-face{font-family:Inter;font-style:normal;font-weight:400 700;" +
+  'font-display:swap;src:url(/fonts/inter-latin.woff2)format("woff2");' +
+  "unicode-range:U+1-FF,U+131,U+152-153,U+2192,U+2212,U+FFFD}" +
+  "@font-face{font-family:Inter;font-style:normal;font-weight:400 700;" +
+  'font-display:swap;src:url(/fonts/inter-latin-ext.woff2)format("woff2");' +
+  "unicode-range:U+100-2BA,U+2C7-2CC,U+A720-A7FF}";
+
+/** Astro's actual output when the source range starts at U+0000. */
+const CSS_WITH_CORRUPT_RANGE =
+  "@font-face{font-family:Inter;font-style:normal;font-weight:400 700;" +
+  'font-display:swap;src:url(/fonts/inter-latin.woff2)format("woff2");' +
+  "unicode-range:U+??,U+131,U+152-153,U+2192,U+2212,U+FFFD}";
+
+const GOOD_PRELOAD =
+  '<link rel="preload" href="/fonts/inter-latin.woff2" as="font" ' +
+  'type="font/woff2" crossorigin>';
+
+function page(preload = GOOD_PRELOAD, extra = "") {
+  return (
+    '<!doctype html><html lang="en"><head><title>t</title>' +
+    `<link rel="stylesheet" href="/_astro/BaseLayout.css">${preload}` +
+    `<meta name="description" content="d"><meta name="viewport" content="width=device-width">` +
+    `</head><body><main><h1>t</h1></main>${extra}</body></html>`
+  );
+}
+
+/**
+ * Build a fixture dist/ and run the gate against it.
+ *
+ * `expectPass: false` asserts the gate EXITS NON-ZERO — that is how a battery
+ * proves the gate would actually catch the regression, rather than merely
+ * agreeing with whatever the repo happens to have built.
+ */
+function runGate({
+  css = GOOD_CSS,
+  preload = GOOD_PRELOAD,
+  extraHtml = "",
+  assets = true,
+  omitLicense = false,
+}) {
+  const dir = mkdtempSync(join(tmpdir(), "check-fonts-"));
+  try {
+    mkdirSync(join(dir, "_astro"), { recursive: true });
+    mkdirSync(join(dir, "fonts"), { recursive: true });
+    writeFileSync(join(dir, "_astro", "BaseLayout.css"), css);
+    writeFileSync(join(dir, "index.html"), page(preload, extraHtml));
+    if (assets) {
+      for (const file of Object.keys(SUBSET_SHA256)) {
+        writeFileSync(
+          join(dir, "fonts", file),
+          readFileSync(join(FONTS_DIR, file)),
+        );
+      }
+      if (!omitLicense) {
+        writeFileSync(
+          join(dir, "fonts", "LICENSE.txt"),
+          "SIL OPEN FONT LICENSE",
+        );
+      }
+    }
+
+    try {
+      const stdout = execFileSync("node", [CHECK_SCRIPT, dir], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      return { ok: true, output: stdout };
+    } catch (error) {
+      return {
+        ok: false,
+        output: `${error.stdout ?? ""}${error.stderr ?? ""}`,
+      };
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe("check:fonts passes on correct output", () => {
+  test("accepts a well-formed build", () => {
+    const result = runGate({});
+    assert.ok(
+      result.ok,
+      `expected the gate to pass, it failed:\n${result.output}`,
+    );
+    assert.match(result.output, /0 problems/);
+  });
+});
+
+describe("check:fonts catches the regressions it exists for", () => {
+  /** Every case must RED. A case that passes here proves nothing. */
+  const cases = [
+    [
+      "the minifier's U+?? corruption survives the build",
+      { css: CSS_WITH_CORRUPT_RANGE },
+      /minifier-corrupted unicode-range/,
+    ],
+    [
+      "no @font-face reaches the output",
+      { css: "body{color:#171717}" },
+      /no @font-face for Inter/,
+    ],
+    [
+      "the latin face loses the → codepoint",
+      {
+        css: GOOD_CSS.replace("U+152-153,U+2192,U+2212", "U+152-153,U+2212"),
+      },
+      /omits U\+2192/,
+    ],
+    [
+      "the latin range reverts to a U+0000 start",
+      { css: GOOD_CSS.replace("U+1-FF", "U+0-FF") },
+      /U\?\?|U\+0001/,
+    ],
+    [
+      "the fonts are not emitted at all",
+      { assets: false },
+      /missing emitted asset/,
+    ],
+    [
+      "the licence is not shipped with the binaries",
+      { css: GOOD_CSS, assets: true, omitLicense: true },
+      /missing emitted asset: fonts\/LICENSE\.txt/,
+    ],
+    ["the preload is dropped", { preload: "" }, /no font preload/],
+    [
+      "the preload loses crossorigin (fetched twice)",
+      { preload: GOOD_PRELOAD.replace(" crossorigin", "") },
+      /missing crossorigin/,
+    ],
+    [
+      "the preload points at the wrong subset",
+      {
+        preload: GOOD_PRELOAD.replace(
+          "inter-latin.woff2",
+          "inter-latin-ext.woff2",
+        ),
+      },
+      /does not point at the latin subset/,
+    ],
+    [
+      "latin-ext is preloaded though no page needs it",
+      {
+        preload: GOOD_PRELOAD.replace(
+          "inter-latin.woff2",
+          "inter-latin-ext.woff2",
+        ),
+      },
+      /preloads inter-latin-ext|does not point at the latin subset/,
+    ],
+    [
+      "the faces are served from an external font host",
+      { extraHtml: '<script src="https://fonts.gstatic.com/x.js"></script>' },
+      /external font host/,
+    ],
+    [
+      "font-display is not swap",
+      { css: GOOD_CSS.replace(/font-display:swap/g, "font-display:block") },
+      /font-display: swap/,
+    ],
+  ];
+
+  for (const [label, fixture, expected] of cases) {
+    test(`RED on ${label}`, () => {
+      const result = runGate(fixture);
+      assert.ok(
+        !result.ok,
+        `the gate PASSED but should have failed — ${label}\n${result.output}`,
+      );
+      assert.match(result.output, expected);
+    });
+  }
+});
+
+describe("check:fonts refuses to run without a build", () => {
+  test("exits non-zero when dist/ is absent", () => {
+    // Same contract as check:dist and check:work: this gate reads build
+    // output, so running it before `npm run build` is a usage error, not a
+    // silent pass.
+    const empty = join(tmpdir(), "check-fonts-missing-dist");
+    assert.throws(
+      () => execFileSync("node", [CHECK_SCRIPT, empty], { stdio: "pipe" }),
+      /dist\/ not found/,
+    );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The gate is wired into the documented pipelines
+ * ------------------------------------------------------------------ */
+
+describe("check:fonts is wired into verify and CI", () => {
+  test("npm run verify runs it after the build", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
+    );
+    assert.ok(pkg.scripts["check:fonts"], "package.json has no check:fonts");
+    const verify = pkg.scripts.verify;
+    assert.ok(
+      verify.includes("npm run check:fonts"),
+      "npm run verify does not run check:fonts",
+    );
+    // Must run AFTER the build — it reads dist/.
+    assert.ok(
+      verify.indexOf("npm run build") < verify.indexOf("npm run check:fonts"),
+      "check:fonts must run after `npm run build` in verify",
+    );
+    // And after `npm test`, which is where the fixture battery lives.
+    assert.ok(
+      verify.indexOf("npm run test") < verify.indexOf("npm run check:fonts"),
+      "check:fonts must run after the test battery",
+    );
+  });
+
+  test("CI runs it after Build", () => {
+    const workflow = readdirSync(join(REPO_ROOT, ".github/workflows")).find(
+      (f) =>
+        f.endsWith(".yml") &&
+        readFileSync(join(REPO_ROOT, ".github/workflows", f), "utf8").includes(
+          "npm run check:dist",
+        ),
+    );
+    assert.ok(workflow, "could not find the CI workflow");
+    const text = readFileSync(
+      join(REPO_ROOT, ".github/workflows", workflow),
+      "utf8",
+    );
+    assert.ok(
+      text.includes("npm run check:fonts"),
+      "CI does not run check:fonts",
+    );
+    assert.ok(
+      text.indexOf("npm run build") < text.indexOf("npm run check:fonts"),
+      "CI must run check:fonts after Build",
     );
   });
 });

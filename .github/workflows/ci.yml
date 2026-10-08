@@ -57,3 +57,8 @@ jobs:
       # "Deterministic checks" job if the /work hide rules or pages vanish.
       - name: Work page regression checks
         run: npm run check:work
+      # ENG-102 — additive gate; runs after Build so dist/ exists. Fails if the
+      # Inter faces do not survive the build, if a unicode-range was corrupted
+      # by the minifier, or if the font preload is missing.
+      - name: Self-hosted font regression checks
+        run: npm run check:fonts
