@@ -7,6 +7,27 @@ import Footer from "../components/Footer.astro";
 import Analytics from "../components/Analytics.astro";
 import { site } from "../config/site";
 
+/**
+ * Inter preload (ENG-102).
+ *
+ * DESIGN.md names Inter as the primary expression of the identity, but no
+ * @font-face ever shipped it, so every visit rendered in the OS fallback face.
+ * The fonts are self-hosted under /fonts — no external provider, no third-party
+ * request; see src/styles/fonts.css for the subset and axis decisions.
+ *
+ * Preload the latin face only: it is the one every page needs, so preloading
+ * it removes the request from the critical path. The latin-ext face is
+ * deliberately NOT preloaded — no page uses a codepoint it covers, and a
+ * speculative preload would spend bandwidth on a face the browser will never
+ * select. `crossorigin` is required even though the font is same-origin: font
+ * fetches are always made in CORS mode, so without it the preload is fetched
+ * once and discarded, then fetched again for real.
+ *
+ * Kept in the frontmatter rather than as an HTML comment beside the tag: Astro
+ * emits HTML comments to the browser, and a note this long would then be sent
+ * on every single page load.
+ */
+
 interface Props {
   title: string;
   description?: string;
@@ -77,17 +98,9 @@ const websiteJsonLd = JSON.stringify({
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <!--
-      Inter (ENG-102). DESIGN.md names Inter as the primary expression of the
-      identity, but no @font-face ever shipped it, so every visit rendered in
-      the OS fallback face. The fonts are self-hosted under /fonts (no external
-      provider, no third-party request) — see src/styles/fonts.css.
-
-      Preload the latin face only: it is the one every page needs, so preloading
-      it removes the request from the critical path. The latin-ext face is
-      deliberately NOT preloaded — no page uses a codepoint it covers, and a
-      speculative preload would spend bandwidth on a face the browser will
-      never select. `crossorigin` is required even though the font is
-      same-origin: font fetches are always made in CORS mode.
+      Inter (ENG-102) rationale lives in the frontmatter above, not here: Astro
+      ships HTML comments to the browser, so a note this long would be sent on
+      every page load. Everything it explains applies to the tag below.
     -->
     <link
       rel="preload"
