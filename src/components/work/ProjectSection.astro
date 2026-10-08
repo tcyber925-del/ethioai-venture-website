@@ -5,28 +5,43 @@
  * Implementation → Evidence → Limitations → What We Learned → Next →
  * Related Work → CTA).
  *
- * Renders a labelled <section> with an h2 and the section body. The page
- * decides the body text; when no approved content exists it passes the
- * explicit "no content" note (MIS evidence policy: state absence honestly
- * rather than fabricating copy). The optional slot adds structured content
- * (lists, links, images) after the body.
+ * ENG-102 changed one thing here: a section with no approved content no
+ * longer renders at all. Previously every step rendered its heading plus a
+ * "No approved content published for this section yet." line, so /work/ethiobio
+ * shipped ten full-size headings and the same eight-word sentence nine times.
+ * The approved structure is still visible — the caller lists pending section
+ * titles in a single PendingNote at the end — but a heading now appears only
+ * where it introduces real evidence, which is the only reason a heading exists.
+ *
+ * The optional slot adds structured content (lists, links, images) after the
+ * body. The caller decides what renders; nothing here invents content.
  */
 interface Props {
   id: string;
   title: string;
   body?: string;
+  /**
+   * Whether this step has approved content. Defaults to "a body was given";
+   * pass it explicitly for a step whose content arrives through the slot
+   * instead of `body` (Related Work renders links, not a paragraph). Callers
+   * must pass `false` for a step with no approved content — that is what
+   * suppresses the heading, per the module comment.
+   */
+  hasContent?: boolean;
 }
 
-const { id, title, body } = Astro.props;
+const { id, title, body, hasContent = body !== undefined } = Astro.props;
 ---
 
-<section class="section" id={id} aria-labelledby={`${id}-heading`}>
-  <h2 id={`${id}-heading`}>{title}</h2>
-  <div class="section__body">
-    {body && <p>{body}</p>}
-    <slot />
-  </div>
-</section>
+{hasContent && (
+  <section class="section" id={id} aria-labelledby={`${id}-heading`}>
+    <h2 id={`${id}-heading`}>{title}</h2>
+    <div class="section__body">
+      {body && <p>{body}</p>}
+      <slot />
+    </div>
+  </section>
+)}
 
 <style>
   .section {

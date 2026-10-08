@@ -7,37 +7,38 @@
  * Problem → What we build → Typical applications → How it works →
  * Capabilities → Related work → Engagement path → CTA.
  *
- * The heading always renders so the approved structure stays visible. When the
- * backing content field has no approved value, the section shows an honest
- * pending note instead of invented copy (MIS evidence policy: leave the field
- * empty or use truthful status language — never fabricate).
+ * ENG-102 changed one thing here: a step with no approved content no longer
+ * renders its heading. Previously each of the eight steps rendered a
+ * full-size heading followed by "Content for this section is not yet
+ * published.", so a solution detail page shipped 2,266px and 89 words with six
+ * identical placeholders under 48px headings — indistinguishable from a broken
+ * build. The approved structure stays visible: the caller lists pending step
+ * titles in a single quiet PendingNote after the last real step.
+ *
+ * The evidence policy is untouched (MIS: leave a field empty or use truthful
+ * status language — never fabricate). Only the presentation of absence changed.
+ *
+ * `hasContent` is explicit rather than inferred, so a step whose content
+ * arrives through the slot (Related work) is not mistaken for an empty one.
  */
 interface Props {
   /** Approved section heading (verbatim from the spec sequence). */
   heading: string;
-  /** False when the backing content field is empty in the collection. */
+  /** Whether the backing content field carries approved content. */
   hasContent?: boolean;
-  /** Honest note rendered while the field has no approved content. */
-  pendingNote?: string;
 }
 
-const {
-  heading,
-  hasContent = true,
-  pendingNote = "Content for this section is not yet published.",
-} = Astro.props;
+const { heading, hasContent = false } = Astro.props;
 ---
 
-<section class="solution-section">
-  <h2>{heading}</h2>
-  {hasContent ? (
+{hasContent && (
+  <section class="solution-section">
+    <h2>{heading}</h2>
     <div class="solution-section__body">
       <slot />
     </div>
-  ) : (
-    <p class="pending-note">{pendingNote}</p>
-  )}
-</section>
+  </section>
+)}
 
 <style>
   .solution-section {
@@ -47,12 +48,5 @@ const {
 
   .solution-section__body {
     margin-top: var(--space-lg);
-  }
-
-  .pending-note {
-    margin-top: var(--space-lg);
-    font-size: var(--text-body-sm-size);
-    line-height: var(--text-body-sm-leading);
-    color: var(--color-secondary);
   }
 </style>

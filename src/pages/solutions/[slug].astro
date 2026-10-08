@@ -17,6 +17,7 @@ import Container from "../../components/Container.astro";
 import Link from "../../components/Link.astro";
 import MetadataLabel from "../../components/MetadataLabel.astro";
 import SolutionSection from "../../components/solutions/SolutionSection.astro";
+import PendingNote from "../../components/PendingNote.astro";
 import RelatedWork from "../../components/solutions/RelatedWork.astro";
 import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
 import { site } from "../../config/site";
@@ -47,6 +48,28 @@ const hasText = (value: string | undefined): boolean =>
 
 const hasList = (value: string[] | undefined): boolean =>
   Array.isArray(value) && value.length > 0;
+
+/**
+ * ENG-102 — the approved problem-first sequence, in order, with the honest
+ * "does this step carry approved content" test for each. Drives both what
+ * renders as a section and what the single PendingNote names as pending, so the
+ * two can never drift: one list, one source of truth.
+ *
+ * `Related work` is always considered present — RelatedWork renders its own
+ * honest state (declared relations, or that none are declared yet) rather than
+ * a placeholder, so suppressing its heading would hide that.
+ */
+const sequence = [
+  { heading: "Problem", present: hasText(data.problem) },
+  { heading: "What we build", present: hasText(data.what_we_build) },
+  { heading: "Typical applications", present: hasList(data.applications) },
+  { heading: "How it works", present: hasText(data.how_it_works) },
+  { heading: "Capabilities", present: hasList(data.capabilities) },
+  { heading: "Related work", present: true },
+  { heading: "Engagement path", present: hasText(data.engagement_path) },
+];
+
+const pendingSteps = sequence.filter((step) => !step.present);
 
 /**
  * Unique meta description (ENG-84): the approved summary when the entry
@@ -117,6 +140,20 @@ const description = hasText(data.summary)
         </ul>
       )}
     </SolutionSection>
+
+    {/*
+      ENG-102 — one quiet statement of which approved steps have no content
+      yet, instead of a full-size heading and a repeated placeholder per step.
+      The step names and order are the approved ones; nothing is fabricated and
+      no step is silently dropped.
+
+      Placed BEFORE Related work deliberately. Related work is the one step that
+      always renders (it reports its own honest state), so putting the note last
+      left the page reading: step 6 → then a list of steps 1–5 and 7. Here the
+      pending steps appear in approved order first, and Related work follows in
+      its sequence position.
+    */}
+    <PendingNote sections={pendingSteps.map((step) => step.heading)} />
 
     <SolutionSection heading="Related work" hasContent={true}>
       <RelatedWork

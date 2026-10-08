@@ -141,9 +141,14 @@ const relatedItems = related.map((slug) => {
     margin-top: var(--space-md);
   }
 
+  /*
+   * ENG-102: pending states read at body-sm in --color-muted, matching
+   * PendingNote.astro, so "no related work linked yet" is visually subordinate
+   * to real content on every surface rather than only on project pages.
+   */
   .pending-note {
     font-size: var(--text-body-sm-size);
     line-height: var(--text-body-sm-leading);
-    color: var(--color-secondary);
+    color: var(--color-muted);
   }
 </style>
