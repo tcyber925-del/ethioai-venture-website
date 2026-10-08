@@ -120,8 +120,15 @@ describe("every surface uses the shared predicate", () => {
   // Components that read a collection field and must use the shared predicate.
   // Deliberately a named list, not a glob: a component that never touches a
   // content field should not be forced to import the module, and a glob would
-  // silently start passing or failing as components are added.
-  const components = ["src/components/solutions/RelatedWork.astro"];
+  // silently start passing or failing as components are added. When a new
+  // component reads a collection field, add it here — the failure this list
+  // was widened for was exactly that omission, twice.
+  const components = [
+    "src/components/solutions/RelatedWork.astro",
+    "src/components/work/ProjectCard.astro",
+    "src/components/solutions/SolutionCard.astro",
+    "src/components/research/ResearchCard.astro",
+  ];
 
   for (const component of components) {
     test(`${component} imports the shared predicate`, () => {

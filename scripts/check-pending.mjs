@@ -88,9 +88,17 @@ const readSource = (relative) => readFileSync(join(repoRoot, relative), "utf8");
  * Step titles as declared in the page source, so this gate cannot assert a
  * sequence the page has since been changed to. Matches `heading="..."` /
  * `title: "..."` entries in order.
+ *
+ * Comments are stripped first. Without that, this gate reads its own
+ * expectations out of prose: a comment in [slug].astro explaining that the gate
+ * parses `heading="…"` became an approved step called "…", and all five
+ * solution pages went red with it neither rendered nor named pending. A gate
+ * whose input includes documentation of itself cannot be reasoned about.
  */
 function approvedSteps(sourceRelative, pattern) {
-  const text = readSource(sourceRelative);
+  const text = readSource(sourceRelative)
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
   return [...text.matchAll(pattern)].map((m) => m[1]);
 }
 
@@ -369,10 +377,20 @@ if (!existsSync(homeFile)) {
   if (!section) {
     fail("/: could not locate the engineering-depth section");
   } else {
-    // Test the VISIBLE TEXT, not the markup. Every Astro-scoped element carries
-    // `data-astro-cid-*`, so an earlier version of this check matched its own
-    // framework's attribute and reported Astro on a page that had none.
-    const visible = stripTags(section);
+    // The section must not describe the WEBSITE's own build. Test the visible text
+    // rather than the markup — every Astro-scoped element carries
+    // `data-astro-cid-*`, so an earlier version matched its own framework's
+    // attribute and reported Astro on a page that had none.
+    //
+    // Scoped to the section's EDITORIAL LEAD — the copy this PR wrote — and not
+    // to every visible mention. An approved `evidence` field is free to name
+    // Astro honestly ("built on Astro"); that is the project's own evidence and
+    // must never be read as the site describing itself. Only the static
+    // editorial text around the evidence cards is ours to police.
+    const leadEnd = section.indexOf('<li class="evidence"');
+    const lead = stripTags(
+      leadEnd === -1 ? section : section.slice(0, leadEnd),
+    ).trim();
     for (const term of [
       "Astro",
       "TypeScript",
@@ -381,7 +399,7 @@ if (!existsSync(homeFile)) {
       "content collection",
       "pull request",
     ]) {
-      if (new RegExp(term, "i").test(visible)) {
+      if (new RegExp(term, "i").test(lead)) {
         fail(`/ engineering depth still proves the website (${term})`);
       }
     }
@@ -520,24 +538,67 @@ if (!existsSync(homeFile)) {
     }
   }
 
-  // The reused `evidence` prose ends "See the links on this page for both."
-  // Rendering only the repository made the homepage state something false.
+  // The reused `evidence` prose is rendered verbatim on the homepage, so any link
+  // it SAYS is there must actually render. Which links it says is read from the
+  // prose rather than assumed: an earlier version required BOTH `github:` and
+  // `demo:` for every entry carrying evidence, so the first future entry with
+  // honest prose and only a repository link would redden CI with "has no demo
+  // URL to render" — instructing a content author to invent a deployment. That
+  // is the false-red class rounds 2, 4 and 5 were spent removing.
+  //
+  // So: require each field whose URL the prose claims, and only those. A prose
+  // that claims neither link still must render whichever URLs the entry
+  // approves, so the render side is checked for every declared field.
   for (const file of projectFiles) {
     const front = readFileSync(file, "utf8");
-    if (!/^evidence:\s*>-/m.test(front) && !/^evidence:\s*\S/m.test(front))
-      continue;
+    const evidence = frontmatterValue(front, "evidence");
+    if (evidence === null) continue;
     const slug = slugOf(file);
-    if (!cards.has(slug)) continue;
+    const card = cards.get(slug);
+    if (!card) continue;
+
+    // Which links the prose claims. "both" means both; otherwise an explicit
+    // mention of the field's label. Anything unclaimed is not required, but is
+    // still rendered if approved.
+    const claimsBoth = /links on this page for both/i.test(evidence);
     for (const field of ["github", "demo"]) {
       const url = front.match(new RegExp(`^${field}:\\s*(\\S+)`, "m"))?.[1];
+      const claimed =
+        claimsBoth ||
+        new RegExp(`\\b${field}\\b`, "i").test(evidence) ||
+        (field === "demo" && /\blive demo\b/i.test(evidence));
       if (!url) {
-        fail(`${slug}.md has no ${field} URL to render`);
-      } else if (!cards.get(slug).block.includes(`href="${url}"`)) {
+        if (claimed) {
+          fail(
+            `${slug}.md prose claims ${field} links, but the entry approves no ` +
+              `${field} URL to render`,
+          );
+        }
+        continue;
+      }
+      if (!card.block.includes(`href="${url}"`)) {
         fail(
-          `/ the ${field} link for ${slug} is missing from engineering depth, ` +
-            "so the reused evidence sentence is false on this page",
+          `/ the ${field} link for ${slug} is missing from engineering depth` +
+            (claimed
+              ? ", so the reused evidence sentence is false on this page"
+              : ""),
         );
       }
+    }
+
+    // The prose itself is the public claim on this page — "tagged release",
+    // "deployed dashboard". It is reused verbatim from the entry, so assert it
+    // is still there verbatim (whitespace-normalised, since the template wraps
+    // it through Astro's whitespace handling).
+    const rendered = card.block
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!rendered.includes(evidence.replace(/\s+/g, " ").trim())) {
+      fail(
+        `/ the evidence prose for ${slug} does not match the approved text\n` +
+          `      approved: ${evidence}`,
+      );
     }
   }
 

@@ -12,6 +12,7 @@
  */
 import MetadataLabel from "../MetadataLabel.astro";
 import Link from "../Link.astro";
+import { hasContent as carries } from "../../lib/content";
 
 interface Props {
   href: string;
@@ -28,7 +29,7 @@ const { href, title, topic, status, question } = Astro.props;
   {(topic || status) && (
     <p class="research-card__meta">
       {topic && <MetadataLabel>{topic}</MetadataLabel>}
-      {status && <MetadataLabel>{status}</MetadataLabel>}
+      {carries(status) && <MetadataLabel>{status}</MetadataLabel>}
     </p>
   )}
   <h2 class="research-card__title">

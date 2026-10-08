@@ -63,12 +63,17 @@ const hasList = hasListItem;
  * their own `hasContent={...}` test for the same field, so the two are parallel
  * and COULD drift — nothing compares them directly.
  *
- * What does hold them together is scripts/check-pending.mjs, which reads the
- * approved sequence from this page's own rendered output and asserts that every
+ * What does hold them together is scripts/check-pending.mjs. It reads the
+ * approved sequence from this page's SOURCE (the `heading="…"` on each
+ * `<SolutionSection>` call site) and asserts against the BUILT page that every
  * approved step appears exactly once across the rendered headings and the
- * pending note. That catches drift in the direction that matters (a step
- * rendered twice, named twice, or neither), though not a pending entry that
- * matches a step the call sites have forgotten entirely.
+ * pending note — so the two sides are compared rather than trusted.
+ *
+ * Two directions are caught: a step rendered twice, named twice, or neither;
+ * and a pending entry naming something that is not an approved step (rejected
+ * as "not an approved step"). The direction NOT covered is a step marked
+ * `present: true` whose call site was deleted: it renders nothing and is never
+ * named, so both sides agree on its absence.
  *
  * `Related work` is always considered present — RelatedWork renders its own
  * honest state (declared relations, or that none are declared yet) rather than

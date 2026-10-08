@@ -363,24 +363,18 @@ describe("check:fonts catches the regressions it exists for", () => {
       /missing crossorigin/,
     ],
     [
-      "the preload points at the wrong subset",
+      // One mutation, two independent defects it exposes: the latin face is no
+      // longer preloaded, and a face no page needs is preloaded instead. An
+      // earlier version listed this as two cases with byte-identical fixtures,
+      // which made "12 regressions" read as 11.
+      "the preload points at the wrong subset, preloading one no page needs",
       {
         preload: GOOD_PRELOAD.replace(
           "inter-latin.woff2",
           "inter-latin-ext.woff2",
         ),
       },
-      /does not point at the latin subset/,
-    ],
-    [
-      "latin-ext is preloaded though no page needs it",
-      {
-        preload: GOOD_PRELOAD.replace(
-          "inter-latin.woff2",
-          "inter-latin-ext.woff2",
-        ),
-      },
-      /preloads inter-latin-ext|does not point at the latin subset/,
+      /does not point at the latin subset[\s\S]*preloads inter-latin-ext/,
     ],
     [
       "the faces are served from an external font host",
