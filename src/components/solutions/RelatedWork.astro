@@ -15,6 +15,7 @@ import type { CollectionEntry } from "astro:content";
 import Link from "../Link.astro";
 import MetadataLabel from "../MetadataLabel.astro";
 import { routeExists } from "../../config/routes";
+import { hasContent as carries } from "../../lib/content";
 
 interface Props {
   /** related_work slugs declared on the solution entry. */
@@ -66,7 +67,7 @@ const relatedItems = related.map((slug) => {
             ) : (
               <span class="related__plain">{title}</span>
             )}
-            {status && (
+            {carries(status) && (
               <MetadataLabel class="related__status">{status}</MetadataLabel>
             )}
           </li>
@@ -141,6 +142,14 @@ const relatedItems = related.map((slug) => {
     margin-top: var(--space-md);
   }
 
+  /*
+   * ENG-102: pending states read at body-sm in --color-secondary, matching
+   * PendingNote.astro — the same token on every surface, so "no related work
+   * linked yet" is subordinate to real content by size and the surrounding
+   * rules rather than by greying the text out. --color-secondary measures
+   * 7.81:1 on white and 7.48:1 on the page's #FAFAF8 neutral; --color-muted
+   * would be 4.74 / 4.54, which passes AA but leaves under 0.25 of margin.
+   */
   .pending-note {
     font-size: var(--text-body-sm-size);
     line-height: var(--text-body-sm-leading);

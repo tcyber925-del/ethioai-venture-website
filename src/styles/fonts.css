@@ -1,0 +1,95 @@
+/*
+ * Inter — self-hosted webfonts (ENG-102).
+ *
+ * Why this file exists: the approved design system names Inter as the primary
+ * expression of the site's identity (DESIGN.md, Typography), and
+ * `--font-sans` lists it first — but nothing ever loaded it. Every visit fell
+ * through to `system-ui`/Segoe UI/Roboto, so the tracking values tuned for
+ * Inter (-0.035em on h1, 0.06em on labels) were being applied to a substitute
+ * face, the reading measure was font-dependent, and two visitors on different
+ * operating systems saw different typography.
+ *
+ * Sourcing: rsms/inter v4.0 release (InterVariable.ttf), SIL Open Font
+ * License 1.1. The license text ships beside the fonts at /fonts/LICENSE.txt,
+ * as OFL requires. Subset and weight-axis decisions are documented below and
+ * are reproducible via tools/build-fonts.py.
+ *
+ * Weights: the site uses exactly three (tokens.css — 400 body, 600 h3 and
+ * labels, 700 h1/h2/display). The variable font ships with its weight axis
+ * PINNED to 400-700, so one file serves all three and every `font-weight`
+ * token stays a variable-axis value rather than a static instance. Nothing
+ * outside 400/600/700 can render, so no unused weight interpolation ships.
+ *
+ * Optical sizing is deliberately NOT pinned: the font keeps Inter's native
+ * `opsz` 14-32 range, and `font-optical-sizing` defaults to `auto`, so the
+ * browser selects per rendered size. The site renders 60px h1 and 48px h2
+ * (global.css) alongside 14-16px body, and measured from upstream Inter,
+ * opsz 14 -> 32 moves the advance of a 15-character bold heading at 60px by
+ * 23px (~5%). Pinning the axis at the body value would tune display type for
+ * body copy — the exact mistake the axis exists to prevent — and typography is
+ * the stated reason for shipping Inter at all. The extra interpolation costs
+ * about 15 KB on the latin face.
+ *
+ * Subsets: Google Fonts' published Inter subset ranges, plus one codepoint
+ * this repo requires — U+2192 (→). The homepage Geography section and /about
+ * render "Ethiopia → Africa → Global" as real content, and Google's subset
+ * omits it, so a stock subset would have fallen back to a system arrow in the
+ * middle of an Inter heading. Verified present in the upstream cmap before
+ * inclusion; verified absent from Google's published latin subset.
+ *
+ * font-display: swap — no invisible text, per the approved accessibility
+ * posture, and a blocking font request would stall first paint on a
+ * single-stylesheet site.
+ *
+ * `--font-sans` is deliberately left byte-identical: ENG-102 locks the design
+ * tokens, so this change adds no family to that stack. See the CLS note in
+ * ENG-102's report — closing the swap-frame reflow would require inserting a
+ * metric-override fallback family into `--font-sans`, which is a token change
+ * and therefore out of scope here.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  /*
+   * Range starts at U+0001, not U+0000, and that is deliberate.
+   *
+   * Astro's CSS minifier corrupts any unicode-range token whose start is 0:
+   * `U+0-FF` and `U+0000-00FF` both build to the literal bytes `U+??`, which
+   * is not valid CSS. Chromium recovers it (its parser treats `?` as a
+   * wildcard and resolves the token to U+0-FF), but that is a lenient-parser
+   * accident — another engine may drop the whole descriptor and fall back to a
+   * system font for the entire Latin block, which is the pre-ENG-102 bug.
+   *
+   * U+0000 is NULL: no page renders it and it should never render. Starting at
+   * U+0001 keeps the range valid through the build and costs nothing.
+   * tests/fonts.test.mjs pins this in the source, and scripts/check-fonts.mjs
+   * pins it again in the BUILT stylesheet (the only place the corruption can
+   * be observed).
+   */
+  unicode-range:
+    U+0001-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02D9-02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2192, U+2212, U+2215, U+FEFF,
+    U+FFFD;
+}
+
+/*
+ * Latin Extended — loaded only if a page ever needs a codepoint outside the
+ * latin subset. No page does today, so this face costs nothing at runtime; it
+ * ships so that adding such content later cannot silently render in a
+ * non-Inter face.
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

@@ -5,11 +5,16 @@
  * Evidence → Limitations → What We Learned → Next → Related Work → CTA).
  *
  * Built from the `projects` collection glob, so any future entry routes
- * automatically. Fields without approved source content render an explicit
- * "no approved content" note instead of fabricated copy (MIS evidence
- * policy). Related Work resolves only from solution entries whose
- * `related_work` names this project — the research collection is empty and
- * no relation is invented for it.
+ * automatically. Fields without approved source content never render a
+ * heading or a body: they are named once, quietly, in a single PendingNote
+ * (ENG-102). The note sits after the last content step, and before the Related
+ * Work section when that section has real links to show — Related Work is the
+ * one step rendered from a separate branch rather than from `sequence`, so it
+ * can be either a rendered section or a pending entry. Related Work resolves
+ * only from solution entries whose `related_work` names this project, and no
+ * relation is invented for it. The evidence policy is unchanged — a step is
+ * either real approved content or an honest statement that it is not published
+ * yet, never fabricated copy (MIS evidence policy).
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Container from "../../components/Container.astro";
@@ -18,7 +23,9 @@ import Button from "../../components/Button.astro";
 import MetadataLabel from "../../components/MetadataLabel.astro";
 import StatusBadge from "../../components/work/StatusBadge.astro";
 import ProjectSection from "../../components/work/ProjectSection.astro";
+import PendingNote from "../../components/PendingNote.astro";
 import { routeExists } from "../../config/routes";
+import { hasContent, hasListItem } from "../../lib/content";
 import { site } from "../../config/site";
 import { getCollection, type CollectionEntry } from "astro:content";
 
@@ -37,45 +44,98 @@ interface Props {
 const { project } = Astro.props;
 const { data } = project;
 
-/** Honest fallback when a section has no approved source content. */
-const noContent = "No approved content published for this section yet.";
+// ENG-102 — `hasContent` is the shared predicate from src/lib/content.ts, so a
+// field that is an empty or whitespace-only string counts as absence here exactly
+// as it does on the homepage and on /solutions. Without the shared rule, the same
+// field could render a section on one page and be reported pending on another.
+const carries = hasContent;
 
 const technologies = data.technologies ?? [];
 const images = data.images ?? [];
 
 /**
- * Evidence text and evidence images are both content: only note absence when
- * neither exists. An `undefined` body means the images slot renders instead.
+ * ENG-102 — the approved project-detail sequence, in order, each step with the
+ * honest "does this carry approved content" test. ONE list drives both what
+ * renders as a section and what the single PendingNote names as pending, so the
+ * two cannot drift: adding a step here puts it in both places automatically.
+ * (An earlier pass kept `sections` and `pendingTitles` as two parallel arrays,
+ * where adding a ninth step would silently omit it from the note.)
+ *
+ * Step bodies carry only approved content, never a placeholder string. A step
+ * with no approved body renders no heading at all. The evidence policy is
+ * unchanged (MIS: state absence honestly, never fabricate) — only the rendering
+ * is: previously every step rendered a full-size heading plus an identical
+ * one-line placeholder, so /work/ethiobio shipped ten headings above the same
+ * eight-word sentence nine times, over 2,110px, and "no evidence yet" looked
+ * typographically identical to "evidence".
+ *
+ * Evidence is the one step with two content shapes: evidence text, or evidence
+ * images when the text is absent. An entry carrying images therefore has a real
+ * Evidence section (the images slot renders instead of a body paragraph), so
+ * `hasImages` participates in the presence test below.
+ *
+ * Every entry carries `hasImages` explicitly rather than only the evidence
+ * step. Omitting it on the others makes the array a union whose members do not
+ * all have the property, so reading `step.hasImages` is a type error waiting to
+ * happen and a uniform shape keeps both the filter and the render honest.
  */
-const evidenceBody =
-  data.evidence ?? (images.length > 0 ? undefined : noContent);
-
-const sections = [
-  { id: "problem", title: "Problem", body: data.problem ?? noContent },
-  { id: "built", title: "What We Built", body: data.built ?? noContent },
+const sequence = [
+  {
+    id: "problem",
+    title: "Problem",
+    body: data.problem,
+    hasImages: false,
+  },
+  {
+    id: "built",
+    title: "What We Built",
+    body: data.built,
+    hasImages: false,
+  },
   {
     id: "architecture",
     title: "Architecture",
-    body: data.architecture ?? noContent,
+    body: data.architecture,
+    hasImages: false,
   },
   {
     id: "implementation",
     title: "Technical Implementation",
-    body: data.implementation ?? noContent,
+    body: data.implementation,
+    hasImages: false,
   },
-  { id: "evidence", title: "Evidence", body: evidenceBody },
+  {
+    id: "evidence",
+    title: "Evidence",
+    body: data.evidence,
+    // An entry whose only evidence is images still has a real Evidence
+    // section: the images are the evidence.
+    hasImages: hasListItem(images),
+  },
   {
     id: "limitations",
     title: "Limitations",
-    body: data.limitations ?? noContent,
+    body: data.limitations,
+    hasImages: false,
   },
   {
     id: "learnings",
     title: "What We Learned",
-    body: data.learnings ?? noContent,
+    body: data.learnings,
+    hasImages: false,
   },
-  { id: "next", title: "Next", body: data.next ?? noContent },
+  { id: "next", title: "Next", body: data.next, hasImages: false },
 ];
+
+/** Steps with approved content, in approved order. */
+const sections = sequence.filter(
+  (step) => carries(step.body) || step.hasImages,
+);
+
+/** Steps without it — named once, quietly, by PendingNote. */
+const pendingSteps = sequence
+  .filter((step) => !carries(step.body) && !step.hasImages)
+  .map((step) => step.title);
 
 const solutions = await getCollection("solutions");
 const relatedSolutions = solutions.filter((solution) =>
@@ -87,12 +147,15 @@ const relatedSolutions = solutions.filter((solution) =>
  * carries one; otherwise a mechanical composition of approved fields only
  * — title always, status when the entry has one (MIS: EthioBio must show
  * In Development). No fabricated copy.
+ *
+ * `carries` rather than a local typeof/trim test — this was the fourth copy of
+ * that rule in this file's neighbourhood, and a description must agree with
+ * whether the page itself treats the summary as content.
  */
-const description =
-  typeof data.summary === "string" && data.summary.trim() !== ""
-    ? data.summary
-    : `${data.title} — selected work from EthioAI Venture.` +
-      (data.status ? ` Status: ${data.status}.` : "");
+const description = carries(data.summary)
+  ? data.summary
+  : `${data.title} — selected work from EthioAI Venture.` +
+    (carries(data.status) ? ` Status: ${data.status}.` : "");
 ---
 
 <BaseLayout title={data.title} description={description}>
@@ -105,11 +168,15 @@ const description =
       <MetadataLabel>Project</MetadataLabel>
       <h1>{data.title}</h1>
       <div class="project-header__meta">
-        {data.status && <StatusBadge status={data.status} />}
-        {data.category && <MetadataLabel>{data.category}</MetadataLabel>}
+        {carries(data.status) && <StatusBadge status={data.status} />}
+        {carries(data.category) && (
+          <MetadataLabel>{data.category}</MetadataLabel>
+        )}
       </div>
-      {data.summary && <p class="project-header__summary">{data.summary}</p>}
-      {technologies.length > 0 && (
+      {carries(data.summary) && (
+        <p class="project-header__summary">{data.summary}</p>
+      )}
+      {hasListItem(technologies) && (
         <div class="project-header__tech">
           <MetadataLabel>Technologies</MetadataLabel>
           <ul class="tech-list">
@@ -119,14 +186,14 @@ const description =
           </ul>
         </div>
       )}
-      {(data.github || data.demo) && (
+      {(carries(data.github) || carries(data.demo)) && (
         <p class="project-header__links">
-          {data.github && (
+          {carries(data.github) && (
             <Link href={data.github} data-analytics-event="github-click">
               GitHub
             </Link>
           )}
-          {data.demo && (
+          {carries(data.demo) && (
             <Link href={data.demo} data-analytics-event="demo-click">
               Demo
             </Link>
@@ -136,8 +203,19 @@ const description =
     </header>
 
     {sections.map((section) => (
-      <ProjectSection id={section.id} title={section.title} body={section.body}>
-        {section.id === "evidence" && images.length > 0 && (
+      // hasContent is passed EXPLICITLY. ProjectSection defaults it to
+      // `body !== undefined`, which silently drops an Evidence step whose
+      // content is images rather than text — the images slot renders inside
+      // the section, so without this the step would render nothing at all
+      // while also being excluded from pendingSteps. The field is in the schema
+      // (content.config.ts), so that case is reachable.
+      <ProjectSection
+        id={section.id}
+        title={section.title}
+        body={section.body}
+        hasContent={carries(section.body) || section.hasImages}
+      >
+        {section.id === "evidence" && hasListItem(images) && (
           <ul class="evidence-images">
             {images.map((image) => (
               <li>
@@ -153,12 +231,26 @@ const description =
       </ProjectSection>
     ))}
 
-    <ProjectSection
-      id="related-work"
-      title="Related Work"
-      body={relatedSolutions.length > 0 ? undefined : noContent}
-    >
-      {relatedSolutions.length > 0 && (
+    <PendingNote
+      sections={[
+        ...pendingSteps.map((title) => ({ title })),
+        // ENG-102: state the actual reason for Related Work. Projects exist —
+        // no solution entry declares a relation to this one yet, which is a
+        // different fact from "no approved content published for this section".
+        ...(relatedSolutions.length === 0
+          ? [
+              {
+                title: "Related Work",
+                detail:
+                  "no approved related-work relationship is declared for this project yet",
+              },
+            ]
+          : []),
+      ]}
+    />
+
+    {relatedSolutions.length > 0 && (
+      <ProjectSection id="related-work" title="Related Work" hasContent={true}>
         <ul class="related-list">
           {relatedSolutions.map((solution) => (
             <li>
@@ -172,8 +264,8 @@ const description =
             </li>
           ))}
         </ul>
-      )}
-    </ProjectSection>
+      </ProjectSection>
+    )}
 
     <section class="cta" aria-labelledby="cta-heading">
       <h2 id="cta-heading">Start a Project</h2>

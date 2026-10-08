@@ -9,6 +9,7 @@
  */
 import Link from "../Link.astro";
 import MetadataLabel from "../MetadataLabel.astro";
+import { hasContent as carries } from "../../lib/content";
 
 interface Props {
   title: string;
@@ -24,12 +25,12 @@ const { title, href, summary, status } = Astro.props;
   <h3 class="solution-card__title">
     <Link href={href}>{title}</Link>
   </h3>
-  {status && (
+  {carries(status) && (
     <p class="solution-card__status">
       <MetadataLabel>{status}</MetadataLabel>
     </p>
   )}
-  {summary && <p class="solution-card__summary">{summary}</p>}
+  {carries(summary) && <p class="solution-card__summary">{summary}</p>}
 </article>
 
 <style>

@@ -12,6 +12,7 @@
 import Link from "../Link.astro";
 import MetadataLabel from "../MetadataLabel.astro";
 import StatusBadge from "./StatusBadge.astro";
+import { hasContent as carries } from "../../lib/content";
 
 interface Props {
   title: string;
@@ -26,13 +27,13 @@ const { title, slug, status, category, summary } = Astro.props;
 
 <li class="project-card" data-project-status={status ?? ""}>
   <div class="project-card__meta">
-    {category && <MetadataLabel>{category}</MetadataLabel>}
-    {status && <StatusBadge status={status} />}
+    {carries(category) && <MetadataLabel>{category}</MetadataLabel>}
+    {carries(status) && <StatusBadge status={status} />}
   </div>
   <h3 class="project-card__title">
     <Link href={`/work/${slug}`}>{title}</Link>
   </h3>
-  {summary && <p class="project-card__summary">{summary}</p>}
+  {carries(summary) && <p class="project-card__summary">{summary}</p>}
 </li>
 
 <style>

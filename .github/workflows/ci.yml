@@ -57,3 +57,15 @@ jobs:
       # "Deterministic checks" job if the /work hide rules or pages vanish.
       - name: Work page regression checks
         run: npm run check:work
+      # ENG-102 — additive gate; runs after Build so dist/ exists. Fails if the
+      # Inter faces do not survive the build, if a unicode-range was corrupted
+      # by the minifier, or if the font preload is missing.
+      - name: Self-hosted font regression checks
+        run: npm run check:fonts
+      # ENG-102 — additive gate; runs after Build so dist/ exists. Fails if any
+      # step of the approved project/solution sequences appears other than
+      # exactly once across the rendered headings and the pending note — zero
+      # times is the bug class that shipped through a green run before, twice is
+      # the visitor seeing the same step repeated.
+      - name: Pending-state and evidence regression checks
+        run: npm run check:pending
