@@ -108,6 +108,13 @@ const COLLECTION_FIELDS = [
   // source, not about what currently happens to have content.
   "topic",
   "question",
+  "context",
+  "investigation",
+  "experiments",
+  "results",
+  "observations",
+  "learnings",
+  "next",
 ];
 
 describe("every surface uses the shared predicate", () => {

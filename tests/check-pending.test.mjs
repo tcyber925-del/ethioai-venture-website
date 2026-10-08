@@ -289,35 +289,67 @@ function formPage(mutate = (b) => b) {
   return html(body);
 }
 
-/** Frontmatter field value, folding a `>-` block. */
+/**
+ * Frontmatter field value, in every shape YAML allows.
+ *
+ * Deliberately NOT a copy of the gate's parser. This file used to reimplement
+ * the same two-shape reader, so fixture and gate agreed with each other and
+ * both disagreed with Astro — which is why `npm test` stayed green while a real
+ * build reddened on an ordinary `technologies: [Rust]` or an ampersand. Both
+ * readers now handle folded scalars, plain multi-line scalars, literal blocks
+ * and flow sequences, and the two shapes the gate genuinely does not accept
+ * (a scalar where a list is expected, a list where a scalar is expected) are
+ * covered by RED cases below rather than by agreement.
+ */
 function readField(file, field) {
   const text = readFileSync(file, "utf8");
   const m = text.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
   if (!m) return null;
-  const first = m[1].trim();
-  if (first !== "" && first !== ">-" && first !== ">") {
-    return first.replace(/^["']|["']$/g, "").trim() || null;
-  }
-  const folded = [];
+  const continuation = [];
   for (const line of text.slice(m.index).split("\n").slice(1)) {
     if (!/^[ \t]+/.test(line)) break;
-    folded.push(line.trim());
+    if (/^\s*#/.test(line)) continue;
+    continuation.push(line.trim());
   }
-  const value = folded.join(" ").trim();
-  return value === "" ? null : value;
+  const first = m[1].trim();
+  if (first === "|") {
+    const value = continuation.join("\n").trim();
+    return value === "" ? null : value;
+  }
+  if (first === "" || first === ">" || first === ">-") {
+    const value = continuation.join(" ").trim();
+    return value === "" ? null : value;
+  }
+  const scalar = [first.replace(/^["']|["']$/g, "").trim(), ...continuation]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return scalar === "" ? null : scalar;
 }
 
+/** Frontmatter list field, in block or flow form. */
 function readList(file, field) {
-  const lines = readFileSync(file, "utf8").split("\n");
-  const at = lines.findIndex((l) => new RegExp(`^${field}:\\s*$`).test(l));
-  if (at === -1) return [];
-  const out = [];
-  for (let i = at + 1; i < lines.length; i += 1) {
-    const m = lines[i].match(/^\s+-\s+(.+)$/);
-    if (!m) break;
-    out.push(m[1].trim());
+  const text = readFileSync(file, "utf8");
+  const m = text.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+  if (!m) return [];
+  const first = m[1].trim();
+  const strip = (v) => v.replace(/^["']|["']$/g, "").trim();
+  if (first.startsWith("[") && first.endsWith("]")) {
+    return first
+      .slice(1, -1)
+      .split(",")
+      .map((item) => strip(item.trim()))
+      .filter(Boolean);
   }
-  return out;
+  if (first !== "") return [];
+  const out = [];
+  for (const line of text.slice(m.index).split("\n").slice(1)) {
+    if (!/^[ \t]+/.test(line)) break;
+    const item = line.match(/^\s+-\s+(.*)$/);
+    if (!item) continue;
+    out.push(strip(item[1]));
+  }
+  return out.filter(Boolean);
 }
 
 /* ------------------------------------------------------------------ *
@@ -329,8 +361,13 @@ function readList(file, field) {
  *
  * A case asserting RED is only meaningful if the SAME fixture passes before the
  * mutation — otherwise a case can redden for an unrelated reason and prove
- * nothing. `baselineGreen` checks that, per case, which is why every mutation
- * below is expressed as a function over an otherwise-correct page.
+ * nothing. Every mutation below is therefore expressed as a function over an
+ * otherwise-correct page, and "the fixture is genuinely correct" asserts the
+ * unmutated build is green.
+ *
+ * (An earlier version of this comment claimed a per-case `baselineGreen`
+ * checked that. No such thing existed; the check is global, not per case, and
+ * the comment is now written to match what actually runs.)
  */
 function runGate({
   project,
@@ -574,7 +611,7 @@ describe("check:pending catches the regressions it exists for", () => {
             '<p class="card__summary">An invented summary</p></main>',
           ),
       },
-      /renders \d+ summaries but only \d+ are approved/,
+      /summary\/summaryies with no approved entry behind/,
     ],
     [
       // Round 7 finding 2: the prose claims both links ("see the links on this

@@ -112,11 +112,10 @@ for (const range of ranges) {
     fail(`malformed unicode-range: ${range.trim()}`);
   }
 }
-if (ranges.length !== 2) {
-  fail(
-    `expected 2 unicode-range declarations (latin + latin-ext), found ${ranges.length}`,
-  );
-}
+// Exactly two faces, so exactly two ranges — but each is located by its OWN
+// block below, not counted across the bundle. The count coupled this gate to
+// any other stylesheet that happens to declare a unicode-range, which is a
+// fail-loud trap for an unrelated change.
 
 // 3. The latin face must cover basic Latin AND U+2192. The homepage Geography
 //    section and /about render "Ethiopia → Africa → Global"; Google's
@@ -141,7 +140,21 @@ if (!latinFace) {
   fail("could not locate the latin face's @font-face block in the built CSS");
 } else if (!latinFace.range) {
   fail("the latin face declares no unicode-range");
-} else {
+}
+
+// The ext face, located the same way rather than by counting declarations.
+const extFace = css.match(
+  /@font-face\s*\{[^}]*inter-latin-ext\.woff2[^}]*\}/i,
+)?.[0];
+if (!extFace) {
+  fail(
+    "could not locate the latin-ext face's @font-face block in the built CSS",
+  );
+} else if (!/unicode-range:/i.test(extFace)) {
+  fail("the latin-ext face declares no unicode-range");
+}
+
+if (latinFace) {
   const { range } = latinFace;
   // Each comma-separated term is one codepoint or an inclusive `lo-hi` range.
   const spans = range

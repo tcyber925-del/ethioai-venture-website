@@ -345,20 +345,8 @@ const slugOf = (file) =>
   file.split("/").pop().replace(/\.md$/, "");
 
 /** Approved `technologies` entries for one markdown file. */
-const approvedTechnologies = (file) => {
-  const front = readFileSync(file, "utf8");
-  const lines = front.split("\n");
-  const keyAt = lines.findIndex((line) => /^technologies:\s*$/.test(line));
-  const listed = [];
-  if (keyAt !== -1) {
-    for (let i = keyAt + 1; i < lines.length; i += 1) {
-      const item = lines[i].match(/^\s+-\s+(.+)$/);
-      if (!item) break;
-      listed.push(item[1].trim());
-    }
-  }
-  return listed;
-};
+const approvedTechnologies = (file) =>
+  frontmatterList(readFileSync(file, "utf8"), "technologies");
 
 const homeFile = join(distDir, "index.html");
 if (!existsSync(homeFile)) {
@@ -617,53 +605,163 @@ if (!existsSync(homeFile)) {
   const summaries = projectFiles.filter(
     (file) => frontmatterValue(readFileSync(file, "utf8"), "summary") !== null,
   );
-  const renderedSummaries = new Set(
-    [...home.matchAll(/class="card__summary"[^>]*>([^<]+)</g)].map((m) =>
-      m[1].trim(),
-    ),
-  );
+  // A LIST, not a Set. A Set deduped, so two entries approving identical text
+  // masked a missing second render: the count matched while a page was missing
+  // its summary.
+  const renderedSummaries = [
+    ...home.matchAll(/class="card__summary"[^>]*>([^<]+)/g),
+  ].map((m) => decodeEntities(m[1].trim()));
+
+  // Consume one rendered summary per approved entry, so two entries approving
+  // the same text each claim one.
+  const remaining = [...renderedSummaries];
   for (const file of summaries) {
     const slug = slugOf(file);
-    const approved = frontmatterValue(readFileSync(file, "utf8"), "summary");
-    if (!renderedSummaries.has(approved)) {
+    const approved = normalise(
+      frontmatterValue(readFileSync(file, "utf8"), "summary"),
+    );
+    const at = remaining.findIndex((text) => text === approved);
+    if (at === -1) {
       fail(
         `/ selected work does not render the approved summary for ${slug}\n` +
           `      approved: ${approved}`,
       );
+    } else {
+      remaining.splice(at, 1);
     }
   }
-  if (renderedSummaries.size > summaries.length && summaries.length > 0) {
+  // No `summaries.length > 0` guard: with no approved summary at all, any
+  // rendered one is fabricated. The earlier guard made the whole check inert
+  // in exactly that state.
+  if (remaining.length > 0) {
     fail(
-      `/ selected work renders ${renderedSummaries.size} summaries but only ` +
-        `${summaries.length} are approved — one is not from the content`,
+      `/ selected work renders ${remaining.length} summary/summaryies with no ` +
+        `approved entry behind ${remaining.length === 1 ? "it" : "them"}:\n` +
+        remaining.map((t) => `      ${t}`).join("\n"),
     );
   }
 }
 
+/** Collapse whitespace, so a folded scalar compares equal to its rendering. */
+function normalise(text) {
+  return text === null ? null : text.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Decode the HTML entities Astro emits into text content.
+ *
+ * The built page escapes `&`, `<`, `>` and quotes, so comparing approved text to
+ * raw rendered text false-red a correct page the moment a summary contained an
+ * ampersand — a false red on ordinary content, which is the class this gate has
+ * spent several rounds removing.
+ */
+function decodeEntities(text) {
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
+      String.fromCodePoint(Number.parseInt(code, 16)),
+    )
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+}
+
 /**
  * The declared value of a frontmatter field in markdown source, or null when
- * the entry declares none. Handles the two shapes used here: a folded scalar
- * (`summary: >-` continued on indented lines) and a plain one-line value.
+ * the entry declares none.
+ *
+ * Handles every shape YAML accepts for a scalar, because the content schema
+ * accepts every shape too and an earlier version handled only two of them. It
+ * read a one-line value or a `>-`/`>` fold, so BOTH of these false-red a
+ * correct build:
+ *
+ *   summary: An AI-assisted science learning and teaching
+ *     assistant for Ethiopian middle and high school education.
+ *
+ *   — a PLAIN multi-line scalar, which YAML folds exactly like `>-`.
+ *
+ * and the flow forms are handled by `frontmatterList` below.
  *
  * Returns null rather than "" so "declares none" is distinguishable from
- * "declares a blank one" — the content schema forbids the latter, and the
- * difference is what lets a gate be written against the approved content
- * instead of restating it.
+ * "declares a blank one" — the schema forbids the latter, and the difference is
+ * what lets this gate be written against the approved content instead of
+ * restating it.
  */
 function frontmatterValue(front, field) {
   const match = front.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
   if (!match) return null;
+  const continuation = indentedLinesAfter(front, match.index);
+
   const first = match[1].trim();
-  if (first !== "" && first !== ">-" && first !== ">") {
-    return first.replace(/^["']|["']$/g, "").trim() || null;
+  if (first === ">" || first === ">-") {
+    // Folded scalar: line breaks become spaces.
+    const value = continuation.join(" ").trim();
+    return value === "" ? null : value;
   }
-  const folded = [];
-  for (const line of front.slice(match.index).split("\n").slice(1)) {
+  if (first === "|") {
+    // Literal scalar: line breaks are kept, so only trim the edges.
+    const value = continuation.join("\n").trim();
+    return value === "" ? null : value;
+  }
+  if (first === "") {
+    const value = continuation.join(" ").trim();
+    return value === "" ? null : value;
+  }
+  // A plain scalar. Its own first line, plus any indented continuation lines,
+  // which YAML folds into it with a space.
+  const scalar = [first.replace(/^["']|["']$/g, "").trim(), ...continuation]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return scalar === "" ? null : scalar;
+}
+
+/** The indented lines following the line at `index`, as trimmed strings. */
+function indentedLinesAfter(front, index) {
+  const lines = [];
+  for (const line of front.slice(index).split("\n").slice(1)) {
     if (!/^[ \t]+/.test(line)) break;
-    folded.push(line.trim());
+    if (/^\s*#/.test(line)) continue; // a comment inside a block
+    lines.push(line.trim());
   }
-  const value = folded.join(" ").trim();
-  return value === "" ? null : value;
+  return lines;
+}
+
+/**
+ * The declared items of a frontmatter LIST field, in order.
+ *
+ * Accepts both YAML shapes: a block sequence (`technologies:` then `- item`
+ * lines) and a flow sequence (`technologies: [Rust, WASM]`). An earlier version
+ * recognised only the block form, so the first entry to use a flow sequence —
+ * perfectly valid, accepted by the schema, rendered correctly by Astro — was
+ * reported as declaring no technologies at all.
+ */
+function frontmatterList(front, field) {
+  const match = front.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+  if (!match) return [];
+  const first = match[1].trim();
+
+  if (first.startsWith("[") && first.endsWith("]")) {
+    return first
+      .slice(1, -1)
+      .split(",")
+      .map((item) => stripQuotes(item.trim()))
+      .filter(Boolean);
+  }
+  if (first !== "") return []; // a scalar where a list is expected
+
+  return indentedLinesAfter(front, match.index)
+    .map((line) => line.match(/^-\s+(.*)$/)?.[1]?.trim() ?? null)
+    .filter((item) => item !== null)
+    .map(stripQuotes)
+    .filter(Boolean);
+}
+
+function stripQuotes(value) {
+  return value.replace(/^["']|["']$/g, "").trim();
 }
 
 /* ------------------------------------------------------------------ *

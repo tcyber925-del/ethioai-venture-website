@@ -102,25 +102,25 @@ const sources = data.sources ?? [];
         <p>{data.question}</p>
       </ResearchSection>
     )}
-    {data.context && (
+    {carries(data.context) && (
       <ResearchSection id="context" title="Context">
         <p>{data.context}</p>
       </ResearchSection>
     )}
-    {data.investigation && (
+    {carries(data.investigation) && (
       <ResearchSection id="investigation" title="Investigation">
         <p>{data.investigation}</p>
       </ResearchSection>
     )}
-    {data.experiments && (
+    {carries(data.experiments) && (
       <ResearchSection id="experiment" title="Experiment">
         <p>{data.experiments}</p>
       </ResearchSection>
     )}
-    {(data.results || data.observations) && (
+    {hasContentOrAny([data.results, data.observations]) && (
       <ResearchSection id="result" title="Result">
-        {data.results && <p>{data.results}</p>}
-        {data.observations && (
+        {carries(data.results) && <p>{data.results}</p>}
+        {carries(data.observations) && (
           <>
             <h3>Observations</h3>
             <p>{data.observations}</p>

@@ -160,13 +160,20 @@ describe("the stylesheet declares the faces", () => {
       (m) => m[1],
     );
     assert.equal(ranges.length, 2, "expected two unicode-range declarations");
-    assert.match(
-      ranges[0],
-      /U\+0001-00FF/,
-      "the latin range must start at U+0001, not U+0000",
-    );
+    // Identify the latin face by its COVERAGE, not by its position. Asserting
+    // `ranges[0]` false-reded with a message about the wrong face the moment
+    // the two @font-face blocks were reordered — a change that is perfectly
+    // valid and changes nothing about what ships.
+    const latin = ranges.find((r) => /U\+0001-00FF/i.test(r));
     assert.ok(
-      ranges[0].includes("U+2192"),
+      latin,
+      `no @font-face covers basic Latin from U+0001; ranges were: ${ranges.join(
+        " | ",
+      )}`,
+    );
+    assert.match(latin, /U\+0001-00FF/, "the latin range starts at U+0001");
+    assert.ok(
+      latin.includes("U+2192"),
       "the latin range must cover U+2192 (→)",
     );
   });
