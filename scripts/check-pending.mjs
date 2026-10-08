@@ -21,9 +21,9 @@
  *
  * Absence must also stay truthful, because the evidence policy is the site's
  * core constraint: real content, or an honest statement of absence, never
- * invention. Hence the content-derived expectations — the approved step lists
- * and the EthioSci technology chips are read from src/content/, not restated
- * here, so this file cannot drift from the source of truth.
+ * invention. Hence the content-derived expectations — the approved step lists,
+ * and each entry's approved technology list, are read from src/content/ rather
+ * than restated here, so this file cannot drift from the source of truth.
  *
  * Runs after Build, like check:dist / check:seo / check:work / check:fonts,
  * because `npm test` runs BEFORE `npm run build` in both `npm run verify` and
@@ -32,7 +32,19 @@
  * This gate's own logic was proven by mutating the built output and confirming
  * a non-zero exit for each regression (duplicate coverage, missing coverage, an
  * inaccurate Related Work string, a dropped demo link, an altered technology
- * chip, an added form field). There is no separate fixture battery file: this
+ * chip, a fabricated pending entry, chips on an entry that declares none, an
+ * evidence entry with no card, and both card orderings across two evidenced
+ * entries).
+ *
+ * Deliberately NOT asserted here: the form's field list, its honeypots, or its
+ * endpoint. An earlier version of this comment claimed an added form field was
+ * caught here; it stopped being caught when the field-set assertion was dropped,
+ * because those live in tests/start-a-project.test.mjs by design — that suite
+ * reads source, this one reads built output. What this gate does assert about
+ * the form is narrow and stated in its own section: the live regions must
+ * survive the build OUTSIDE <form>.
+ *
+ * There is no separate fixture battery file: this
  * gate reads the real content collections, so a hand-built fixture would have
  * to re-state the approved sequences and could pass while the real ones drifted.
  *
@@ -365,16 +377,44 @@ if (!existsSync(homeFile)) {
   {
     const listStart = home.indexOf('<ul class="evidence-list"');
     const listHtml = listStart === -1 ? "" : home.slice(listStart);
-    for (const part of listHtml.split('<li class="evidence"').slice(1)) {
-      const slug = part.match(/href="\/work\/([^"]+)"/)?.[1];
-      if (!slug) continue;
+    const parts = listHtml.split('<li class="evidence"').slice(1);
+
+    // The list's own closing tag, found by depth-counting `<ul`/`</ul>` from
+    // listStart. An earlier attempt searched for the next `</ul>` after the
+    // first `evidence__` occurrence, which lands on a card's inner stack list
+    // rather than the list's end. Card tags are not nested inside each other,
+    // so this counts only the `<ul>` tags, which is what this needs.
+    const endOfList = (() => {
+      let depth = 0;
+      for (const m of listHtml.matchAll(/<ul\b|<\/ul>/g)) {
+        depth += m[0] === "</ul>" ? -1 : 1;
+        if (depth === 0) return m.index;
+      }
+      return -1;
+    })();
+    parts.forEach((part, index) => {
+      // Bound each card at the NEXT card, or at the end of the LIST. Slicing
+      // the list to end-of-document instead let the last card's block run on
+      // through the sections and footer after it, so a URL appearing anywhere
+      // later on the page satisfied "this card links to it" — a dropped link
+      // would have passed. Latent today only because nothing after the list
+      // matches, which is exactly the kind of coincidence a gate must not
+      // depend on.
+      const next = parts[index + 1];
+      const block = next
+        ? part.slice(0, part.indexOf(next))
+        : endOfList === -1
+          ? part
+          : part.slice(0, endOfList);
+      const slug = block.match(/href="\/work\/([^"]+)"/)?.[1];
+      if (!slug) return;
       cards.set(slug, {
-        block: part,
-        chips: [...part.matchAll(/class="evidence__tech"[^>]*>([^<]+)</g)].map(
+        block,
+        chips: [...block.matchAll(/class="evidence__tech"[^>]*>([^<]+)</g)].map(
           (m) => m[1].trim(),
         ),
       });
-    }
+    });
   }
 
   for (const file of projectFiles) {
@@ -431,9 +471,63 @@ if (!existsSync(homeFile)) {
     }
   }
 
-  if (!/class="card__summary"/.test(home)) {
-    fail("/ Selected work does not render the approved project summaries");
+  // Selected work must render a summary for every entry that APPROVES one. The
+  // condition is derived from the content, never asserted unconditionally: an
+  // earlier version failed whenever no `card__summary` appeared at all, which
+  // is only true while some entry carries a summary — so removing the one
+  // approved summary (a legitimate content edit) reddened CI with a message
+  // implying a rendering bug. Same false-red class as the chips and
+  // `related_work`, in the opposite direction.
+  const summaries = projectFiles.filter(
+    (file) => frontmatterValue(readFileSync(file, "utf8"), "summary") !== null,
+  );
+  const renderedSummaries = new Set(
+    [...home.matchAll(/class="card__summary"[^>]*>([^<]+)</g)].map((m) =>
+      m[1].trim(),
+    ),
+  );
+  for (const file of summaries) {
+    const slug = file.split("/").pop().replace(/\.md$/, "");
+    const approved = frontmatterValue(readFileSync(file, "utf8"), "summary");
+    if (!renderedSummaries.has(approved)) {
+      fail(
+        `/ selected work does not render the approved summary for ${slug}\n` +
+          `      approved: ${approved}`,
+      );
+    }
   }
+  if (renderedSummaries.size > summaries.length && summaries.length > 0) {
+    fail(
+      `/ selected work renders ${renderedSummaries.size} summaries but only ` +
+        `${summaries.length} are approved — one is not from the content`,
+    );
+  }
+}
+
+/**
+ * The declared value of a frontmatter field in markdown source, or null when
+ * the entry declares none. Handles the two shapes used here: a folded scalar
+ * (`summary: >-` continued on indented lines) and a plain one-line value.
+ *
+ * Returns null rather than "" so "declares none" is distinguishable from
+ * "declares a blank one" — the content schema forbids the latter, and the
+ * difference is what lets a gate be written against the approved content
+ * instead of restating it.
+ */
+function frontmatterValue(front, field) {
+  const match = front.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
+  if (!match) return null;
+  const first = match[1].trim();
+  if (first !== "" && first !== ">-" && first !== ">") {
+    return first.replace(/^["']|["']$/g, "").trim() || null;
+  }
+  const folded = [];
+  for (const line of front.slice(match.index).split("\n").slice(1)) {
+    if (!/^[ \t]+/.test(line)) break;
+    folded.push(line.trim());
+  }
+  const value = folded.join(" ").trim();
+  return value === "" ? null : value;
 }
 
 /* ------------------------------------------------------------------ *

@@ -8,9 +8,10 @@
  *
  * Every step renders its approved heading when it carries approved content;
  * steps whose content field is empty render no heading and are named once in a
- * quiet PendingNote after the last real step (ENG-102). Routes are generated
- * from the solutions collection so page URLs stay equal to the approved V1
- * routes.
+ * quiet PendingNote (ENG-102). The note is placed BEFORE Related work, which
+ * always renders; the placement and its reason are documented at the render
+ * site below. Routes are generated from the solutions collection so page URLs
+ * stay equal to the approved V1 routes.
  */
 import { getCollection, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";

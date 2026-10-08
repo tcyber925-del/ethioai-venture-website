@@ -26,6 +26,14 @@ import { site } from "../config/site";
  * Kept in the frontmatter rather than as an HTML comment beside the tag: Astro
  * emits HTML comments to the browser, and a note this long would then be sent
  * on every single page load.
+ *
+ * There is now NO comment in the output at all, beside this note or the tag.
+ * An earlier revision shipped a short pointer comment, and keeping its own byte
+ * count true took three rounds of review: it said 243 B, became 317 B when the
+ * text was reworded, and carried a stale "122-byte" claim in the same comment
+ * that criticised shipping commentary to the browser. Restating a number is
+ * what made it wrong; `rel="preload" as="font" crossorigin` needs no
+ * explanation in the output anyway.
  */
 
 interface Props {
@@ -97,12 +105,6 @@ const websiteJsonLd = JSON.stringify({
     -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
-    <!--
-      Inter (ENG-102) rationale lives in the frontmatter above, not here: Astro
-      ships HTML comments to the browser, so a note this long would be sent on
-      every page load. This 122-byte pointer is the part that has to be in the
-      markup — a reader of dist/ has no frontmatter to go back to.
-    -->
     <link
       rel="preload"
       href="/fonts/inter-latin.woff2"
