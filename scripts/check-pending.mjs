@@ -202,14 +202,29 @@ function assertCovers(label, html, steps) {
  * ------------------------------------------------------------------ */
 
 function slugsIn(dir) {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => /\.mdx?$/.test(f))
-    .map((f) => {
-      const front = readFileSync(join(dir, f), "utf8").split("---")[1] ?? "";
+  return filesIn(dir)
+    .map((file) => {
+      const front = readFileSync(file, "utf8").split("---")[1] ?? "";
       return front.match(/^slug:\s*(\S+)/m)?.[1];
     })
     .filter(Boolean);
+}
+
+/**
+ * Absolute paths of the markdown files in a collection directory.
+ *
+ * NOT slugs. An earlier version built its project list as
+ * `slugsIn(dir).map((slug) => join(dir, `${slug}.md`))`, which only worked
+ * because every slug happens to equal its filename today — rename `slug:` in
+ * frontmatter and the gate silently stopped seeing that entry, then reported
+ * its own approved chips as fabricated. Reading the directory and keeping the
+ * paths removes the assumption entirely.
+ */
+function filesIn(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /\.mdx?$/.test(f))
+    .map((f) => join(dir, f));
 }
 
 /* ------------------------------------------------------------------ *
@@ -293,6 +308,45 @@ for (const slug of slugsIn(join(contentDir, "projects"))) {
  * 3. The homepage proves the practice, not the website
  * ------------------------------------------------------------------ */
 
+// The project collection and its approved technology lists, read once. Declared
+// here, above the homepage section, because the section's own expectations are
+// now derived from them — an earlier version hardcoded `href="/work/ethiosci"`
+// and only computed these further down.
+const projectFiles = filesIn(join(contentDir, "projects")).filter(existsSync);
+if (projectFiles.length === 0) {
+  fail("cannot read the project collection to verify the homepage evidence");
+}
+
+/**
+ * The route slug for a project entry.
+ *
+ * Read from the `slug:` FIELD, not the filename, because that is what
+ * getStaticPaths uses: `{ params: { project: project.data.slug } }`. An earlier
+ * version took the filename, which coincides today and diverges the moment the
+ * two differ — renaming the slug in frontmatter then made this gate claim the
+ * entry had no approved stack and that its chips were fabricated, which is the
+ * false-red class this gate exists to avoid, reintroduced by the fix for it.
+ */
+const slugOf = (file) =>
+  frontmatterValue(readFileSync(file, "utf8"), "slug") ??
+  file.split("/").pop().replace(/\.md$/, "");
+
+/** Approved `technologies` entries for one markdown file. */
+const approvedTechnologies = (file) => {
+  const front = readFileSync(file, "utf8");
+  const lines = front.split("\n");
+  const keyAt = lines.findIndex((line) => /^technologies:\s*$/.test(line));
+  const listed = [];
+  if (keyAt !== -1) {
+    for (let i = keyAt + 1; i < lines.length; i += 1) {
+      const item = lines[i].match(/^\s+-\s+(.+)$/);
+      if (!item) break;
+      listed.push(item[1].trim());
+    }
+  }
+  return listed;
+};
+
 const homeFile = join(distDir, "index.html");
 if (!existsSync(homeFile)) {
   fail("/: not built");
@@ -331,8 +385,33 @@ if (!existsSync(homeFile)) {
         fail(`/ engineering depth still proves the website (${term})`);
       }
     }
-    if (!section.includes('href="/work/ethiosci"')) {
-      fail("/ engineering depth does not link to the project it presents");
+    // Derived, not hardcoded. This used to require `href="/work/ethiosci"` by
+    // name, so renaming the entry would redden CI with a message about
+    // "engineering depth" rather than about the entry that moved — every other
+    // expectation on this page is read from src/content/. Which project the
+    // section presents is decided by the entry that actually carries a
+    // technology stack or evidence prose, so derive it the same way.
+    const evidencedSlugs = projectFiles
+      .filter((file) => {
+        const front = readFileSync(file, "utf8");
+        return (
+          frontmatterValue(front, "evidence") !== null ||
+          approvedTechnologies(file).length > 0
+        );
+      })
+      .map((file) => slugOf(file));
+    if (evidencedSlugs.length === 0) {
+      fail(
+        "/ no approved entry carries evidence or a technology stack, so " +
+          "engineering depth has nothing to present",
+      );
+    }
+    for (const slug of evidencedSlugs) {
+      if (!section.includes(`href="/work/${slug}"`)) {
+        fail(
+          `/ engineering depth does not link to ${slug}, the entry it presents`,
+        );
+      }
     }
   }
 
@@ -344,28 +423,6 @@ if (!existsSync(homeFile)) {
   // alone, so the first approved project to add a `technologies:` list would
   // turn CI red — the same false-red class round 2 fixed for `related_work`.
   // Adding content is the normal case here, not an edge case.
-  const projectFiles = slugsIn(join(contentDir, "projects"))
-    .map((slug) => join(contentDir, "projects", `${slug}.md`))
-    .filter((file) => existsSync(file));
-  if (projectFiles.length === 0) {
-    fail("cannot read the project collection to verify the chips");
-  }
-
-  /** Approved `technologies` entries for one markdown file. */
-  const approvedTechnologies = (file) => {
-    const front = readFileSync(file, "utf8");
-    const lines = front.split("\n");
-    const keyAt = lines.findIndex((line) => /^technologies:\s*$/.test(line));
-    const listed = [];
-    if (keyAt !== -1) {
-      for (let i = keyAt + 1; i < lines.length; i += 1) {
-        const item = lines[i].match(/^\s+-\s+(.+)$/);
-        if (!item) break;
-        listed.push(item[1].trim());
-      }
-    }
-    return listed;
-  };
 
   // Each evidence card on the homepage, keyed by the project it links to.
   // Split positionally on the card's opening tag rather than matching its closing
@@ -377,13 +434,12 @@ if (!existsSync(homeFile)) {
   {
     const listStart = home.indexOf('<ul class="evidence-list"');
     const listHtml = listStart === -1 ? "" : home.slice(listStart);
-    const parts = listHtml.split('<li class="evidence"').slice(1);
 
-    // The list's own closing tag, found by depth-counting `<ul`/`</ul>` from
-    // listStart. An earlier attempt searched for the next `</ul>` after the
-    // first `evidence__` occurrence, which lands on a card's inner stack list
-    // rather than the list's end. Card tags are not nested inside each other,
-    // so this counts only the `<ul>` tags, which is what this needs.
+    // The list's own closing tag, found by depth-counting `<ul`/`</ul>` from the
+    // start of the list. An earlier attempt searched for the next `</ul>` after
+    // the first `evidence__` occurrence, which lands on a card's inner stack
+    // list rather than the list's end. Cards are not nested inside each other,
+    // so counting `<ul>` tags is sufficient.
     const endOfList = (() => {
       let depth = 0;
       for (const m of listHtml.matchAll(/<ul\b|<\/ul>/g)) {
@@ -392,20 +448,33 @@ if (!existsSync(homeFile)) {
       }
       return -1;
     })();
-    parts.forEach((part, index) => {
-      // Bound each card at the NEXT card, or at the end of the LIST. Slicing
-      // the list to end-of-document instead let the last card's block run on
-      // through the sections and footer after it, so a URL appearing anywhere
-      // later on the page satisfied "this card links to it" — a dropped link
-      // would have passed. Latent today only because nothing after the list
-      // matches, which is exactly the kind of coincidence a gate must not
-      // depend on.
-      const next = parts[index + 1];
-      const block = next
-        ? part.slice(0, part.indexOf(next))
-        : endOfList === -1
-          ? part
-          : part.slice(0, endOfList);
+
+    // Card boundaries, ALL in listHtml coordinates.
+    //
+    // Two earlier attempts were wrong here, both in the same way — mixing
+    // coordinate systems. Splitting into `parts` gives slices whose origins are
+    // unknown and offset, so a list-relative index applied to them overshot the
+    // list's closing tag, and `part.indexOf(next)` could never match because a
+    // split-delimited part ENDS where the next part begins; it returned -1 and
+    // `slice(0, -1)` silently dropped one character instead of bounding
+    // anything. The first version sliced the list to end-of-document, which let
+    // a URL anywhere later on the page satisfy "this card links to it".
+    //
+    // So: locate each card's opening tag by index, and bound it by the next
+    // opening tag or the list's closing tag. One coordinate system, no
+    // re-derivation of offsets.
+    const CARD_OPEN = '<li class="evidence"';
+    const starts = [];
+    for (let at = listHtml.indexOf(CARD_OPEN); at !== -1;) {
+      starts.push(at);
+      at = listHtml.indexOf(CARD_OPEN, at + CARD_OPEN.length);
+    }
+    starts.forEach((start, index) => {
+      const from = start + CARD_OPEN.length;
+      const to =
+        starts[index + 1] ?? (endOfList === -1 ? listHtml.length : endOfList);
+      if (to <= from) return;
+      const block = listHtml.slice(from, to);
       const slug = block.match(/href="\/work\/([^"]+)"/)?.[1];
       if (!slug) return;
       cards.set(slug, {
@@ -418,7 +487,7 @@ if (!existsSync(homeFile)) {
   }
 
   for (const file of projectFiles) {
-    const slug = file.split("/").pop().replace(/\.md$/, "");
+    const slug = slugOf(file);
     const listed = approvedTechnologies(file);
     const card = cards.get(slug);
     if (listed.length === 0) continue; // this entry declares no stack
@@ -438,9 +507,10 @@ if (!existsSync(homeFile)) {
     }
   }
 
-  // A chip that belongs to no entry is a fabricated claim.
+  // A chip that belongs to no entry is a fabricated claim. Matched by the
+  // entry's `slug:` field, since that is the slug the card links to.
   for (const [slug, card] of cards) {
-    const file = projectFiles.find((f) => f.endsWith(`/${slug}.md`));
+    const file = projectFiles.find((f) => slugOf(f) === slug);
     const listed = file ? approvedTechnologies(file) : [];
     if (card.chips.length > 0 && listed.length === 0) {
       fail(
@@ -456,7 +526,7 @@ if (!existsSync(homeFile)) {
     const front = readFileSync(file, "utf8");
     if (!/^evidence:\s*>-/m.test(front) && !/^evidence:\s*\S/m.test(front))
       continue;
-    const slug = file.split("/").pop().replace(/\.md$/, "");
+    const slug = slugOf(file);
     if (!cards.has(slug)) continue;
     for (const field of ["github", "demo"]) {
       const url = front.match(new RegExp(`^${field}:\\s*(\\S+)`, "m"))?.[1];
@@ -487,7 +557,7 @@ if (!existsSync(homeFile)) {
     ),
   );
   for (const file of summaries) {
-    const slug = file.split("/").pop().replace(/\.md$/, "");
+    const slug = slugOf(file);
     const approved = frontmatterValue(readFileSync(file, "utf8"), "summary");
     if (!renderedSummaries.has(approved)) {
       fail(

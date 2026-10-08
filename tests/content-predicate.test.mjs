@@ -105,14 +105,53 @@ const COLLECTION_FIELDS = [
   "images",
 ];
 
-describe("every page uses the shared predicate", () => {
-  // The point of the shared module is that pages stop rolling their own. If a
-  // page reintroduces a local test, the divergence this replaced can return.
+describe("every surface uses the shared predicate", () => {
+  // The point of the shared module is that no surface rolls its own. If a page
+  // OR A COMPONENT reintroduces a local test, the divergence returns — and the
+  // first version of this test scanned only the three pages, leaving
+  // RelatedWork.astro's `{status && …}` live. That component renders the same
+  // collection field on /solutions/*, so a whitespace-only status drew an empty
+  // badge there while src/lib/content.ts called it absence.
   const pages = [
     "src/pages/index.astro",
     "src/pages/work/[project].astro",
     "src/pages/solutions/[slug].astro",
   ];
+  // Components that read a collection field and must use the shared predicate.
+  // Deliberately a named list, not a glob: a component that never touches a
+  // content field should not be forced to import the module, and a glob would
+  // silently start passing or failing as components are added.
+  const components = ["src/components/solutions/RelatedWork.astro"];
+
+  for (const component of components) {
+    test(`${component} imports the shared predicate`, () => {
+      const source = readFileSync(join(REPO_ROOT, component), "utf8");
+      assert.match(source, /from "(\.\.\/)+lib\/content"/);
+    });
+
+    test(`${component} has no local "has content" test`, () => {
+      const code = stripComments(
+        readFileSync(join(REPO_ROOT, component), "utf8"),
+      );
+      for (const field of COLLECTION_FIELDS) {
+        const bare = `(?<!\\w)(?<![\\w.]\\()(?:data\\.)?${field}`;
+        assert.doesNotMatch(
+          code,
+          new RegExp(bare + `\\s*(?:&&|\\|\\||\\?(?![?.:]))`),
+          `${component}: local truthiness test on \`${field}\``,
+        );
+        assert.doesNotMatch(
+          code,
+          new RegExp(
+            bare +
+              `\\s*(?:\\?\\.)?\\.?length\\s*` +
+              `(?:\\?\\?\\s*[^)\\s]+\\s*\\)?\\s*)?(?:>|!==|>=)`,
+          ),
+          `${component}: local length test on \`${field}\``,
+        );
+      }
+    });
+  }
 
   for (const page of pages) {
     test(`${page} imports the shared predicate`, () => {

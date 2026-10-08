@@ -15,6 +15,7 @@ import type { CollectionEntry } from "astro:content";
 import Link from "../Link.astro";
 import MetadataLabel from "../MetadataLabel.astro";
 import { routeExists } from "../../config/routes";
+import { hasContent as carries } from "../../lib/content";
 
 interface Props {
   /** related_work slugs declared on the solution entry. */
@@ -66,7 +67,7 @@ const relatedItems = related.map((slug) => {
             ) : (
               <span class="related__plain">{title}</span>
             )}
-            {status && (
+            {carries(status) && (
               <MetadataLabel class="related__status">{status}</MetadataLabel>
             )}
           </li>
