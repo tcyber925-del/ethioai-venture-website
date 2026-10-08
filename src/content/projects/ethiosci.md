@@ -58,5 +58,5 @@ technologies:
   - PostgreSQL
   - Redis
 github: https://github.com/tcyber925-del/Ethiosci-AI-Assistant
-demo: https://ethio-bio-ai-assistant.vercel.app
+demo: https://ethiosci.vercel.app/
 ---

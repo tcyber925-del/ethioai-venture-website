@@ -212,24 +212,40 @@ function solutionPage(file, mutate = (b) => b) {
 
 /** A correct homepage: the engineering-depth section built from the content. */
 /** One evidence card for a project entry, built from its approved content. */
+/**
+ * Escape text and attribute values the way Astro does when it renders.
+ *
+ * Not decoration: without it the fixtures emit RAW `&` in hrefs and text,
+ * Astro emits `&amp;`, and the gate's entity decoding becomes untestable —
+ * a mutation reverting that decode left the whole suite green. A fixture that
+ * does not escape is not a fixture of a build.
+ */
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 function evidenceCard(file, { withChips = true } = {}) {
   const fm = frontmatter(file);
   const slug = slugOf(file);
   const evidence = readField(file, "evidence");
   const chips = withChips
     ? readList(file, "technologies")
-        .map((t) => `<li class="evidence__tech">${t}</li>`)
+        .map((t) => `<li class="evidence__tech">${escapeHtml(t)}</li>`)
         .join("")
     : "";
   const links = ["github", "demo"]
     .filter((k) => fm[k])
-    .map((k) => `<a href="${fm[k]}">${k}</a>`)
+    .map((k) => `<a href="${escapeHtml(fm[k])}">${k}</a>`)
     .join("");
   return (
     `<li class="evidence"><p class="evidence__title">` +
-    `<a href="/work/${slug}">${fm.title}</a></p>` +
+    `<a href="/work/${slug}">${escapeHtml(fm.title)}</a></p>` +
     (chips ? `<ul class="evidence__stack" role="list">${chips}</ul>` : "") +
-    (evidence ? `<p class="evidence__text">${evidence}</p>` : "") +
+    (evidence ? `<p class="evidence__text">${escapeHtml(evidence)}</p>` : "") +
     `<p class="evidence__links">${links}</p></li>`
   );
 }
@@ -252,7 +268,7 @@ function homePage(mutate = (b) => b, content = CONTENT_DIR) {
   const summaries = collectionFiles("projects", content)
     .map((file) => readField(file, "summary"))
     .filter(Boolean)
-    .map((s) => `<p class="card__summary">${s}</p>`)
+    .map((s) => `<p class="card__summary">${escapeHtml(s)}</p>`)
     .join("");
 
   let section =
@@ -265,11 +281,20 @@ function homePage(mutate = (b) => b, content = CONTENT_DIR) {
     `<a href="/about">About</a></nav>` +
     `<main><h1>EthioAI Venture</h1><ul class="card-list">${summaries}</ul>${section}</main>`;
 
+  // The approved demo URL, so cases can remove that specific link instead of
+  // hardcoding one. Two cases used to hardcode `vercel.app`, which meant the
+  // battery went stale the moment the founder corrected the URL — the cases
+  // stopped mutating anything and quietly passed for the wrong reason.
+  const demoUrl = evidenced
+    .map((f) => readField(f, "demo"))
+    .find((u) => Boolean(u));
+
   body = mutate(body, {
     section,
     cards,
     card: evidenceCard,
     files: collectionFiles("projects", content),
+    demoUrl,
   });
   return html(body);
 }
@@ -550,12 +575,12 @@ describe("check:pending catches the regressions it exists for", () => {
       // past the list's closing tag. An unbounded card slice accepted it.
       "an evidence card drops a link its prose claims, and the href reappears later on the page",
       {
-        home: (b) =>
+        home: (b, ctx) =>
           b
-            .replace(/<a href="https:\/\/[^"]*vercel\.app">demo<\/a>/, "")
+            .replace(`<a href="${ctx.demoUrl}">demo</a>`, "")
             .replace(
               "</section>",
-              `<a href="https://ethio-bio-ai-assistant.vercel.app">stray</a></section>`,
+              `<a href="${ctx.demoUrl}">stray</a></section>`,
             ),
       },
       /link for .* is missing from engineering depth/,
@@ -639,8 +664,7 @@ describe("check:pending catches the regressions it exists for", () => {
       // sentence is false on this page.
       "an evidence card drops a link its prose claims",
       {
-        home: (b) =>
-          b.replace(/<a href="https:\/\/[^"]*vercel\.app">demo<\/a>/, ""),
+        home: (b, ctx) => b.replace(`<a href="${ctx.demoUrl}">demo</a>`, ""),
       },
       /link for .* is missing from engineering depth/,
     ],
@@ -783,6 +807,47 @@ describe("two evidenced entries coexist", () => {
       });
       assert.ok(!result.ok, "expected a missing card to redden");
       assert.match(result.output, /second-stack/);
+    } finally {
+      rmSync(content, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("an ampersand in an approved URL is not a false red", () => {
+  /**
+   * Round 10. Astro escapes `&` in an href, so a `demo:` URL carrying a query
+   * string rendered `&amp;` and the raw comparison failed a correct page — a
+   * false red on ordinary content. Nothing in the fixtures exercised it,
+   * because no approved URL currently contains an ampersand: mutation-verified,
+   * reverting the decode left this suite fully green.
+   *
+   * So the case exists on a content copy that DOES contain one.
+   */
+  function withAmpersandUrl() {
+    const root = mkdtempSync(join(tmpdir(), "check-pending-amp-"));
+    for (const name of ["projects", "solutions"]) {
+      mkdirSync(join(root, name), { recursive: true });
+      for (const file of collectionFiles(name)) {
+        writeFileSync(
+          join(root, name, file.split("/").pop()),
+          readFileSync(file, "utf8").replace(
+            /^demo:\s*(\S+)$/m,
+            "demo: https://example.com/demo?ref=a&x=1",
+          ),
+        );
+      }
+    }
+    return root;
+  }
+
+  test("the gate passes on a rendered href Astro has escaped", () => {
+    const content = withAmpersandUrl();
+    try {
+      const result = runGate({ content });
+      assert.ok(
+        result.ok,
+        `an ampersand in the demo URL must not redden the gate:\n${result.output}`,
+      );
     } finally {
       rmSync(content, { recursive: true, force: true });
     }
