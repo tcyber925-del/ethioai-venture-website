@@ -2,10 +2,14 @@
 
 Public website for **EthioAI Venture** — a static-first [Astro](https://astro.build) + TypeScript application.
 
-> This repository is bootstrapped as the G1 foundation (Linear **ENG-74**). Pages, design
-> system, content and quality gates are delivered by subsequent Linear issues. See the
-> approved specifications in Notion (Master Implementation Specification) for the full V1
-> scope and non-goals.
+**Status: V1 shipped and verified in production on 2026-10-05**, deployed at
+`https://ethioai-venture-website.tcyber925.workers.dev`. All 23 Linear issues of project
+**P-ENG-6** (G0 specification through G4 release) are Done and 24 pull requests are merged.
+
+For the current milestone, verification numbers and open follow-ups see
+[`docs/STATUS.md`](docs/STATUS.md). The approved product and architecture record lives in
+Notion ("00 — Master Implementation Specification v1.0" and specifications 01–06); what V1
+deliberately excludes is listed under [V1 non-goals](#v1-non-goals).
 
 ## Prerequisites
 
@@ -27,6 +31,31 @@ npm run dev       # start the dev server
 npm run build     # production build to dist/
 npm run preview   # preview the production build locally
 ```
+
+## What the site does
+
+Thirteen indexable pages across six route families, all static HTML with minimal
+JavaScript: home, `/solutions` plus five solution detail pages, `/work` plus project
+detail pages, `/research`, `/about` and `/start-a-project`.
+
+Three integrations are configured, each through a single config constant so a change
+is one edit plus one re-verification pass:
+
+- **Start a Project form** — Formspree hosted endpoint (`src/config/forms.ts`). A
+  problem-first qualification form with native validation, client-side submit and
+  live status/error regions, a no-JS native POST fallback, and two honeypot fields
+  (the acceptance-criteria `_honey` plus Formspree's own `_gotcha`). Fields are
+  limited to problem, name, email and an optional organization; no sensitive data is
+  collected. V1 introduced no backend, database, CRM or authentication.
+- **Analytics** — GoatCounter, cookieless (`src/config/analytics.ts`). Sends event
+  names and page paths only: no form contents, no personal data, no persistent
+  identifier, no client-side storage. Section-open events count in-content
+  interactions only, so header and footer navigation never inflates engagement
+  counts. `src/config/analytics.ts` holds the authoritative event catalog;
+  `src/scripts/analytics-client.ts` is the DOM wiring behind `init(win, doc)`.
+- **SEO** — canonical URLs, Open Graph and twitter cards, WebSite JSON-LD,
+  `sitemap.xml`, `robots.txt` and a branded 404, all deriving from `site.url` in
+  `src/config/site.ts`. Gated by `npm run check:seo`.
 
 ## Quality commands
 
@@ -179,19 +208,23 @@ npx wrangler deploy     # reads wrangler.jsonc; uploads ./dist
 ## Repository structure
 
 ```text
-public/assets/      static assets
+public/             static assets, favicon, and the Workers _headers file
 src/components/     reusable Astro components
-src/content/        content collections (added by ENG-76)
-src/config/         site configuration
+src/content/        content collections (solutions, projects, research)
+src/config/         site, analytics, form and route configuration
 src/layouts/        page layouts
 src/pages/          routes
-src/styles/         global styles
-<<<<<<< HEAD
-tests/              node:test regression suites (route patterns, check:dist, check:seo, check:work)
-=======
-tests/              node:test regression suites (route patterns, check:dist, content slugs)
->>>>>>> origin/main
+src/scripts/        client-side TypeScript (analytics client)
+src/styles/         design tokens and global styles
+scripts/            build-output gates (check:dist, check:seo, check:work)
+tests/              node:test regression suites
+docs/               project documentation
 ```
+
+`public/favicon.svg` and `public/favicon.ico` are shipped and linked from every page
+(ENG-86). They sit outside the hashed `/_astro/` directory, so they keep the platform's
+default caching: a redeploy does not invalidate a browser's cached copy, and a browser may
+keep rendering the previous icon until its cache entry refreshes.
 
 ## Content authoring
 
@@ -225,4 +258,16 @@ slug, so the message does not depend on that loader warning.
 - Work happens on feature branches tied to a Linear issue identifier; open a PR against
   `main` — never push directly to `main`.
 - Follow `AGENTS.md` (implementation contract) and the factory rules in `.factory/`.
-- V1 non-goals: no database, CMS, authentication, backend, CRM or chatbot.
+
+## V1 non-goals
+
+No database, CMS, authentication, customer portal, CRM, chatbot or agent runtime, no
+file uploads, no user accounts, no CI deploy automation, and no `og:image` (no approved
+brand image exists). Do not introduce infrastructure beyond this list without approval.
+
+The research collection is empty by evidence policy — Astro warns
+`The collection "research" does not exist or is empty` on every build, and that is
+expected. Fields stay empty until an approved source exists; nothing is invented to
+fill a gap. The two shipped projects are EthioBio and EthioSci, both carried as
+**In Development**: a tagged release and a live deployment are not proof of production
+use.
