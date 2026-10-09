@@ -25,3 +25,9 @@ pnpm-debug.log*
 
 # misc
 *.tsbuildinfo
+
+# review scratch. The opencode-review job is told to keep its temp directory
+# inside the workspace (TMPDIR=$PWD/.tmp) so it cannot trigger a permission
+# prompt on /tmp and deadlock; the directory it creates must not then show up as
+# an untracked change in the reviewer's own `git status`.
+.tmp/

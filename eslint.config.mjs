@@ -5,7 +5,11 @@ import { defineConfig } from "eslint/config";
 
 export default defineConfig([
   {
-    ignores: ["dist/", ".astro/", "node_modules/"],
+    // `.tmp/` is the scratch directory the review job is told to use
+    // (TMPDIR=$PWD/.tmp), and it is in .gitignore. Flat config does not read
+    // .gitignore, so without this a reviewer's own scratch script fails
+    // `npm run lint` and therefore `npm run verify`.
+    ignores: ["dist/", ".astro/", "node_modules/", ".tmp/"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

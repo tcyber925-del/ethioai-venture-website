@@ -8,6 +8,7 @@ import Section from "../components/home/Section.astro";
 import StatusBadge from "../components/home/StatusBadge.astro";
 import { getCollection } from "astro:content";
 import { routeExists } from "../config/routes";
+import { hasContent as carries, hasListItem } from "../lib/content";
 
 /*
  * Homepage — ENG-78.
@@ -48,6 +49,24 @@ const projects = (await getCollection("projects")).sort((a, b) =>
 );
 const research = (await getCollection("research")).sort((a, b) =>
   a.data.title.localeCompare(b.data.title),
+);
+
+/*
+ * ENG-102 — Engineering depth renders real work evidence, so it reads from the
+ * same collection entries: only a project that actually carries approved
+ * evidence (`evidence` text and/or a declared technology stack) can appear.
+ * Deriving the list means the section cannot claim depth no entry supports, and
+ * it stays correct as entries are added — no homepage copy to drift.
+ *
+ * `carries` is the shared predicate from src/lib/content.ts, so an entry whose
+ * evidence is an empty or whitespace-only string is treated as having none here,
+ * on /work and on /solutions alike. This page previously used a bare
+ * `typeof === "string"`, which counted `evidence: ""` as content and rendered an
+ * empty card the rest of the site called pending.
+ */
+const evidencedProjects = projects.filter(
+  (project) =>
+    carries(project.data.evidence) || hasListItem(project.data.technologies),
 );
 
 /* Built in frontmatter: Astro trims whitespace between text and an inline
@@ -119,7 +138,16 @@ if (solutions.length === 1) {
           ) : (
             <span class="card__text">{data.title}</span>
           )}
-          {data.status && (
+          {/*
+            ENG-102: render the entry's own approved summary where the data
+            already carries one — the same field /work already passes
+            (work/index.astro), so the homepage states each project's actual
+            subject instead of a bare title and a status badge. EthioBio has no
+            approved summary and the absence stays silent rather than becoming
+            a placeholder.
+          */}
+          {carries(data.summary) && <p class="card__summary">{data.summary}</p>}
+          {carries(data.status) && (
             <p class="card__status">
               <StatusBadge status={data.status} />
             </p>
@@ -188,39 +216,65 @@ if (solutions.length === 1) {
     eyebrow="How it is built"
     title="Engineering depth"
   >
-    <p>
-      This site is itself an engineering artifact: static-first, typed, checked
-      automatically and documented end to end.
-    </p>
-    <dl class="tech-list">
-      <div>
-        <dt>
-          <code>Astro</code> + <code>TypeScript</code>
-        </dt>
-        <dd>Static-first build with no backend and no client-side secrets.</dd>
-      </div>
-      <div>
-        <dt>Typed content collections</dt>
-        <dd>
-          Solutions, projects and research are validated against the approved
-          schema at build time.
-        </dd>
-      </div>
-      <div>
-        <dt>Automated CI</dt>
-        <dd>
-          Formatting, linting, type checks and a production build run on every
-          pull request and on merges to main.
-        </dd>
-      </div>
-      <div>
-        <dt>Documented decisions</dt>
-        <dd>
-          Specifications live in Notion; work is tracked and reviewed issue by
-          issue.
-        </dd>
-      </div>
-    </dl>
+    {/*
+      ENG-102: this step used to describe the website's own build (Astro,
+      typed collections, CI, Notion) — verifiable, but self-referential, and it
+      occupied the homepage's most confident position while proving nothing about
+      the studio's AI engineering. It now renders the same approved evidence the
+      project entries already carry, read from the collection rather than
+      restated here, so the homepage cannot drift from /work.
+
+      No lead paragraph: every word in this section comes from a project entry,
+      because the approved evidence policy puts invented copy on this site out
+      of bounds. The eyebrow and heading above are the approved section
+      identity (frozen by spec 02); the evidence below is approved content.
+    */}
+    <ul class="evidence-list" role="list">
+      {evidencedProjects.map(({ data }) => (
+        <li class="evidence">
+          <p class="evidence__title">
+            <Link href={`/work/${data.slug}`}>{data.title}</Link>
+          </p>
+          {/* The entry's own approved `technologies` values (LangGraph,
+              pgvector, BM25, …) — the approved list, not a homepage rewrite
+              of it. */}
+          {hasListItem(data.technologies) && (
+            <ul class="evidence__stack" role="list">
+              {data.technologies.map((technology) => (
+                <li class="evidence__tech">{technology}</li>
+              ))}
+            </ul>
+          )}
+          {/* The entry's own approved `evidence` prose, reused verbatim —
+              it is what states the tagged release and the deployed dashboard.
+
+              Both approved links must render here, not one: that sentence ends
+              "See the links on this page for both." Reusing it verbatim while
+              showing only the repository made the homepage state something
+              false — the exact failure the evidence policy exists to prevent.
+              ENG-102 lists the live demo as approved evidence to communicate,
+              so both are rendered and the sentence is true here as it is on
+              /work/ethiosci. */}
+          {carries(data.evidence) && (
+            <p class="evidence__text">{data.evidence}</p>
+          )}
+          {(carries(data.github) || carries(data.demo)) && (
+            <p class="evidence__links">
+              {carries(data.github) && (
+                <Link href={data.github} data-analytics-event="github-click">
+                  Repository
+                </Link>
+              )}
+              {carries(data.demo) && (
+                <Link href={data.demo} data-analytics-event="demo-click">
+                  Live demo
+                </Link>
+              )}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
   </Section>
 
   <!-- 8. Ethiopia/Africa/Global -->
@@ -317,6 +371,19 @@ if (solutions.length === 1) {
     font-weight: 600;
   }
 
+  /*
+   * ENG-102: the summary uses the same treatment as /work's ProjectCard
+   * summary — `--text-body-sm-size` in --color-secondary — so a project's
+   * description reads identically on the homepage and on /work, and the title
+   * stays the dominant element in the card.
+   */
+  .card__summary {
+    margin-top: var(--space-md);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+
   .card__status {
     margin-top: var(--space-md);
   }
@@ -341,25 +408,72 @@ if (solutions.length === 1) {
   }
 
   /* Engineering depth — definition list; mono reserved for technical ids */
-  .tech-list {
+  /*
+   * Engineering depth (ENG-102) — the approved project's own stack and
+   * evidence. Cards reuse the surface/border/radius card treatment so the
+   * section reads as the same evidence family as Selected work above it, not as
+   * a new visual voice.
+   */
+  .evidence-list {
     margin-top: var(--space-xl);
     display: grid;
     gap: var(--space-lg);
+    /* The evidence list is a layout container, not prose — reset the UA list
+       styling so no marker or indent offsets the cards from the section's
+       left edge. role="list" keeps list semantics for VoiceOver, which
+       list-style:none otherwise strips. */
+    list-style: none;
+    padding: 0;
   }
 
-  .tech-list dt {
+  .evidence {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+  }
+
+  .evidence__title {
+    font-size: var(--text-body-lg-size);
     font-weight: 600;
   }
 
-  .tech-list dt code {
-    font-family: var(--font-mono);
-    font-size: var(--text-mono-size);
-    font-weight: var(--text-mono-weight);
+  /* Mono is approved for technical identifiers; a named stack is that. */
+  .evidence__stack {
+    margin-top: var(--space-md);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    list-style: none;
+    padding: 0;
   }
 
-  .tech-list dd {
-    margin-top: var(--space-xs);
+  .evidence__tech {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-size);
+    line-height: var(--text-mono-leading);
     color: var(--color-secondary);
+  }
+
+  /* 60ch, matching home/Section.astro's editorial measure for prose inside a
+     Section — 72ch measured 91 characters per line inside a section whose own
+     paragraph was capped at 56. */
+  .evidence__text {
+    margin-top: var(--space-md);
+    max-width: 60ch;
+    color: var(--color-secondary);
+  }
+
+  .evidence__links {
+    margin-top: var(--space-md);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm) var(--space-lg);
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
   }
 
   .cta__actions {

@@ -18,8 +18,10 @@
     "check:dist": "node scripts/check-dist.mjs",
     "check:seo": "node scripts/check-seo.mjs",
     "check:work": "node scripts/check-work.mjs",
+    "check:fonts": "node scripts/check-fonts.mjs",
+    "check:pending": "node scripts/check-pending.mjs",
     "test": "node --test",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npx astro sync && npm run build && npm run check:dist && npm run check:seo && npm run check:work"
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npx astro sync && npm run build && npm run check:dist && npm run check:seo && npm run check:work && npm run check:fonts && npm run check:pending"
   },
   "dependencies": {
     "astro": "^7.3.5"

@@ -1,0 +1,109 @@
+---
+/**
+ * PendingNote — the single, quiet statement of what has no approved content
+ * yet (ENG-102, evidence-policy section 2).
+ *
+ * Why this component exists: the previous rendering gave every empty section
+ * its own full-size heading and a one-line "no content" placeholder. On
+ * /work/ethiobio that produced nine identical 24px headings above the same
+ * eight-word sentence, spread over 2,110px — a visitor could not tell evidence
+ * from absence, and the page was indistinguishable from a broken build. On a
+ * solution page the same pattern ran six times under 48px headings.
+ *
+ * The evidence policy itself is unchanged and must not change (MIS: state
+ * absence honestly rather than fabricating). Only the presentation does:
+ *
+ *  - one note per page instead of one per section,
+ *  - at `body-sm` in `--color-secondary`, so a pending state is subordinate to
+ *    real content by size and rule rather than typographically identical to it,
+ *  - naming the steps that are pending, so the approved structure stays visible
+ *    without a heading per section.
+ *
+ * Each entry may carry its own `detail` where the honest reason is not simply
+ * "not written yet" — Related Work on /work/ethiobio is the case ENG-102 calls
+ * out: projects exist, but no solution entry declares a relation to this one,
+ * and saying "no approved content published" would misdescribe that.
+ *
+ * This is a `<section>`, not an `<aside>`: on /work/ethiobio the pending
+ * state is the page's only substantive content, and `<aside>` maps to the
+ * `complementary` landmark — announcing the main content of that page as
+ * supporting material. A labelled `<section>` is honest on both surfaces.
+ *
+ * This is informational, not an error. Nothing here is a live region: a
+ * screen-reader user gets the same information in the same reading order as
+ * everyone else.
+ */
+type PendingItem = string | { title: string; detail?: string };
+
+interface Props {
+  /** Approved step titles that have no approved content yet. */
+  sections: PendingItem[];
+  /** Lead line; defaults to naming the state directly. */
+  lead?: string;
+}
+
+const { sections, lead = "Not yet published:" } = Astro.props;
+
+const items = sections.map((section) =>
+  typeof section === "string" ? { title: section } : section,
+);
+---
+
+{items.length > 0 && (
+  <section class="pending" aria-label="Sections not yet published">
+    <p class="pending__lead">{lead}</p>
+    <ul class="pending__list" role="list">
+      {items.map(({ title, detail }) => (
+        <li class="pending__item">
+          {title}
+          {detail && <span class="pending__detail"> — {detail}</span>}
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<style>
+  .pending {
+    margin-top: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
+    border-inline-start: 2px solid var(--color-border);
+  }
+
+  /*
+   * Subordination comes from size and the rule, not from greying the text out:
+   * `body-sm` against `body`/`body-lg` prose plus a 2px left rule reads as
+   * quiet, and it keeps the note at --color-secondary rather than
+   * --color-muted. Measured against this component's own background
+   * (--color-neutral #FAFAF8): secondary 7.48:1, muted 4.54:1 — muted passes
+   * AA but by only 0.04, one token change from failing. On --color-surface
+   * (#FFFFFF) the pair is 7.81 and 4.74. Both figures are stated because the
+   * ratio depends on which background the note lands on.
+   *
+   * An earlier pass used --color-muted for the step names and --color-secondary
+   * for their detail clauses, which made each explanation louder than the thing
+   * it explained.
+   */
+  .pending__lead,
+  .pending__item {
+    font-size: var(--text-body-sm-size);
+    line-height: var(--text-body-sm-leading);
+    color: var(--color-secondary);
+  }
+
+  .pending__list {
+    margin-top: var(--space-xs);
+    padding-inline-start: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  /* Named section titles read best as a marked list, and the marker carries
+     no meaning of its own — the text does — so it stays in the border token
+     rather than picking up an accent. Explicit so the look is intentional
+     rather than a UA default. */
+  .pending__item::marker {
+    color: var(--color-border);
+  }
+</style>

@@ -1,10 +1,40 @@
 ---
+import "../styles/fonts.css";
 import "../styles/tokens.css";
 import "../styles/global.css";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import Analytics from "../components/Analytics.astro";
 import { site } from "../config/site";
+
+/**
+ * Inter preload (ENG-102).
+ *
+ * DESIGN.md names Inter as the primary expression of the identity, but no
+ * @font-face ever shipped it, so every visit rendered in the OS fallback face.
+ * The fonts are self-hosted under /fonts — no external provider, no third-party
+ * request; see src/styles/fonts.css for the subset and axis decisions.
+ *
+ * Preload the latin face only: it is the one every page needs, so preloading
+ * it removes the request from the critical path. The latin-ext face is
+ * deliberately NOT preloaded — no page uses a codepoint it covers, and a
+ * speculative preload would spend bandwidth on a face the browser will never
+ * select. `crossorigin` is required even though the font is same-origin: font
+ * fetches are always made in CORS mode, so without it the preload is fetched
+ * once and discarded, then fetched again for real.
+ *
+ * Kept in the frontmatter rather than as an HTML comment beside the tag: Astro
+ * emits HTML comments to the browser, and a note this long would then be sent
+ * on every single page load.
+ *
+ * There is now NO comment in the output at all, beside this note or the tag.
+ * An earlier revision shipped a short pointer comment, and keeping its own byte
+ * count true took three rounds of review: it said 243 B, became 317 B when the
+ * text was reworded, and carried a stale "122-byte" claim in the same comment
+ * that criticised shipping commentary to the browser. Restating a number is
+ * what made it wrong; `rel="preload" as="font" crossorigin` needs no
+ * explanation in the output anyway.
+ */
 
 interface Props {
   title: string;
@@ -75,6 +105,13 @@ const websiteJsonLd = JSON.stringify({
     -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link
+      rel="preload"
+      href="/fonts/inter-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     {!noindex && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex" />}
     <meta property="og:type" content="website" />
