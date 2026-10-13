@@ -25,8 +25,10 @@
  *   2. the primary and footer nav lists expose list semantics (role="list");
  *   3. a nav link on the page's own route carries aria-current="page", and a
  *      page whose route is NOT in the nav (the 404) marks nothing current;
- *   4. nav links carry a block padding that lifts them to the 24x24 target
- *      minimum.
+ *   4. nav links carry a NON-ZERO block padding that lifts them to the 24x24
+ *      target minimum (`padding-block: 0` does not count);
+ *   5. every marker-stripped list (`list-style: none`) still exposes
+ *      role="list", so the ENG-103 fix is protected beyond the two navs.
  *
  * Local reproduction: npm run build && npm run check:a11y
  * Regression battery: tests/check-a11y.test.mjs (fixture dist/ trees).
@@ -35,6 +37,9 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+// The current-link rule lives in the app module, not a copy here — importing it
+// keeps one definition (node --test / the gate run it through Node's TS strip).
+import { isCurrentNavHref } from "../src/config/route-patterns.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const distDir = process.argv[2] ? process.argv[2] : join(repoRoot, "dist");
@@ -124,11 +129,28 @@ function emittedRoute(relFile) {
 
 /** Whether a nav link href is the page's own route (or a parent of it). */
 function navTargetsRoute(href, route) {
-  const norm = (p) => p.split(/[?#]/)[0].replace(/^\/|\/$/g, "");
-  const nav = norm(href);
-  const cur = norm(route);
-  if (nav === cur) return true;
-  return nav !== "" && cur.startsWith(`${nav}/`);
+  // Delegates to the app helper so the gate and the site share one rule.
+  return isCurrentNavHref(href, route);
+}
+
+/**
+ * A block-padding declaration is only meaningful if it actually grows the
+ * target. Reject explicit zeros (`0`, `0px`, `0rem`); accept any other value,
+ * including a design-token reference (`var(--space-xs)`) or `calc(...)`.
+ */
+function blockPaddingIsNonZero(value) {
+  return !/^0+(?:\.0+)?(?:px|rem|em|%|vh|vw|ch|ex)?$/.test(value.trim());
+}
+
+/** Classes styled `list-style: none` — their lists need role="list" to survive. */
+const markerStrippedClasses = new Set();
+for (const s of cssSources) {
+  for (const block of s.text.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    if (!/list-style\s*:\s*none\b/i.test(block[2])) continue;
+    for (const cls of block[1].matchAll(/\.([A-Za-z][\w-]*)/g)) {
+      markerStrippedClasses.add(cls[1]);
+    }
+  }
 }
 
 const NAV_LABELS = ["Primary", "Footer"];
@@ -171,20 +193,48 @@ for (const file of htmlFiles) {
       );
     }
 
-    // 4. target size: a block padding on the anchors (Astro scoping makes the
-    //    rule :global, so it is matched on the emitted `.primary-nav`/
-    //    `.footer-nav` anchor selector).
+    // 4. target size: a NON-ZERO block padding on the anchors (Astro scoping
+    //    makes the rule :global, so it is matched on the emitted
+    //    `.primary-nav`/`.footer-nav` anchor selector). A `padding-block: 0`
+    //    would leave the target under 24x24, so the value is read, not just
+    //    the property name.
     const navClass = label === "Primary" ? "primary-nav" : "footer-nav";
-    const padded = cssSources.some((s) =>
-      new RegExp(
-        `\\.${navClass}(?:\\[[^\\]]*\\])*\\s+a(?:\\[[^\\]]*\\])*\\s*\\{[^}]*?padding-block\\s*:`,
-        "i",
-      ).test(s.text),
-    );
+    const padded = cssSources.some((s) => {
+      const m = s.text.match(
+        new RegExp(
+          `\\.${navClass}(?:\\[[^\\]]*\\])*\\s+a(?:\\[[^\\]]*\\])*\\s*\\{[^}]*?` +
+            `padding-block\\s*:\\s*([^;}]+)`,
+          "i",
+        ),
+      );
+      return m ? blockPaddingIsNonZero(m[1]) : false;
+    });
     if (!padded) {
       fail(
-        `${route}: ${label} nav links carry no block padding — targets fall ` +
-          "below the 24x24 CSS px minimum (ENG-103)",
+        `${route}: ${label} nav links carry no non-zero block padding — ` +
+          "targets fall below the 24x24 CSS px minimum (ENG-103)",
+      );
+    }
+  }
+
+  // 5. list semantics on every marker-stripped list, not just the two navs:
+  //    a `<ul>` whose class is styled `list-style: none` must still expose
+  //    role="list" (Safari/VoiceOver drop it otherwise). Lists that keep their
+  //    markers are left alone.
+  for (const [, classes] of html.matchAll(
+    /<ul\b[^>]*\bclass="([^"]*)"[^>]*>/g,
+  )) {
+    const tokens = classes.split(/\s+/).filter(Boolean);
+    if (!tokens.some((t) => markerStrippedClasses.has(t))) continue;
+    const ulTag = html.match(
+      new RegExp(
+        `<ul\\b[^>]*class="${classes.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>`,
+      ),
+    )?.[0];
+    if (ulTag && !/\brole="list"/.test(ulTag)) {
+      fail(
+        `${route}: <ul class="${classes}"> is marker-stripped (list-style:none) ` +
+          'but lost role="list" (ENG-103)',
       );
     }
   }

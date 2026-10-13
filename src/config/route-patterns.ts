@@ -71,13 +71,13 @@ export function routeMatchesFile(path: string, file: string): boolean {
 }
 
 /**
- * ENG-103 � whether a navigation link points at the page currently being
+ * ENG-103 — whether a navigation link points at the page currently being
  * viewed, for `aria-current="page"`.
  *
  * The rule: a nav link is current on its own path AND on that path's
- * descendants, so `/work` is current on `/work` and on `/work/ethioscident`,
+ * descendants, so `/work` is current on `/work` and on `/work/ethiosci`,
  * but NOT on a sibling that merely shares a prefix (`/workshop`). Query and
- * hash are ignored. The root link (`/`) is current only on `/` itself �
+ * hash are ignored. The root link (`/`) is current only on `/` itself —
  * otherwise every page would mark "Home" as current.
  *
  * Kept pure and dependency-free (no Vite APIs) so it can be exercised

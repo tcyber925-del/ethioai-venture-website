@@ -8,16 +8,22 @@
  *
  * Wired into `npm run verify` and the CI job alongside the other dist gates.
  */
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const script = join(repoRoot, "scripts/check-a11y.mjs");
+
+/** Fixture roots, removed after the suite so runs leave no temp dirs behind. */
+const created = [];
+after(() => {
+  for (const dir of created) rmSync(dir, { recursive: true, force: true });
+});
 
 /** Nav CSS as the emitted stylesheet carries it (Astro-scoped). */
 const NAV_CSS =
@@ -27,6 +33,12 @@ const NAV_CSS =
 /** The Work filter chip's default border rule, Astro-scoped. */
 const CHIP_CSS =
   ".filter__chip[data-astro-cid-w]{padding:var(--space-xs);border:1px solid var(--color-secondary)}";
+
+/** A marker-stripped list class, as the built CSS carries it. */
+const LIST_CSS = ".card-grid{list-style:none;padding:0}";
+
+/** A marker-stripped list that keeps its role — the ENG-103 list fix. */
+const LIST_HTML = '<ul class="card-grid" role="list"><li>a</li><li>b</li></ul>';
 
 /** A nav list whose markers are removed — role="list" is the ENG-103 fix. */
 function nav(label, links, { role = "list", currentHref } = {}) {
@@ -52,19 +64,26 @@ function fixture({
   footerCurrent = "/work",
   chipCss = CHIP_CSS,
   navCss = NAV_CSS,
+  listCss = LIST_CSS,
+  listHtml = LIST_HTML,
   primaryNav,
   footerNav,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "check-a11y-"));
+  created.push(root);
   const dist = join(root, "dist");
   mkdirSync(join(dist, "_astro"), { recursive: true });
-  writeFileSync(join(dist, "_astro", "index.css"), `${navCss}\n${chipCss}`);
+  writeFileSync(
+    join(dist, "_astro", "index.css"),
+    `${navCss}\n${chipCss}\n${listCss}`,
+  );
 
   const page = join(dist, route, "index.html");
   mkdirSync(dirname(page), { recursive: true });
   writeFileSync(
     join(page),
     `<!doctype html><title>x</title><h1>x</h1>` +
+      listHtml +
       (primaryNav ??
         nav("Primary", NAV_LINKS, {
           role: navRole,
@@ -154,7 +173,38 @@ test("REDS when nav links carry no block padding", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no block padding/);
+  assert.match(result.stderr, /carry no non-zero block padding/);
+});
+
+test("REDS when nav block padding is zeroed out", () => {
+  const { dist } = fixture({
+    navCss:
+      ".primary-nav[data-astro-cid-h] a{padding-block:0}" +
+      ".footer-nav[data-astro-cid-f] a{padding-block:0}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carry no non-zero block padding/);
+});
+
+test("REDS when a marker-stripped list loses role=list", () => {
+  const { dist } = fixture({
+    listHtml: '<ul class="card-grid"><li>a</li><li>b</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /card-grid.*lost role="list"/);
+});
+
+test("does not require role=list on a list that keeps its markers", () => {
+  // .principles keeps `list-style` markers, so it must NOT be forced to
+  // role="list" — the gate only covers marker-stripped lists.
+  const { dist } = fixture({
+    listCss: ".principles{display:flex}",
+    listHtml: '<ul class="principles"><li>a</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr);
 });
 
 test("REDS when the primary nav is absent", () => {
