@@ -156,6 +156,38 @@ if (!chipRule) {
 }
 
 /**
+ * The chip's PRESSED state must carry a non-colour cue. Raising the default
+ * border to --color-secondary left default-vs-pressed at ~1:1 lightness, so the
+ * selected chip is now semibold (`font-weight`) — a cue that survives greyscale,
+ * CVD and low vision. This asserts a weight/border-width/shadow cue is present
+ * on the `[aria-pressed="true"]` block, not just a colour swap, so the fix
+ * cannot silently regress.
+ */
+const pressedRule = stripComments(allCss).match(
+  /\.filter__chip(?:\[[^\]]*\])*\[aria-pressed=["']?true["']?\](?:\[[^\]]*\])*\s*\{([^}]*)\}/i,
+);
+if (!pressedRule) {
+  fail(
+    "could not locate the Work filter chip's pressed-state rule in the built CSS",
+  );
+} else {
+  const body = pressedRule[1];
+  const hasWeight = /font-weight\s*:\s*(?!normal\b|400\b)([^;}]+)/i.test(body);
+  const hasThickness =
+    /(?:border-width\s*:\s*(?!1px\b)[^;}]+|border\s*:\s*(?!1px\b)[^;}]+)/i.test(
+      body,
+    );
+  const hasShadow = /box-shadow\s*:\s*(?!none\b)[^;}]+/i.test(body);
+  if (!hasWeight && !hasThickness && !hasShadow) {
+    fail(
+      "Work filter chip pressed state has no non-colour cue (ENG-103 AC1): " +
+        "the default-vs-pressed borders are ~1:1 in lightness, so the selected " +
+        "chip must also change font-weight, border-width or box-shadow",
+    );
+  }
+}
+
+/**
  * Resolve `var(--token)` references in a value using the `:root` custom
  * properties shipped in the CSS. Recursive (a token may alias another), with a
  * depth guard so a self-referential token cannot loop. Lets the target-size

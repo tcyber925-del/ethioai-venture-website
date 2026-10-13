@@ -178,9 +178,17 @@ const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "pro
     color: var(--color-primary);
   }
 
+  /*
+   * ENG-103: the default boundary was raised to --color-secondary (7.47:1) to
+   * clear 1.4.11, but that left the pressed state only ~1:1 lighter than the
+   * default — a hue-only cue. The selected chip therefore also gains weight, a
+   * non-colour cue that survives greyscale, CVD and low vision. --text-label-weight
+   * (600) is an existing token; no new pattern, no new colour.
+   */
   .filter__chip[aria-pressed="true"] {
     border-color: var(--color-tertiary);
     color: var(--color-tertiary);
+    font-weight: var(--text-label-weight);
   }
 
   .filter__count {

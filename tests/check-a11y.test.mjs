@@ -34,6 +34,10 @@ const NAV_CSS =
 const CHIP_CSS =
   ".filter__chip[data-astro-cid-w]{padding:var(--space-xs);border:1px solid var(--color-secondary)}";
 
+/** The chip's pressed state, carrying the non-colour (weight) cue. */
+const CHIP_PRESSED_CSS =
+  '.filter__chip[data-astro-cid-w][aria-pressed="true"]{border-color:var(--color-tertiary);font-weight:var(--text-label-weight)}';
+
 /** A marker-stripped list class, as the built CSS carries it. */
 const LIST_CSS = ".card-grid{list-style:none;padding:0}";
 
@@ -66,6 +70,7 @@ function fixture({
   primaryCurrent = "/work",
   footerCurrent = "/work",
   chipCss = CHIP_CSS,
+  chipPressedCss = CHIP_PRESSED_CSS,
   navCss = NAV_CSS,
   listCss = LIST_CSS,
   listHtml = LIST_HTML,
@@ -80,7 +85,7 @@ function fixture({
   mkdirSync(join(dist, "_astro"), { recursive: true });
   writeFileSync(
     join(dist, "_astro", "index.css"),
-    `${ROOT_CSS}\n${navCss}\n${chipCss}\n${listCss}`,
+    `${ROOT_CSS}\n${navCss}\n${chipCss}${chipPressedCss}\n${listCss}`,
   );
 
   const page = join(dist, route, "index.html");
@@ -136,6 +141,27 @@ test("REDS when the chip boundary regresses to --color-border", () => {
   const result = run(dist);
   assert.equal(result.code, 1);
   assert.match(result.stderr, /chip default boundary uses --color-border/);
+});
+
+test("REDS when the chip pressed state loses its non-colour cue", () => {
+  // Default-vs-pressed borders are ~1:1 in lightness, so a colour-only pressed
+  // rule is a regression: the cue must be weight, thickness or shadow.
+  const { dist } = fixture({
+    chipPressedCss:
+      '.filter__chip[data-astro-cid-w][aria-pressed="true"]{border-color:var(--color-tertiary);color:var(--color-tertiary)}',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /no non-colour cue/);
+});
+
+test("accepts the chip pressed state when it carries a weight cue", () => {
+  const { dist } = fixture({
+    chipPressedCss:
+      '.filter__chip[data-astro-cid-w][aria-pressed="true"]{border-color:var(--color-tertiary);font-weight:var(--text-label-weight)}',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0);
 });
 
 test("REDS when the chip rule is missing entirely", () => {

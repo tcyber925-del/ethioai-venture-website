@@ -10,3 +10,6 @@ package-lock.json
 AGENTS.md
 DESIGN.md
 .factory/
+
+# agent memory (OpenHands)
+.openhands/
