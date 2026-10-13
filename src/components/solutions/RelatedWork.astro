@@ -57,7 +57,7 @@ const relatedItems = related.map((slug) => {
   <div class="related__group">
     <MetadataLabel class="related__label">Work</MetadataLabel>
     {relatedItems.length > 0 ? (
-      <ul class="related__list">
+      <ul class="related__list" role="list">
         {relatedItems.map(({ slug, title, status, resolvable }) => (
           <li class="related__item">
             {!resolvable ? (

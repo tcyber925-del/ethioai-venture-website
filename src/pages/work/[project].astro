@@ -179,7 +179,7 @@ const description = carries(data.summary)
       {hasListItem(technologies) && (
         <div class="project-header__tech">
           <MetadataLabel>Technologies</MetadataLabel>
-          <ul class="tech-list">
+          <ul class="tech-list" role="list">
             {technologies.map((technology) => (
               <li class="tech-list__item">{technology}</li>
             ))}
@@ -216,7 +216,7 @@ const description = carries(data.summary)
         hasContent={carries(section.body) || section.hasImages}
       >
         {section.id === "evidence" && hasListItem(images) && (
-          <ul class="evidence-images">
+          <ul class="evidence-images" role="list">
             {images.map((image) => (
               <li>
                 <img
@@ -251,7 +251,7 @@ const description = carries(data.summary)
 
     {relatedSolutions.length > 0 && (
       <ProjectSection id="related-work" title="Related Work" hasContent={true}>
-        <ul class="related-list">
+        <ul class="related-list" role="list">
           {relatedSolutions.map((solution) => (
             <li>
               {routeExists(`/solutions/${solution.data.slug}`) ? (

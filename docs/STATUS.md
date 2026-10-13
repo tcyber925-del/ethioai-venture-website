@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-06 (Linear **ENG-101**)
+**Last updated:** 2026-10-13 (Linear **ENG-103**)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
@@ -80,6 +80,23 @@ re-verified against the live origin since 2026-10-05.
 | ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
 | Delete 12 merged remote branches                         | Open, mechanical.                                                                                                                                        | Anyone with push access |
 | `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
+
+### ENG-103 — Batch 2 accessibility and navigation polish
+
+Recorded 2026-10-13. Two findings were closed in code; three remain open and are **not** defects
+introduced by ENG-103. The out-of-scope items are reported, not fixed, because the issue's
+explicit non-goals reserve whole-card work for Batch 3.
+
+| Item                                                            | State                                                                                                                                                                                                                                                                   | Owner   |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Work filter chip boundary (WCAG 1.4.11)                         | **Fixed.** The chip's default border moved from `--color-border` (1.42:1) to `--color-secondary` (7.81:1 on surface, 7.48:1 on the page neutral). No token changed; an approved colour was reused.                                                                      | Done    |
+| Nav list semantics, `aria-current="page"`, nav-link target size | **Fixed.** `role="list"` restored on the marker-stripped lists; the current page is marked on header/footer nav; nav links carry block padding for a ≥24×24 target.                                                                                                     | Done    |
+| Start a Project CTA hierarchy (AC6)                             | **No change — decision recorded.** The homepage hero, Solutions `StartProjectCta` and project pages each already show one primary CTA with no competing primary action, matching DESIGN.md. There is no second approved visual to move to, so no emphasis was invented. | Founder |
+| Card/panel boundaries still use `--color-border` (1.42:1)       | **Out of scope (Batch 3).** `ProjectCard`, `SolutionCard`, `StatusBadge`, `ResearchCard` and `StartProjectCta` boundaries fail 1.4.11 the same way the chip did. ENG-103 scoped only the filter chips; whole-card work is an explicit Batch 3 non-goal here.            | Founder |
+| Mobile-header re-composition; in-content conversion CTAs        | **Out of scope (Batch 3),** by the issue's non-goals.                                                                                                                                                                                                                   | Founder |
+| Impeccable audit/critique (AC11)                                | **Could not run.** No Impeccable tooling exists in this repository; the `.impeccable/` directory lives only in `tcyber925-del/Ethiosci-AI-Assistant`. Needs the tool's location or an approved substitute.                                                              | Founder |
+
+ENG-103's PR is the only verification evidence; it was not re-verified against the live origin.
 
 ## Known limitations
 

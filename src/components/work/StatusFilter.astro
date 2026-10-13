@@ -146,9 +146,22 @@ const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "pro
     gap: var(--space-sm);
   }
 
+  /*
+   * ENG-103: the chip's default boundary uses --color-secondary, not
+   * --color-border. The 1px border is the only thing identifying the chip as a
+   * control against the page surface, so it must clear WCAG 2.2 SC 1.4.11's
+   * 3:1 for non-text UI. --color-border (#D9D9D5) measures 1.42:1 on white and
+   * less still on the #FAFAF8 page background — the same defect ENG-102 fixed
+   * on the form inputs (src/pages/start-a-project.astro). --color-secondary
+   * (#525252) measures 7.81:1 on white and 7.48:1 on the page neutral. No new
+   * token: an approved colour reused on an approved component. Hover and
+   * pressed keep their emphasis — the boundary strengthens to --color-primary
+   * on hover and to the tertiary accent when pressed — so every state stays
+   * distinguishable and none relies on the old low-contrast default.
+   */
   .filter__chip {
     padding: var(--space-xs) var(--space-sm);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-secondary);
     border-radius: var(--radius-md);
     background-color: var(--color-surface);
     color: var(--color-secondary);
@@ -161,7 +174,7 @@ const countText = `Showing ${total} of ${total} ${total === 1 ? "project" : "pro
   }
 
   .filter__chip:hover {
-    border-color: var(--color-secondary);
+    border-color: var(--color-primary);
     color: var(--color-primary);
   }
 

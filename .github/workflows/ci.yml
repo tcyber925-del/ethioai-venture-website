@@ -69,3 +69,9 @@ jobs:
       # the visitor seeing the same step repeated.
       - name: Pending-state and evidence regression checks
         run: npm run check:pending
+      # ENG-103 — additive gate; runs after Build so dist/ exists. Fails if the
+      # Work filter chip boundary regresses to a sub-3:1 token, if a nav list
+      # loses role="list", if aria-current is missing or misplaced, or if nav
+      # link targets drop below 24x24.
+      - name: Accessibility and navigation regression checks
+        run: npm run check:a11y

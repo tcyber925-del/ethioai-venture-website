@@ -12,12 +12,21 @@ interface Props {
   class?: string;
   /** ENG-85 analytics event hook; omitted from output when absent. */
   "data-analytics-event"?: string;
+  /**
+   * ENG-103 — current-page state for navigation links. Declared explicitly so
+   * Header/Footer/404 can mark the link whose target IS the page being viewed;
+   * a value of `undefined` renders no attribute (a link that is not current).
+   * Restricted to the values a site nav legitimately needs.
+   */
+  "aria-current"?:
+    "page" | "step" | "location" | "date" | "time" | true | false;
 }
 
 const {
   href,
   class: className = "",
   "data-analytics-event": analyticsEvent,
+  "aria-current": ariaCurrent,
 } = Astro.props;
 
 // While analytics is disabled (empty site ID) the hook is dropped from the
@@ -34,6 +43,7 @@ const analyticsHook =
   href={href}
   class:list={["link", className]}
   data-analytics-event={analyticsHook}
+  aria-current={ariaCurrent}
 >
   <slot />
 </a>
