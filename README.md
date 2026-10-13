@@ -72,6 +72,9 @@ npm run build          # production build
 npm run check:dist     # static accessibility/SEO checks + internal link validation
 npm run check:seo       # SEO head contract: titles, canonical, og/twitter, sitemap/robots, JSON-LD
 npm run check:work      # /work regression gate: status-filter hide rules + expected pages in the built output
+npm run check:fonts     # font preload/stylesheet/asset contract
+npm run check:pending   # project/solution "pending" placeholder contract
+npm run check:a11y      # accessibility regression gate: chip boundary, list semantics, aria-current, nav target size
 ```
 
 Run everything at once:
@@ -89,9 +92,10 @@ npm run format
 The same commands run in CI via GitHub Actions (`.github/workflows/ci.yml`) as the
 required **Deterministic checks** status; `npm run verify` runs the identical set
 locally in one go — both chains run the same steps in the same order and end with
-`check:dist` followed by the `check:seo` head-contract gate
-(`scripts/check-seo.mjs`) and then the `check:work` /work regression gate
-(`scripts/check-work.mjs`). `check:dist` inspects the generated markup outside inline
+`check:dist`, then the `check:seo` head-contract gate (`scripts/check-seo.mjs`),
+the `check:work` /work regression gate (`scripts/check-work.mjs`), the
+`check:fonts` and `check:pending` gates, and finally the `check:a11y`
+accessibility gate (`scripts/check-a11y.mjs`). `check:dist` inspects the generated markup outside inline
 `<script>`/`<iframe>`/`<object>` bodies (the tags stay — `src=`/`data=` is a
 fetch target; iframe children live in a child document, object children are
 failure-only fallback), HTML comments (the abrupt `<!-->`/`<!--->` forms and
@@ -216,7 +220,7 @@ src/layouts/        page layouts
 src/pages/          routes
 src/scripts/        client-side TypeScript (analytics client)
 src/styles/         design tokens and global styles
-scripts/            build-output gates (check:dist, check:seo, check:work)
+scripts/            build-output gates (check:dist, check:seo, check:work, check:fonts, check:pending, check:a11y)
 tests/              node:test regression suites
 docs/               project documentation
 ```

@@ -26,9 +26,11 @@
  *   3. a nav link on the page's own route carries aria-current="page", and a
  *      page whose route is NOT in the nav (the 404) marks nothing current;
  *   4. nav links carry a NON-ZERO block padding that lifts them to the 24x24
- *      target minimum (`padding-block: 0` does not count);
- *   5. every marker-stripped list (`list-style: none`) still exposes
- *      role="list", so the ENG-103 fix is protected beyond the two navs.
+ *      target minimum (`padding-block: 0`, `0 0`, `0 !important` do not count),
+ *      read from the CSS THAT PAGE actually sees, not the union of all pages;
+ *   5. every marker-stripped list — `<ul>` OR `<ol>` whose class is styled
+ *      `list-style: none` — still exposes role="list", so the ENG-103 fix is
+ *      protected beyond the two navs and on every list, not just the first.
  *
  * Local reproduction: npm run build && npm run check:a11y
  * Regression battery: tests/check-a11y.test.mjs (fixture dist/ trees).
@@ -70,43 +72,72 @@ if (htmlFiles.length === 0) {
   process.exit(1);
 }
 
+const read = (file) => readFileSync(file, "utf8");
+
+/** Strip CSS comments so a selector/value inside one is never matched. */
+const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+
 /**
- * Scoped component CSS ships inlined in a page `<style>` block, not in the
- * emitted stylesheet — the same split check:work documents. Read both.
+ * Every rule as { selector, body }. The `[^{}]*` groups cannot cross a brace,
+ * so a rule nested in `@media … { … }` is still returned with its own selector
+ * (the outer at-rule block has a brace in its "body" and so never matches) —
+ * media-only rules are therefore NOT invisible to the checks below.
  */
-function shippedCss(html) {
-  const blocks = [];
-  const styleBlocks = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-  let match;
-  while ((match = styleBlocks.exec(html)) !== null) blocks.push(match[1] ?? "");
-  return blocks.join("\n").replace(/\/\*[\s\S]*?\*\//g, "");
+function rules(cssText) {
+  const out = [];
+  for (const m of stripComments(cssText).matchAll(/([^{}]*?)\{([^{}]*)\}/g)) {
+    out.push({ selector: m[1].trim(), body: m[2] });
+  }
+  return out;
 }
 
-const cssFiles = distFiles.filter((f) => f.toLowerCase().endsWith(".css"));
-const cssSources = [
-  ...cssFiles.map((file) => ({
-    origin: relative(distDir, file).split(sep).join("/"),
-    text: readFileSync(file, "utf8"),
-  })),
-  ...htmlFiles.map((file) => ({
-    origin: `${relative(distDir, file).split(sep).join("/")} <style>`,
-    text: shippedCss(readFileSync(file, "utf8")),
-  })),
-];
+/** Scoped component CSS ships inlined in a page `<style>` block. */
+function inlineCss(html) {
+  const blocks = [];
+  const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) blocks.push(m[1] ?? "");
+  return blocks.join("\n");
+}
+
+/** The CSS files a page links via `<link rel="stylesheet">`, concatenated. */
+function linkedCss(html) {
+  const texts = [];
+  for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
+    if (!/rel="stylesheet"/i.test(tag)) continue;
+    const href = tag.match(/href="([^"]+)"/i)?.[1];
+    if (!href) continue;
+    const file = join(distDir, href.replace(/^\//, "").split(/[?#]/)[0]);
+    if (existsSync(file)) texts.push(read(file));
+  }
+  return texts.join("\n");
+}
 
 /**
- * The Work filter chip's default border. Astro scopes the selector with its
- * own attribute (`[data-astro-cid-…]`), so the boundary is matched
- * structurally: the `.filter__chip` rule whose block sets
- * `border: 1px solid var(<token>)`. The `[aria-pressed=true]` and `:hover`
- * rules are later blocks and are not matched here — this reads the DEFAULT.
+ * CSS a single page can actually see: the stylesheets it links plus its inline
+ * `<style>`. Scoping the nav checks to this (not the union of every page's CSS)
+ * means a page that lost the rule still fails its own check.
  */
-const chipRule = cssSources
-  .map((s) => s.text)
-  .join("\n")
-  .match(
-    /\.filter__chip(?:\[[^\]]*\])*\s*\{[^}]*?border\s*:\s*1px\s+solid\s+var\((--[a-z-]+)\)/i,
-  );
+const pageCss = (html) => `${linkedCss(html)}\n${inlineCss(html)}`;
+
+/**
+ * The Work filter chip's default border. A component-level rule (it ships once
+ * wherever the chip is used), so it is checked once over all shipped CSS rather
+ * than per page. Astro scopes the selector with its own attribute
+ * (`[data-astro-cid-…]`), so the boundary is matched structurally: the
+ * `.filter__chip` rule whose block sets `border: 1px solid var(<token>)`. The
+ * `[aria-pressed=true]` and `:hover` rules are later blocks and are not matched
+ * here — this reads the DEFAULT.
+ */
+const allCss = [
+  ...distFiles
+    .filter((f) => f.toLowerCase().endsWith(".css"))
+    .map((f) => read(f)),
+  ...htmlFiles.map((f) => inlineCss(read(f))),
+].join("\n");
+const chipRule = stripComments(allCss).match(
+  /\.filter__chip(?:\[[^\]]*\])*\s*\{[^}]*?border\s*:\s*1px\s+solid\s+var\((--[a-z-]+)\)/i,
+);
 if (!chipRule) {
   fail(
     "could not locate the Work filter chip's default border rule in the built CSS",
@@ -135,30 +166,52 @@ function navTargetsRoute(href, route) {
 
 /**
  * A block-padding declaration is only meaningful if it actually grows the
- * target. Reject explicit zeros (`0`, `0px`, `0rem`); accept any other value,
- * including a design-token reference (`var(--space-xs)`) or `calc(...)`.
+ * target. Every whitespace-separated component must be non-zero, so `0`, `0px`,
+ * `0 0`, `0px 0px` and `0 !important` all fail; `var(--space-xs)` and
+ * `calc(...)` pass.
  */
 function blockPaddingIsNonZero(value) {
-  return !/^0+(?:\.0+)?(?:px|rem|em|%|vh|vw|ch|ex)?$/.test(value.trim());
+  const tokens = value
+    .replace(/!important/gi, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => !/^0(?:[a-z%]+)?$/i.test(t));
+}
+
+/** Whether a page's CSS carries a non-zero `padding-block` on the nav anchors. */
+function navHasNonZeroBlockPadding(cssText, navClass) {
+  const sel = new RegExp(
+    `\\.${navClass}(?:\\[[^\\]]*\\])*\\s+a(?:\\[[^\\]]*\\])*\\s*$`,
+  );
+  return rules(cssText).some((r) => {
+    if (!sel.test(r.selector)) return false;
+    const m = r.body.match(/padding-block\s*:\s*([^;}]+)/i);
+    return m ? blockPaddingIsNonZero(m[1]) : false;
+  });
 }
 
 /** Classes styled `list-style: none` — their lists need role="list" to survive. */
-const markerStrippedClasses = new Set();
-for (const s of cssSources) {
-  for (const block of s.text.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
-    if (!/list-style\s*:\s*none\b/i.test(block[2])) continue;
-    for (const cls of block[1].matchAll(/\.([A-Za-z][\w-]*)/g)) {
-      markerStrippedClasses.add(cls[1]);
-    }
+function listStyleNoneClasses(cssText) {
+  const set = new Set();
+  for (const r of rules(cssText)) {
+    if (!/list-style\s*:\s*none\b/i.test(r.body)) continue;
+    for (const c of r.selector.matchAll(/\.([A-Za-z][\w-]*)/g)) set.add(c[1]);
   }
+  return set;
 }
 
 const NAV_LABELS = ["Primary", "Footer"];
+// Union across all shipped CSS: a class styled marker-stripped anywhere forces
+// role="list" on every list that carries it, on whatever page it appears.
+const markerStrippedClasses = listStyleNoneClasses(allCss);
 
 for (const file of htmlFiles) {
   const relFile = relative(distDir, file).split(sep).join("/");
   const route = emittedRoute(relFile);
-  const html = readFileSync(file, "utf8");
+  const html = read(file);
+  const css = pageCss(html);
 
   for (const label of NAV_LABELS) {
     const nav = html.match(
@@ -193,23 +246,11 @@ for (const file of htmlFiles) {
       );
     }
 
-    // 4. target size: a NON-ZERO block padding on the anchors (Astro scoping
-    //    makes the rule :global, so it is matched on the emitted
-    //    `.primary-nav`/`.footer-nav` anchor selector). A `padding-block: 0`
-    //    would leave the target under 24x24, so the value is read, not just
-    //    the property name.
+    // 4. target size: a NON-ZERO block padding on the anchors, read from THIS
+    //    page's CSS. Astro scoping makes the rule :global, so it is matched on
+    //    the emitted `.primary-nav`/`.footer-nav` anchor selector.
     const navClass = label === "Primary" ? "primary-nav" : "footer-nav";
-    const padded = cssSources.some((s) => {
-      const m = s.text.match(
-        new RegExp(
-          `\\.${navClass}(?:\\[[^\\]]*\\])*\\s+a(?:\\[[^\\]]*\\])*\\s*\\{[^}]*?` +
-            `padding-block\\s*:\\s*([^;}]+)`,
-          "i",
-        ),
-      );
-      return m ? blockPaddingIsNonZero(m[1]) : false;
-    });
-    if (!padded) {
+    if (!navHasNonZeroBlockPadding(css, navClass)) {
       fail(
         `${route}: ${label} nav links carry no non-zero block padding — ` +
           "targets fall below the 24x24 CSS px minimum (ENG-103)",
@@ -217,24 +258,18 @@ for (const file of htmlFiles) {
     }
   }
 
-  // 5. list semantics on every marker-stripped list, not just the two navs:
-  //    a `<ul>` whose class is styled `list-style: none` must still expose
-  //    role="list" (Safari/VoiceOver drop it otherwise). Lists that keep their
-  //    markers are left alone.
-  for (const [, classes] of html.matchAll(
-    /<ul\b[^>]*\bclass="([^"]*)"[^>]*>/g,
-  )) {
+  // 5. list semantics on every marker-stripped list. Iterate EVERY <ul>/<ol>
+  //    on the page (not just the first per class) and cover <ol> as well.
+  for (const tag of html.match(/<(?:ul|ol)\b[^>]*>/gi) ?? []) {
+    const classes = tag.match(/class="([^"]*)"/)?.[1];
+    if (!classes) continue;
     const tokens = classes.split(/\s+/).filter(Boolean);
     if (!tokens.some((t) => markerStrippedClasses.has(t))) continue;
-    const ulTag = html.match(
-      new RegExp(
-        `<ul\\b[^>]*class="${classes.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>`,
-      ),
-    )?.[0];
-    if (ulTag && !/\brole="list"/.test(ulTag)) {
+    if (!/\brole="list"/.test(tag)) {
+      const name = tag.match(/^<(\w+)/)[1];
       fail(
-        `${route}: <ul class="${classes}"> is marker-stripped (list-style:none) ` +
-          'but lost role="list" (ENG-103)',
+        `${route}: <${name} class="${classes}"> is marker-stripped ` +
+          '(list-style:none) but lost role="list" (ENG-103)',
       );
     }
   }
@@ -248,5 +283,6 @@ if (failures.length > 0) {
 
 console.log(
   `check:a11y passed — ${htmlFiles.length} page(s), chip boundary ` +
-    `${chipRule?.[1] ?? "?"}, nav semantics + aria-current + target size, 0 problems.`,
+    `${chipRule?.[1] ?? "?"}, nav semantics + aria-current + target size, ` +
+    `${markerStrippedClasses.size} marker-stripped list class(es), 0 problems.`,
 );

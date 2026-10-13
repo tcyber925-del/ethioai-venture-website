@@ -66,6 +66,8 @@ function fixture({
   navCss = NAV_CSS,
   listCss = LIST_CSS,
   listHtml = LIST_HTML,
+  linkCss = true,
+  inlineStyle = "",
   primaryNav,
   footerNav,
 } = {}) {
@@ -83,6 +85,8 @@ function fixture({
   writeFileSync(
     join(page),
     `<!doctype html><title>x</title><h1>x</h1>` +
+      (linkCss ? '<link rel="stylesheet" href="/_astro/index.css">' : "") +
+      (inlineStyle ? `<style>${inlineStyle}</style>` : "") +
       listHtml +
       (primaryNav ??
         nav("Primary", NAV_LINKS, {
@@ -187,6 +191,46 @@ test("REDS when nav block padding is zeroed out", () => {
   assert.match(result.stderr, /carry no non-zero block padding/);
 });
 
+test("REDS when block padding is zeroed via the two-value form", () => {
+  const { dist } = fixture({
+    navCss:
+      ".primary-nav[data-astro-cid-h] a{padding-block:0 0}" +
+      ".footer-nav[data-astro-cid-f] a{padding-block:0px 0px}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carry no non-zero block padding/);
+});
+
+test("REDS when block padding is zeroed with !important", () => {
+  const { dist } = fixture({
+    navCss:
+      ".primary-nav[data-astro-cid-h] a{padding-block:0 !important}" +
+      ".footer-nav[data-astro-cid-f] a{padding-block:0 !important}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carry no non-zero block padding/);
+});
+
+test("REDS when a page does not link the stylesheet carrying the nav rule", () => {
+  // Per-page CSS scoping: a rule defined in a file this page never links must
+  // not satisfy this page's check.
+  const { dist } = fixture({ linkCss: false });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carry no non-zero block padding/);
+});
+
+test("accepts the nav rule when it arrives via an inline <style>", () => {
+  const { dist } = fixture({
+    linkCss: false,
+    inlineStyle: NAV_CSS,
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr);
+});
+
 test("REDS when a marker-stripped list loses role=list", () => {
   const { dist } = fixture({
     listHtml: '<ul class="card-grid"><li>a</li><li>b</li></ul>',
@@ -205,6 +249,39 @@ test("does not require role=list on a list that keeps its markers", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 0, result.stderr);
+});
+
+test("REDS when a SECOND list of the same class loses role=list", () => {
+  // The page ships two .card-grid lists; only the second is missing the role.
+  const { dist } = fixture({
+    listHtml:
+      '<ul class="card-grid" role="list"><li>a</li></ul>' +
+      '<ul class="card-grid"><li>b</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /card-grid.*lost role="list"/);
+});
+
+test("REDS when a marker-stripped <ol> loses role=list", () => {
+  const { dist } = fixture({
+    listCss: ".steps{list-style:none}",
+    listHtml: '<ol class="steps"><li>a</li></ol>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /<ol class="steps">.*lost role="list"/);
+});
+
+test("REDS when list-style:none arrives only inside a media query", () => {
+  // The class scan must see rules nested in @media, not just top-level ones.
+  const { dist } = fixture({
+    listCss: "@media (min-width:40em){.card-grid{list-style:none}}",
+    listHtml: '<ul class="card-grid"><li>a</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /card-grid.*lost role="list"/);
 });
 
 test("REDS when the primary nav is absent", () => {

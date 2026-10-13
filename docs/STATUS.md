@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-13 (Linear **ENG-103**)
+**Last updated:** 2026-10-13 (Linear **ENG-103**; Git state and ENG-103 section refreshed)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
@@ -27,13 +27,18 @@ wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), 
 
 ## Git state
 
-- **`main`** — `fd46407`, "ENG-95: Add dependency-free regression checks for Work page in verify (#19)"
-- **24 pull requests, all merged**, none open. Merges are squashed, so feature branches are
-  not ancestors of `main`; each PR's identity is preserved in the commit subject line.
-- **12 feature branches still exist on the remote** and all their work is merged. Deleting
-  them is a mechanical cleanup, not outstanding engineering work.
+- **`main`** — `b2f7980`, "ENG-101: refresh README to shipped V1 state and add docs/STATUS.md (#25)"
+- **27 pull requests** — 26 merged, 1 open (#27, the ENG-103 branch). Merges are squashed, so
+  feature branches are not ancestors of `main`; each PR's identity is preserved in the commit
+  subject line.
+- **No stale feature branches remain on the remote** — only `main` and the open ENG-103 branch.
+  The earlier 12-branch cleanup is complete.
 
-## Verification, measured on `main` at `fd46407`
+## Verification (ENG-101 snapshot, 2026-10-13)
+
+Measured when this page was created (#25). Numbers for the current tree — after ENG-102
+added `check:fonts`/`check:pending` and ENG-103 added `check:a11y` — are in the ENG-103
+section at the foot of this page (420 tests / 46 suites).
 
 ```sh
 npm run verify
@@ -78,14 +83,15 @@ re-verified against the live origin since 2026-10-05.
 | Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                   | Founder                 |
 | Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                   | Founder                 |
 | ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
-| Delete 12 merged remote branches                         | Open, mechanical.                                                                                                                                        | Anyone with push access |
+| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` now returns only `main` and the open ENG-103 branch.                                                                | Anyone with push access |
 | `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
 
 ### ENG-103 — Batch 2 accessibility and navigation polish
 
-Recorded 2026-10-13. Two findings were closed in code; three remain open and are **not** defects
-introduced by ENG-103. The out-of-scope items are reported, not fixed, because the issue's
-explicit non-goals reserve whole-card work for Batch 3.
+Recorded 2026-10-13. Of the seven items below: **two were fixed in code**, **one is a recorded
+no-change decision**, **three are out of scope for Batch 3**, and **one (AC11) could not be run**.
+Only the two fixed items were defects introduced by ENG-103; the rest are reported, not fixed,
+because the issue's explicit non-goals reserve whole-card work for Batch 3.
 
 | Item                                                            | State                                                                                                                                                                                                                                                                                                                                                                                                  | Owner   |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
