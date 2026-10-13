@@ -37,6 +37,9 @@ const CHIP_CSS =
 /** A marker-stripped list class, as the built CSS carries it. */
 const LIST_CSS = ".card-grid{list-style:none;padding:0}";
 
+/** The design tokens the gate resolves against (mirrors :root in tokens.css). */
+const ROOT_CSS = ":root{--space-xs:4px;--text-body-sm-leading:1.5}";
+
 /** A marker-stripped list that keeps its role — the ENG-103 list fix. */
 const LIST_HTML = '<ul class="card-grid" role="list"><li>a</li><li>b</li></ul>';
 
@@ -77,7 +80,7 @@ function fixture({
   mkdirSync(join(dist, "_astro"), { recursive: true });
   writeFileSync(
     join(dist, "_astro", "index.css"),
-    `${navCss}\n${chipCss}\n${listCss}`,
+    `${ROOT_CSS}\n${navCss}\n${chipCss}\n${listCss}`,
   );
 
   const page = join(dist, route, "index.html");
@@ -177,7 +180,7 @@ test("REDS when nav links carry no block padding", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no non-zero block padding/);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("REDS when nav block padding is zeroed out", () => {
@@ -188,7 +191,7 @@ test("REDS when nav block padding is zeroed out", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no non-zero block padding/);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("REDS when block padding is zeroed via the two-value form", () => {
@@ -199,7 +202,7 @@ test("REDS when block padding is zeroed via the two-value form", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no non-zero block padding/);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("REDS when block padding is zeroed with !important", () => {
@@ -210,7 +213,7 @@ test("REDS when block padding is zeroed with !important", () => {
   });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no non-zero block padding/);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("REDS when a page does not link the stylesheet carrying the nav rule", () => {
@@ -219,13 +222,13 @@ test("REDS when a page does not link the stylesheet carrying the nav rule", () =
   const { dist } = fixture({ linkCss: false });
   const result = run(dist);
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /carry no non-zero block padding/);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("accepts the nav rule when it arrives via an inline <style>", () => {
   const { dist } = fixture({
     linkCss: false,
-    inlineStyle: NAV_CSS,
+    inlineStyle: `${ROOT_CSS}${NAV_CSS}`,
   });
   const result = run(dist);
   assert.equal(result.code, 0, result.stderr);
@@ -282,6 +285,70 @@ test("REDS when list-style:none arrives only inside a media query", () => {
   const result = run(dist);
   assert.equal(result.code, 1);
   assert.match(result.stderr, /card-grid.*lost role="list"/);
+});
+
+test("REDS when list-style-type:none strips a list's markers", () => {
+  // The longhand spelling must be caught, not only the `list-style` shorthand.
+  const { dist } = fixture({
+    listCss: ".card-grid{list-style-type:none}",
+    listHtml: '<ul class="card-grid"><li>a</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /card-grid.*lost role="list"/);
+});
+
+test("REDS when a classless list is stripped by an ancestor selector", () => {
+  // The 404's suggested-pages <ul> has no class; `.not-found__nav ul` strips it.
+  const { dist } = fixture({
+    listCss: ".not-found__nav ul{list-style:none}",
+    listHtml: "",
+    primaryNav:
+      '<nav aria-label="Primary"><ul role="list"><li><a href="/work">w</a></li></ul></nav>',
+    footerNav:
+      '<nav aria-label="Footer"><ul role="list"><li><a href="/work">w</a></li></ul></nav>' +
+      '<nav aria-label="Suggested pages" class="not-found__nav"><ul><li>a</li></ul></nav>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /<ul> is marker-stripped but lost role="list"/);
+});
+
+test("REDS when the target size is sub-minimum", () => {
+  // A token that resolves below the 24px minimum must fail, not just a zero.
+  const { dist } = fixture({
+    navCss:
+      ".primary-nav[data-astro-cid-h] a{padding-block:0.01px}" +
+      ".footer-nav[data-astro-cid-f] a{padding-block:0.01px}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /do not reach the 24x24/);
+});
+
+test("REDS when a later padding shorthand overrides the block padding", () => {
+  const { dist } = fixture({
+    navCss:
+      ".primary-nav[data-astro-cid-h] a{padding-block:var(--space-xs)}" +
+      ".primary-nav[data-astro-cid-h] a{padding:0}" +
+      ".footer-nav[data-astro-cid-f] a{padding-block:var(--space-xs)}" +
+      ".footer-nav[data-astro-cid-f] a{padding:0}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /do not reach the 24x24/);
+});
+
+test("REDS when the spacing token resolves below the minimum", () => {
+  // The gate must resolve var(--space-xs), so shrinking it is caught.
+  const { dist } = fixture({
+    listCss: ".card-grid{list-style:none}",
+    listHtml: '<ul class="card-grid" role="list"><li>a</li></ul>',
+    inlineStyle: ":root{--space-xs:1px}",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /do not reach the 24x24/);
 });
 
 test("REDS when the primary nav is absent", () => {

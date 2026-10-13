@@ -163,9 +163,10 @@ interaction, performance and production-like QA stay manual — Linear
 Every edge-case verdict above is locked by a committed regression battery —
 `npm test` runs `tests/check-dist.test.mjs` (built-in `node:test`, zero
 dependencies) together with the route-pattern, analytics and content-slug
-uniqueness suites, plus the `check:seo` head-contract battery and the `check:work`
-/work regression battery
-(`tests/check-seo.test.mjs`), wired into both `npm run verify` and the CI job.
+uniqueness suites, plus the head-contract (`tests/check-seo.test.mjs`), /work
+(`tests/check-work.test.mjs`), font (`tests/fonts.test.mjs`), pending
+(`tests/check-pending.test.mjs`) and accessibility (`tests/check-a11y.test.mjs`)
+batteries, wired into both `npm run verify` and the CI job.
 `check:dist` also asserts the **ENG-85 analytics build invariant** in both
 directions from the site ID in `src/config/analytics.ts`: while it is empty no
 text asset in `dist/` may carry a `goatcounter` / `gc.zgo.at` /
