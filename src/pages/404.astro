@@ -31,7 +31,10 @@ import { routeExists } from "../config/routes";
         may be misspelled.
       </p>
       <nav aria-label="Suggested pages" class="not-found__nav">
-        <ul>
+        {/* role="list": list-style:none drops list semantics in Safari/VoiceOver
+            (ENG-103). No aria-current here: the 404 page is the current page,
+            so none of these suggested links is. */}
+        <ul role="list">
           <li>
             <Link href="/">Home</Link>
           </li>

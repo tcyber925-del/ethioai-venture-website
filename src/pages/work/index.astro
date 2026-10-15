@@ -45,8 +45,10 @@ const statuses = [
       <h2 id="work-list-heading" class="work-list__title">
         Projects
       </h2>
+      {/* role="list": the grid strips markers with list-style:none, which
+          drops list semantics in Safari/VoiceOver (ENG-103). */}
       {projects.length > 0 ? (
-        <ul class="project-grid">
+        <ul class="project-grid" role="list">
           {projects.map((project) => (
             <ProjectCard
               title={project.data.title}

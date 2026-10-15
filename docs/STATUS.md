@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-06 (Linear **ENG-101**)
+**Last updated:** 2026-10-13 (Linear **ENG-103**; Git state and ENG-103 section refreshed)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
@@ -27,13 +27,18 @@ wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), 
 
 ## Git state
 
-- **`main`** — `fd46407`, "ENG-95: Add dependency-free regression checks for Work page in verify (#19)"
-- **24 pull requests, all merged**, none open. Merges are squashed, so feature branches are
-  not ancestors of `main`; each PR's identity is preserved in the commit subject line.
-- **12 feature branches still exist on the remote** and all their work is merged. Deleting
-  them is a mechanical cleanup, not outstanding engineering work.
+- **`main`** — `b2f7980`, "ENG-101: refresh README to shipped V1 state and add docs/STATUS.md (#25)"
+- **27 pull requests** — 26 merged, 1 open (#27, the ENG-103 branch). Merges are squashed, so
+  feature branches are not ancestors of `main`; each PR's identity is preserved in the commit
+  subject line.
+- **No stale feature branches remain on the remote** — only `main` and the open ENG-103 branch.
+  The earlier 12-branch cleanup is complete.
 
-## Verification, measured on `main` at `fd46407`
+## Verification (ENG-101 snapshot, 2026-10-13)
+
+Measured when this page was created (#25). Numbers for the current tree — after ENG-102
+added `check:fonts`/`check:pending` and ENG-103 added `check:a11y` — are **434 tests /
+46 suites** (measured on the ENG-103 branch; the gates are listed in the ENG-103 section).
 
 ```sh
 npm run verify
@@ -78,8 +83,28 @@ re-verified against the live origin since 2026-10-05.
 | Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                   | Founder                 |
 | Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                   | Founder                 |
 | ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
-| Delete 12 merged remote branches                         | Open, mechanical.                                                                                                                                        | Anyone with push access |
+| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` now returns only `main` and the open ENG-103 branch.                                                                | Anyone with push access |
 | `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
+
+### ENG-103 — Batch 2 accessibility and navigation polish
+
+Recorded 2026-10-13. Of the seven items below: **three were fixed in code**, **one is a recorded
+no-change decision**, **two are out of scope for Batch 3**, and **one (AC11) could not be run**.
+The three fixed items are the chip boundary, the nav semantics/target size, and the chip's
+selected cue (escalated as a Change Request, then approved by the founder); the rest are
+reported, not fixed, because the issue's explicit non-goals reserve whole-card work for Batch 3.
+
+| Item                                                            | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Owner   |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Work filter chip boundary (WCAG 1.4.11)                         | **Fixed.** The chip's default border moved from `--color-border` (1.42:1) to `--color-secondary` (7.81:1 on surface, 7.48:1 on the page neutral). No token changed; an approved colour was reused.                                                                                                                                                                                                                                                                                                                                                                     | Agent   |
+| Nav list semantics, `aria-current="page"`, nav-link target size | **Fixed.** `role="list"` restored on the marker-stripped lists; the current page is marked on header/footer nav; nav links carry block padding for a ≥24×24 target.                                                                                                                                                                                                                                                                                                                                                                                                    | Agent   |
+| Start a Project CTA hierarchy (AC6)                             | **No change — decision recorded.** The design already shows one primary action per region: the homepage carries two primary CTAs (hero and closing section) with the same destination, top and bottom of the page, and the Solutions and project pages each show one. They do not compete within a view, matching DESIGN.md. No second approved visual exists to move to, so no emphasis was invented.                                                                                                                                                                 | Founder |
+| Card/panel boundaries still use `--color-border` (1.42:1)       | **Out of scope (Batch 3).** `ProjectCard`, `SolutionCard`, `StatusBadge`, `ResearchCard` and `StartProjectCta` boundaries fail 1.4.11 the same way the chip did. ENG-103 scoped only the filter chips; whole-card work is an explicit Batch 3 non-goal here.                                                                                                                                                                                                                                                                                                           | Founder |
+| Mobile-header re-composition; in-content conversion CTAs        | **Out of scope (Batch 3),** by the issue's non-goals.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Founder |
+| Work chip selected state colour-only after AC1                  | **Fixed (founder approved).** Before ENG-103 the default border (`--color-border`, #D9D9D5) vs pressed (`--color-tertiary`, #0f5b5a) differed 5.57:1 in lightness; after the AC1 fix the default (`--color-secondary`, #525252) vs pressed measure **1.01:1**, so the selected chip differed only by hue. The pressed chip now also carries `font-weight: var(--text-label-weight)` (600) — a non-colour cue that survives greyscale, CVD and low vision. `check:a11y` asserts a weight/thickness/shadow cue on the pressed rule, so it cannot regress to colour-only. | Agent   |
+| Impeccable audit/critique (AC11)                                | **Could not run.** No Impeccable tooling exists in this repository; the `.impeccable/` directory lives only in `tcyber925-del/Ethiosci-AI-Assistant`. Needs the tool's location or an approved substitute.                                                                                                                                                                                                                                                                                                                                                             | Founder |
+
+ENG-103's PR is the only verification evidence; it was not re-verified against the live origin.
 
 ## Known limitations
 
