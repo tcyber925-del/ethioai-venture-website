@@ -27,7 +27,8 @@ const { id, title } = Astro.props;
 
 <style>
   .research-section {
-    max-width: 70ch;
+    /* ENG-107: 60ch, the site's editorial measure (was 70ch, ~93 chars/line). */
+    max-width: 60ch;
     padding-block: var(--space-xl);
     border-top: 1px solid var(--color-border);
   }

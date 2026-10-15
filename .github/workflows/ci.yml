@@ -75,3 +75,10 @@ jobs:
       # link targets drop below 24x24.
       - name: Accessibility and navigation regression checks
         run: npm run check:a11y
+      # ENG-107 — additive gate; runs after Build so dist/ exists. Fails if the
+      # Work/Research conversion CTA loses its Start a Project action, if it
+      # links to the page's own route, if it stops closing the reading order, or
+      # if ANY built page declares a reading measure past the 60ch editorial
+      # bound.
+      - name: Conversion CTA and reading-measure checks
+        run: npm run check:cta

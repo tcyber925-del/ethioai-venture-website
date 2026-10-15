@@ -225,8 +225,10 @@ const solutionAreas = (await getCollection("solutions"))
     margin-block: var(--space-sm) var(--space-md);
   }
 
+  /* ENG-107: 60ch, the site's editorial measure. At 72ch the shipped Inter
+     renders ~91 characters per line, past the readable range. */
   .section p {
-    max-width: 72ch;
+    max-width: 60ch;
   }
 
   .lede {
@@ -241,8 +243,9 @@ const solutionAreas = (await getCollection("solutions"))
     flex-direction: column;
     gap: var(--space-sm);
     padding-inline-start: var(--space-lg);
-    /* same reading measure as .section p (72ch + marker gutter) */
-    max-width: calc(72ch + var(--space-lg));
+    /* ENG-107: the same 60ch reading measure as .section p, plus the marker
+       gutter the bullets sit in. */
+    max-width: calc(60ch + var(--space-lg));
   }
 
   .principles li::marker {

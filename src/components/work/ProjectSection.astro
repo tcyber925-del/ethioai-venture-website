@@ -63,7 +63,9 @@ const { id, title, body, hasContent = body !== undefined } = Astro.props;
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
-    max-width: 72ch;
+    /* ENG-107: 60ch, the site's editorial measure. At 72ch the shipped Inter
+       renders about 95 characters per line, past the readable range. */
+    max-width: 60ch;
     color: var(--color-secondary);
   }
 </style>

@@ -7,12 +7,18 @@
  * derived at render time from the status strings actually present in that
  * data. No status enum is defined in the approved specifications, so no
  * taxonomy values are invented here (see src/content.config.ts).
+ *
+ * ENG-107: the page ends with the approved StartProjectCta region, placed
+ * after the project list so evidence browsing comes first. `secondary={false}`
+ * drops the region's "View Work" companion action, which on this page would
+ * link to the page the visitor is already on.
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Container from "../../components/Container.astro";
 import MetadataLabel from "../../components/MetadataLabel.astro";
 import ProjectCard from "../../components/work/ProjectCard.astro";
 import StatusFilter from "../../components/work/StatusFilter.astro";
+import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
 import { getCollection } from "astro:content";
 
 const projects = (await getCollection("projects")).sort((a, b) =>
@@ -63,6 +69,8 @@ const statuses = [
         <p class="work-list__empty">No projects published yet.</p>
       )}
     </section>
+
+    <StartProjectCta secondary={false} />
   </Container>
 </BaseLayout>
 
@@ -75,7 +83,7 @@ const statuses = [
   }
 
   .work-list {
-    padding-block: var(--space-xl) var(--space-3xl);
+    padding-block: var(--space-xl);
   }
 
   .work-list__title {
