@@ -17,6 +17,11 @@ deliberately excludes is listed under [V1 non-goals](#v1-non-goals).
   `.ts` file, which Node executes natively only since 22.18's unflagged
   type stripping; CI runs the latest 22.x)
 - npm (bundled with Node.js)
+- Python `>= 3` with the `fonttools` and `brotli` packages (required only to
+  regenerate the self-hosted Inter subsets with `tools/build-fonts.py`; the
+  normal workflow — `npm install`/`npm ci`, `npm run build`, `npm run verify`,
+  `npm run check:fonts` — needs no Python; see that file's module docstring for
+  the exact install-and-run recipe)
 
 ## Setup
 
