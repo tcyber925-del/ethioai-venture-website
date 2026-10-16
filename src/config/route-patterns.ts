@@ -69,3 +69,28 @@ export function filePattern(file: string): RegExp {
 export function routeMatchesFile(path: string, file: string): boolean {
   return filePattern(file).test(path);
 }
+
+/**
+ * ENG-103 — whether a navigation link points at the page currently being
+ * viewed, for `aria-current="page"`.
+ *
+ * The rule: a nav link is current on its own path AND on that path's
+ * descendants, so `/work` is current on `/work` and on `/work/ethiosci`,
+ * but NOT on a sibling that merely shares a prefix (`/workshop`). Query and
+ * hash are ignored. The root link (`/`) is current only on `/` itself —
+ * otherwise every page would mark "Home" as current.
+ *
+ * Kept pure and dependency-free (no Vite APIs) so it can be exercised
+ * directly by `node --test`, the same split as the rest of this module.
+ * Callers pass the build-time pathname (`Astro.url.pathname`); a trailing
+ * slash or a `?query`/`#hash` suffix does not change the verdict.
+ */
+export function isCurrentNavHref(
+  navHref: string,
+  currentPath: string,
+): boolean {
+  const nav = normalizeRoutePath(navHref);
+  const current = normalizeRoutePath(currentPath);
+  if (nav === current) return true;
+  return nav !== "" && current.startsWith(`${nav}/`);
+}

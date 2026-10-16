@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 
 import {
   filePattern,
+  isCurrentNavHref,
   isInternalSitePath,
   normalizeRoutePath,
   routeMatchesFile,
@@ -92,6 +93,30 @@ describe("filePattern / routeMatchesFile", () => {
     test(`${file} vs ${path} → ${expected}`, () => {
       assert.equal(routeMatchesFile(path, file), expected);
       assert.equal(filePattern(file).test(path), expected);
+    });
+  }
+});
+
+describe("isCurrentNavHref (ENG-103 aria-current)", () => {
+  const cases = [
+    // [navHref, currentPath, expected]
+    ["/work", "/work", true],
+    ["/work", "/work/", true],
+    ["/work", "/work/ethiosci", true], // descendant → still current
+    ["/work", "/work/ethiosci/", true],
+    ["/work", "/workshop", false], // shared prefix, not a child
+    ["/work", "/workplace", false],
+    ["/work", "/about", false],
+    ["/solutions", "/solutions/workflow-automation", true],
+    ["/", "/", true],
+    ["/", "/about", false], // root is current only on "/"
+    ["/about", "/", false],
+    ["/work?tab=1#top", "/work", true], // query/hash ignored
+    ["/work", "/work?x=1", true],
+  ];
+  for (const [navHref, currentPath, expected] of cases) {
+    test(`"${navHref}" on "${currentPath}" → ${expected}`, () => {
+      assert.equal(isCurrentNavHref(navHref, currentPath), expected);
     });
   }
 });

@@ -3,8 +3,12 @@ import Container from "./Container.astro";
 import Link from "./Link.astro";
 import { site, primaryNav } from "../config/site";
 import { routeExists } from "../config/routes";
+import { isCurrentNavHref } from "../config/route-patterns";
 
 const year = new Date().getFullYear();
+
+/** ENG-103 — the page being viewed, for `aria-current="page"` on footer nav. */
+const currentPath = Astro.url.pathname;
 ---
 
 <footer class="site-footer">
@@ -15,11 +19,20 @@ const year = new Date().getFullYear();
         <p class="footer-tagline">{site.description}</p>
       </div>
       <nav aria-label="Footer" class="footer-nav">
-        <ul>
+        {/* role="list": restores list semantics where list-style:none strips
+            the markers (ENG-103). */}
+        <ul role="list">
           {primaryNav.map(({ label, href }) => (
             <li>
               {routeExists(href) ? (
-                <Link href={href}>{label}</Link>
+                <Link
+                  href={href}
+                  aria-current={
+                    isCurrentNavHref(href, currentPath) ? "page" : undefined
+                  }
+                >
+                  {label}
+                </Link>
               ) : (
                 <span>{label}</span>
               )}
@@ -69,6 +82,20 @@ const year = new Date().getFullYear();
     list-style: none;
     font-size: var(--text-body-sm-size);
     line-height: var(--text-body-sm-leading);
+  }
+
+  /* ENG-103: block padding lifts each footer link to the 24x24 CSS px minimum
+     target size (WCAG 2.2 SC 2.5.8); anchors come from Link.astro. */
+  .footer-nav :global(a) {
+    display: inline-block;
+    padding-block: var(--space-xs);
+  }
+
+  /* ENG-103: current-page footer link uses the tertiary accent and a weight
+     change — the same signal as the header, not colour alone. */
+  .footer-nav :global(a[aria-current="page"]) {
+    color: var(--color-tertiary);
+    font-weight: 600;
   }
 
   .footer-nav span {

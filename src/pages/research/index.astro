@@ -35,7 +35,7 @@ const entries = (await getCollection("research")).sort((a, b) =>
         <p>No research has been published yet.</p>
       </div>
     ) : (
-      <ul class="entry-list">
+      <ul class="entry-list" role="list">
         {entries.map((entry) => (
           <ResearchCard
             href={`/research/${entry.data.slug}`}
