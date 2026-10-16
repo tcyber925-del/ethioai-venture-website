@@ -395,3 +395,133 @@ test("root route marks nothing current", () => {
   assert.equal(result.code, 1, "a non-root link marked current on / must RED");
   assert.match(result.stderr, /marks \[\/work\] aria-current, expected \[\]/);
 });
+
+/*
+ * ENG-107 — regression battery for the in-content "Start a Project" CTA
+ * assertions appended to scripts/check-a11y.mjs.
+ *
+ * Same discipline as the battery above: each fixture is built by hand and the
+ * gate is run against it, so every assertion is proven to RED on the
+ * regression it exists to catch. The fixtures use `listHtml` — the fixture
+ * helper's page-content slot — to carry the page body inside
+ * `<main id="main">`, which is the region the gate scopes to.
+ */
+
+/** The /work evidence block, as the built index ships it. */
+const WORK_EVIDENCE =
+  '<ul class="project-grid" role="list">' +
+  '<li class="project-card"><h3><a href="/work/a">A</a></h3></li>' +
+  '<li class="project-card"><h3><a href="/work/b">B</a></h3></li>' +
+  "</ul>";
+
+/** The /research empty state, as the built index ships it while empty. */
+const RESEARCH_EMPTY =
+  '<div class="empty-state"><p>No research has been published yet.</p></div>';
+
+/** The CTA region, primary action only, as it ships on the two indexes. */
+const CTA =
+  '<section class="cta" aria-label="Start a Project"><div class="cta__actions">' +
+  '<a href="/start-a-project" class="btn btn--primary">Start a Project</a>' +
+  "</div></section>";
+
+/**
+ * One evidence-index fixture. `navLinks` lets a case add the shell nav's own
+ * "Start a Project" item, which must never be counted as in-content.
+ */
+function ctaFixture({ route = "work", content, navLinks }) {
+  const current = `/${route}`;
+  const links = navLinks ?? ["/solutions", current, "/about"];
+  return fixture({
+    route,
+    listHtml: `<main id="main">${content}</main>`,
+    primaryNav: nav("Primary", links, { currentHref: current }),
+    footerNav: nav("Footer", links, { currentHref: current }),
+  });
+}
+
+test("passes on a compliant Work index: one in-content CTA after the evidence", () => {
+  const { dist } = ctaFixture({ content: WORK_EVIDENCE + CTA });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+});
+
+test("passes on a compliant Research index: CTA after the empty state", () => {
+  const { dist } = ctaFixture({
+    route: "research",
+    content: RESEARCH_EMPTY + CTA,
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+});
+
+test("does not count the shell nav's own /start-a-project links", () => {
+  // The gate scopes to <main>: the header and footer nav items are expected
+  // on every page and must not be read as in-content CTAs.
+  const { dist } = ctaFixture({
+    content: WORK_EVIDENCE + CTA,
+    navLinks: ["/solutions", "/work", "/start-a-project"],
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+});
+
+test("REDS when the in-content CTA is missing entirely", () => {
+  // Proves the CTA check is not a silent skip on a laid-out page: a page with
+  // a <main> region and no CTA is a regression, not an absence of one.
+  const { dist } = ctaFixture({ content: WORK_EVIDENCE });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(
+    result.stderr,
+    /expected exactly one in-content "Start a Project" CTA inside <main>, found 0/,
+  );
+});
+
+test("REDS when a second in-content CTA is added", () => {
+  const { dist } = ctaFixture({ content: WORK_EVIDENCE + CTA + CTA });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /exactly one in-content "Start a Project" CTA/);
+});
+
+test("REDS when the in-content CTA wording is altered", () => {
+  const { dist } = ctaFixture({
+    content:
+      WORK_EVIDENCE +
+      '<section class="cta"><div class="cta__actions">' +
+      '<a href="/start-a-project" class="btn btn--primary">Start a project</a>' +
+      "</div></section>",
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /CTA text is "Start a project"/);
+});
+
+test("REDS when the CTA moves before the evidence", () => {
+  const { dist } = ctaFixture({ content: CTA + WORK_EVIDENCE });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /CTA appears before the last \.project-card/);
+});
+
+test("REDS when the research CTA is nested inside the empty state", () => {
+  // The CTA must not read as part of the "nothing published yet" panel, and
+  // the empty state's copy must not gain a CTA region of its own.
+  const { dist } = ctaFixture({
+    route: "research",
+    content: `<div class="empty-state"><p>No research has been published yet.</p>${CTA}</div>`,
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /CTA sits inside the empty state/);
+});
+
+test("REDS when the research CTA moves before the entry list", () => {
+  const { dist } = ctaFixture({
+    route: "research",
+    content: CTA + '<ul class="entry-list" role="list"><li>a</li></ul>',
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /CTA appears before the \.entry-list/);
+});
