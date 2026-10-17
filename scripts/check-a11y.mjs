@@ -3,6 +3,7 @@
  * ENG-103 — deterministic regression checks for the Batch 2 accessibility
  * and navigation fixes, extended by ENG-106 with the /work card single-target
  * contract.
+ * and navigation fixes, plus the ENG-107 in-content conversion CTA.
  *
  * Why this is a build-output gate, not a unit test: every invariant here only
  * exists in the COMPILED markup. `role="list"`, `aria-current="page"`, the
@@ -42,6 +43,14 @@
  *      context plus a zero-inset absolute overlay on the card's anchor, a
  *      border-color change on both :hover and :focus-within, and a
  *      prefers-reduced-motion override that neutralises the card transition.
+ *   6. the two evidence indexes each ship exactly ONE in-content "Start a
+ *      Project" anchor inside <main> — scoped to <main> on purpose, because
+ *      the header and footer nav items point at the same route on every page
+ *      and must not be counted — labelled with the approved wording, placed
+ *      AFTER the evidence it converts from (.project-card on /work;
+ *      .entry-list or .empty-state on /research, whichever that page ships,
+ *      and only checked when it ships one), and, on /research, not a
+ *      descendant of the empty-state panel (ENG-107).
  *
  * Local reproduction: npm run build && npm run check:a11y
  * Regression battery: tests/check-a11y.test.mjs (fixture dist/ trees).
@@ -709,6 +718,148 @@ for (const file of htmlFiles) {
   checkWorkCards(route, html, css);
 }
 
+/*
+ * 6. ENG-107 — the in-content conversion CTA on the two evidence indexes.
+ *
+ * Why the build output: the count, the label, the position and the
+ * empty-state nesting are all facts about the COMPILED page. A source edit
+ * can leave the CTA in the wrong branch of a ternary, nest it inside the
+ * empty state, or add a second one, and only dist/ shows it.
+ *
+ * Scope: the assertions run on a page that (a) was built and (b) carries a
+ * `<main>` region — i.e. a real BaseLayout page. A route with no built file is
+ * another gate's invariant (check:dist / check:seo own route presence), and a
+ * page with no `<main>` has no in-content region to assert about, so neither is
+ * claimed here. Both indexes are always laid out in the real build, so every
+ * assertion below runs in CI.
+ */
+
+const CTA_HREF = "/start-a-project";
+const CTA_LABEL = "Start a Project";
+
+/** The evidence block each index converts from, first match wins. */
+const CTA_ROUTES = [
+  { route: "/work", evidence: ["project-card"], lastOf: true },
+  {
+    route: "/research",
+    evidence: ["entry-list", "empty-state"],
+    lastOf: false,
+  },
+];
+
+/** The `[start, end)` offsets of the page's <main> region. */
+function mainRegion(html) {
+  const start = html.search(/<main\b/i);
+  if (start === -1) return null;
+  const end = html.indexOf("</main>", start);
+  return end === -1 ? null : { start, end };
+}
+
+/** An element's visible text: tags dropped, whitespace collapsed. */
+const textOf = (inner) =>
+  inner
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Offsets of every `class="…"` attribute whose value carries `cls` as a token. */
+function classIndexes(text, cls) {
+  const out = [];
+  for (const m of text.matchAll(/class="([^"]*)"/g)) {
+    if (m[1].split(/\s+/).includes(cls)) out.push(m.index);
+  }
+  return out;
+}
+
+/**
+ * `[start, end)` of the element carrying the `class="…"` attribute at `attr`,
+ * found by counting same-name tags from the `<` that opens it.
+ */
+function elementRange(html, attr) {
+  const open = html.lastIndexOf("<", attr);
+  const name = html.slice(open).match(/^<(\w+)/)?.[1];
+  if (!name) return null;
+  const tag = new RegExp(`<(/?)${name}\\b[^>]*>`, "gi");
+  tag.lastIndex = open;
+  let depth = 0;
+  let m;
+  while ((m = tag.exec(html)) !== null) {
+    if (m[1] === "/") {
+      depth -= 1;
+      if (depth === 0) return { start: open, end: m.index };
+    } else if (!/\/>$/.test(m[0].trimEnd())) {
+      depth += 1;
+    }
+  }
+  return null;
+}
+
+for (const { route, evidence, lastOf } of CTA_ROUTES) {
+  const file = join(distDir, route.replace(/^\//, ""), "index.html");
+  if (!existsSync(file)) continue;
+  const html = read(file);
+  const region = mainRegion(html);
+  if (!region) continue;
+  // Everything below is measured inside <main>, so the header/footer nav
+  // items — expected on every page — can never be read as an in-content CTA.
+  const slice = html.slice(region.start, region.end);
+
+  const anchors = [
+    ...slice.matchAll(
+      new RegExp(`<a\\b[^>]*href="${CTA_HREF}"[^>]*>([\\s\\S]*?)</a>`, "g"),
+    ),
+  ];
+
+  if (anchors.length !== 1) {
+    fail(
+      `${route}: expected exactly one in-content "${CTA_LABEL}" CTA inside ` +
+        `<main>, found ${anchors.length}`,
+    );
+    continue;
+  }
+  const cta = anchors[0];
+
+  const label = textOf(cta[1]);
+  if (label !== CTA_LABEL) {
+    fail(
+      `${route}: in-content CTA text is "${label}"; ENG-107 requires ` +
+        `exactly "${CTA_LABEL}"`,
+    );
+  }
+
+  // Evidence first: whichever block this page ships, the CTA follows it.
+  const shipped = evidence.filter((cls) => classIndexes(slice, cls).length > 0);
+  const [evidenceClass] = shipped;
+  if (evidenceClass) {
+    const indexes = classIndexes(slice, evidenceClass);
+    const boundary = lastOf ? indexes[indexes.length - 1] : indexes[0];
+    if (cta.index < boundary) {
+      fail(
+        `${route}: in-content CTA appears before the ${lastOf ? "last " : ""}` +
+          `.${evidenceClass}; evidence must come first (ENG-107)`,
+      );
+    }
+  }
+
+  // The research CTA is a sibling of the empty state, never part of it: a CTA
+  // inside the panel would imply research exists.
+  if (route === "/research") {
+    for (const open of classIndexes(slice, "empty-state")) {
+      const range = elementRange(slice, open);
+      const inside =
+        range && cta.index >= range.start && cta.index <= range.end
+          ? true
+          : false;
+      if (inside) {
+        fail(
+          `${route}: in-content CTA sits inside the empty state; it must ` +
+            "follow the empty-state panel (ENG-107)",
+        );
+      }
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`check:a11y failed — ${failures.length} problem(s):\n`);
   for (const problem of failures) console.error(`  ✗ ${problem}`);
@@ -721,4 +872,6 @@ console.log(
     "marker-stripped lists gated (class + ancestor selectors), work-card " +
     "single-target + overlay + hover/focus + reduced-motion gated, " +
     "0 problems.",
+    "marker-stripped lists gated (class + ancestor selectors), one " +
+    "in-content CTA per evidence index gated, 0 problems.",
 );
