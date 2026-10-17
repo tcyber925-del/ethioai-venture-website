@@ -8,6 +8,10 @@
  * (MIS evidence policy). The root element carries `data-project-status` so
  * the Work index can filter cards client-side over the status strings
  * actually present in seed data (no approved status enum exists yet).
+ *
+ * ENG-106: the card is activatable across its whole surface through its single
+ * existing title link (a stretched ::after overlay over a positioned card root)
+ * — the card ships exactly one interactive element and one tab stop.
  */
 import Link from "../Link.astro";
 import MetadataLabel from "../MetadataLabel.astro";
@@ -37,7 +41,18 @@ const { title, slug, status, category, summary } = Astro.props;
 </li>
 
 <style>
+  /*
+   * ENG-106: the whole card is the hit target, not just the title text. The
+   * card root is the positioning context for the title link's ::after overlay
+   * (below), so the entire surface activates the ONE link that already exists —
+   * no second anchor, no wrapper element, no click handler, and therefore still
+   * exactly one tab stop per card.
+   *
+   * transition + :hover/:focus-within is ResearchCard's established card-state
+   * treatment, reused verbatim; the default boundary stays --color-border.
+   */
   .project-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--space-sm);
@@ -45,6 +60,12 @@ const { title, slug, status, category, summary } = Astro.props;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background-color: var(--color-surface);
+    transition: border-color 0.15s ease;
+  }
+
+  .project-card:hover,
+  .project-card:focus-within {
+    border-color: var(--color-secondary);
   }
 
   /*
@@ -72,5 +93,25 @@ const { title, slug, status, category, summary } = Astro.props;
     color: var(--color-secondary);
     font-size: var(--text-body-sm-size);
     line-height: var(--text-body-sm-leading);
+  }
+
+  /*
+   * The overlay that stretches the existing title link across the card.
+   * `inset: 0` resolves against .project-card (position: relative above). The
+   * anchor is rendered by Link.astro and so carries Link's own scoping
+   * attribute, not this component's — the rule must be written through
+   * :global() or it compiles to a selector matching nothing (same trap as
+   * Header.astro's `.primary-nav :global(a)`).
+   */
+  .project-card__title :global(a::after) {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .project-card {
+      transition: none;
+    }
   }
 </style>
