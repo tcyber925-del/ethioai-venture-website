@@ -34,3 +34,6 @@ pnpm-debug.log*
 
 # agent memory (OpenHands)
 .openhands/
+
+factory/jobs/*
+!factory/jobs/.gitkeep
