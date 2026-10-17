@@ -13,6 +13,7 @@ import Container from "../../components/Container.astro";
 import MetadataLabel from "../../components/MetadataLabel.astro";
 import ProjectCard from "../../components/work/ProjectCard.astro";
 import StatusFilter from "../../components/work/StatusFilter.astro";
+import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
 import { getCollection } from "astro:content";
 
 const projects = (await getCollection("projects")).sort((a, b) =>
@@ -63,6 +64,8 @@ const statuses = [
         <p class="work-list__empty">No projects published yet.</p>
       )}
     </section>
+
+    <StartProjectCta showWorkLink={false} />
   </Container>
 </BaseLayout>
 
