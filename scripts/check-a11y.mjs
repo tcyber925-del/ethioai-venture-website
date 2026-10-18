@@ -872,6 +872,6 @@ console.log(
     "marker-stripped lists gated (class + ancestor selectors), work-card " +
     "single-target + overlay + hover/focus + reduced-motion gated, " +
     "0 problems.",
-    "marker-stripped lists gated (class + ancestor selectors), one " +
+  "marker-stripped lists gated (class + ancestor selectors), one " +
     "in-content CTA per evidence index gated, 0 problems.",
 );

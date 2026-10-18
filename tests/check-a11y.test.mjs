@@ -598,6 +598,9 @@ test("does not require the card contract on a page that renders no cards", () =>
   const { dist } = fixture();
   const result = run(dist);
   assert.equal(result.code, 0, result.stderr);
+});
+
+/*
  * ENG-107 — regression battery for the in-content "Start a Project" CTA
  * assertions appended to scripts/check-a11y.mjs.
  *
@@ -611,8 +614,8 @@ test("does not require the card contract on a page that renders no cards", () =>
 /** The /work evidence block, as the built index ships it. */
 const WORK_EVIDENCE =
   '<ul class="project-grid" role="list">' +
-  '<li class="project-card"><h3><a href="/work/a">A</a></h3></li>' +
-  '<li class="project-card"><h3><a href="/work/b">B</a></h3></li>' +
+  '<li class="project-card"><h3 class="project-card__title"><a href="/work/a">A</a></h3></li>' +
+  '<li class="project-card"><h3 class="project-card__title"><a href="/work/b">B</a></h3></li>' +
   "</ul>";
 
 /** The /research empty state, as the built index ships it while empty. */
@@ -628,12 +631,18 @@ const CTA =
 /**
  * One evidence-index fixture. `navLinks` lets a case add the shell nav's own
  * "Start a Project" item, which must never be counted as in-content.
+ *
+ * `WORK_EVIDENCE` renders real `.project-card` markup, so this fixture must
+ * also carry the compliant card CSS: check:a11y enforces ENG-106's card
+ * contract on any page that renders cards, and these cases exercise ENG-107's
+ * CTA rules, not the card ones.
  */
 function ctaFixture({ route = "work", content, navLinks }) {
   const current = `/${route}`;
   const links = navLinks ?? ["/solutions", current, "/about"];
   return fixture({
     route,
+    cardCss: cardCss(),
     listHtml: `<main id="main">${content}</main>`,
     primaryNav: nav("Primary", links, { currentHref: current }),
     footerNav: nav("Footer", links, { currentHref: current }),
