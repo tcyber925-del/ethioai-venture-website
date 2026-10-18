@@ -47,6 +47,57 @@ const ROOT_CSS = ":root{--space-xs:4px;--text-body-sm-leading:1.5}";
 /** A marker-stripped list that keeps its role — the ENG-103 list fix. */
 const LIST_HTML = '<ul class="card-grid" role="list"><li>a</li><li>b</li></ul>';
 
+/*
+ * ENG-106 — the /work card's single-hit-target contract, in the shape Astro
+ * actually emits it: scoped `[data-astro-cid-…]` attributes, the overlay
+ * pseudo-element minified to the ONE-colon `a:after`, and the reduced-motion
+ * override inside an at-rule. Split into parts so each RED case can drop or
+ * alter exactly one of them.
+ */
+const CARD_GRID_CSS = ".project-grid{list-style:none;padding:0;margin:0}";
+const CARD_ROOT_CSS =
+  ".project-card[data-astro-cid-c]{display:flex;border:1px solid var(--color-border);position:relative;transition:border-color .15s}";
+const CARD_STATE_CSS =
+  ".project-card[data-astro-cid-c]:hover,.project-card[data-astro-cid-c]:focus-within{border-color:var(--color-secondary)}";
+const CARD_OVERLAY_CSS =
+  '.project-card__title[data-astro-cid-c] a:after{content:"";position:absolute;inset:0}';
+const CARD_REDUCED_CSS =
+  "@media (prefers-reduced-motion:reduce){.project-card[data-astro-cid-c]{transition:none}}";
+
+/** A compliant card's CSS: every part present, nothing else. */
+function cardCss({
+  root = CARD_ROOT_CSS,
+  state = CARD_STATE_CSS,
+  overlay = CARD_OVERLAY_CSS,
+  reduced = CARD_REDUCED_CSS,
+  extra = "",
+} = {}) {
+  return [CARD_GRID_CSS, root, state, overlay, reduced, extra]
+    .filter(Boolean)
+    .join("");
+}
+
+/**
+ * One work card in the grid. `extraAnchor` adds a SECOND interactive element
+ * (the regression the stretched-overlay technique exists to prevent);
+ * `extraControl` adds a button. Both default off, so the compliant fixture is
+ * the shipped shape: one anchor inside the h3, nothing else focusable.
+ */
+function card({ extraAnchor = false, extraControl = "" } = {}) {
+  return (
+    '<ul class="project-grid" role="list">' +
+    '<li class="project-card" data-project-status="pilot">' +
+    '<div class="project-card__meta"><span>Pilot</span></div>' +
+    '<h3 class="project-card__title">' +
+    `<a href="/work/ethiobio" class="link">EthioBio</a>` +
+    (extraAnchor ? '<a href="/work/ethiobio#related">Related</a>' : "") +
+    "</h3>" +
+    (extraControl ? `<button type="button">${extraControl}</button>` : "") +
+    '<p class="project-card__summary">A summary.</p>' +
+    "</li></ul>"
+  );
+}
+
 /** A nav list whose markers are removed — role="list" is the ENG-103 fix. */
 function nav(label, links, { role = "list", currentHref } = {}) {
   const items = links
@@ -76,6 +127,8 @@ function fixture({
   listHtml = LIST_HTML,
   linkCss = true,
   inlineStyle = "",
+  cardCss: cardCssText,
+  cardHtml,
   primaryNav,
   footerNav,
 } = {}) {
@@ -94,8 +147,13 @@ function fixture({
     join(page),
     `<!doctype html><title>x</title><h1>x</h1>` +
       (linkCss ? '<link rel="stylesheet" href="/_astro/index.css">' : "") +
-      (inlineStyle ? `<style>${inlineStyle}</style>` : "") +
+      // Component-scoped CSS ships inlined in the page's own <style>, which is
+      // where the work card's rules land in a real build.
+      (cardCssText || inlineStyle
+        ? `<style>${inlineStyle}${cardCssText ?? ""}</style>`
+        : "") +
       listHtml +
+      (cardHtml ?? "") +
       (primaryNav ??
         nav("Primary", NAV_LINKS, {
           role: navRole,
@@ -397,6 +455,152 @@ test("root route marks nothing current", () => {
 });
 
 /*
+ * ENG-106 — the four card assertions of scripts/check-a11y.mjs, each proven
+ * RED against a fixture that violates exactly that one. A gate that cannot be
+ * shown to fail is a gate that cannot be trusted to pass.
+ */
+
+test("passes a compliant work card", () => {
+  const { dist } = fixture({ cardCss: cardCss(), cardHtml: card() });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+});
+
+test("REDS when a card gains a second interactive element", () => {
+  const { dist } = fixture({
+    cardCss: cardCss(),
+    cardHtml: card({ extraAnchor: true }),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /holds 2 <a> element\(s\).*exactly one/s);
+});
+
+test("REDS when a card gains a button alongside its title link", () => {
+  const { dist } = fixture({
+    cardCss: cardCss(),
+    cardHtml: card({ extraControl: "Filter" }),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /holds a control beyond its title link/);
+});
+
+test("REDS when the card root loses its positioning context", () => {
+  // `position: relative` dropped: the overlay would then resolve against an
+  // ancestor and no longer stretch across the card.
+  const { dist } = fixture({
+    cardCss: cardCss({
+      root: ".project-card[data-astro-cid-c]{display:flex;border:1px solid var(--color-border);transition:border-color .15s}",
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /does not establish a positioning context/);
+});
+
+test("REDS when the card's zero-inset overlay is removed", () => {
+  const { dist } = fixture({
+    cardCss: cardCss({ overlay: "" }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carries no absolutely positioned zero-inset/);
+});
+
+test("REDS when the overlay is present but no longer covers the card", () => {
+  // Absolute without zero inset positions against the viewport, not the card —
+  // the rule ships, the contract does not.
+  const { dist } = fixture({
+    cardCss: cardCss({
+      overlay:
+        '.project-card__title[data-astro-cid-c] a:after{content:"";position:absolute;top:0;left:0}',
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /carries no absolutely positioned zero-inset/);
+});
+
+test("REDS when the card loses its :focus-within state", () => {
+  // Hover-only feedback leaves keyboard users with no state at all.
+  const { dist } = fixture({
+    cardCss: cardCss({
+      state:
+        ".project-card[data-astro-cid-c]:hover{border-color:var(--color-secondary)}",
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /no :focus-within rule setting border-color/);
+});
+
+test("REDS when the hover and focus states re-state the default boundary", () => {
+  // A rule that only re-states --color-border satisfies "border-color: <token>"
+  // while changing nothing the user can see.
+  const { dist } = fixture({
+    cardCss: cardCss({
+      state:
+        ".project-card[data-astro-cid-c]:hover,.project-card[data-astro-cid-c]:focus-within{border-color:var(--color-border)}",
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /re-states the default boundary token/);
+});
+
+test("REDS when the reduced-motion override is dropped", () => {
+  const { dist } = fixture({
+    cardCss: cardCss({ reduced: "" }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /no prefers-reduced-motion rule neutralises/);
+});
+
+test("the blanket global reduced-motion rule does not satisfy the card check", () => {
+  // global.css sets `transition-duration: .01ms !important` on `*` for every
+  // user. That must not be mistaken for the card honouring reduced motion: the
+  // gate requires a rule targeting .project-card itself.
+  const { dist } = fixture({
+    cardCss: cardCss({
+      reduced:
+        "@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}",
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /no prefers-reduced-motion rule neutralises/);
+});
+
+test("accepts the four-longhand zero inset on the overlay", () => {
+  const { dist } = fixture({
+    cardCss: cardCss({
+      overlay:
+        '.project-card__title[data-astro-cid-c] a:after{content:"";position:absolute;top:0;right:0;bottom:0;left:0}',
+    }),
+    cardHtml: card(),
+  });
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr);
+});
+
+test("does not require the card contract on a page that renders no cards", () => {
+  // The card assertions are scoped to pages carrying `.project-card`; the nav
+  // and list gates still apply there.
+  const { dist } = fixture();
+  const result = run(dist);
+  assert.equal(result.code, 0, result.stderr);
+});
+
+/*
  * ENG-107 — regression battery for the in-content "Start a Project" CTA
  * assertions appended to scripts/check-a11y.mjs.
  *
@@ -410,8 +614,8 @@ test("root route marks nothing current", () => {
 /** The /work evidence block, as the built index ships it. */
 const WORK_EVIDENCE =
   '<ul class="project-grid" role="list">' +
-  '<li class="project-card"><h3><a href="/work/a">A</a></h3></li>' +
-  '<li class="project-card"><h3><a href="/work/b">B</a></h3></li>' +
+  '<li class="project-card"><h3 class="project-card__title"><a href="/work/a">A</a></h3></li>' +
+  '<li class="project-card"><h3 class="project-card__title"><a href="/work/b">B</a></h3></li>' +
   "</ul>";
 
 /** The /research empty state, as the built index ships it while empty. */
@@ -427,12 +631,18 @@ const CTA =
 /**
  * One evidence-index fixture. `navLinks` lets a case add the shell nav's own
  * "Start a Project" item, which must never be counted as in-content.
+ *
+ * `WORK_EVIDENCE` renders real `.project-card` markup, so this fixture must
+ * also carry the compliant card CSS: check:a11y enforces ENG-106's card
+ * contract on any page that renders cards, and these cases exercise ENG-107's
+ * CTA rules, not the card ones.
  */
 function ctaFixture({ route = "work", content, navLinks }) {
   const current = `/${route}`;
   const links = navLinks ?? ["/solutions", current, "/about"];
   return fixture({
     route,
+    cardCss: cardCss(),
     listHtml: `<main id="main">${content}</main>`,
     primaryNav: nav("Primary", links, { currentHref: current }),
     footerNav: nav("Footer", links, { currentHref: current }),
