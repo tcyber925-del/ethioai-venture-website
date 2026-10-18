@@ -50,12 +50,25 @@ const currentPath = Astro.url.pathname;
     border-bottom: 1px solid var(--color-border);
   }
 
+  /*
+   * ENG-106: the small-screen layout is composed deliberately, not left to
+   * incidental `flex-wrap`. As one row at 320px the nav is a single flex item
+   * beside the wordmark, so it is squeezed to whatever width is left over and
+   * its labels then break mid-label inside that narrower list. Stacking the
+   * wordmark and the nav onto their own rows gives the nav the full container
+   * width, and the list's own wrap then breaks BETWEEN labels, never inside
+   * one.
+   *
+   * Mobile-first: the base rule is the small screen, the existing 768px
+   * breakpoint restores the two-up header. No new token, no new breakpoint, no
+   * markup change, and no interaction (no hamburger, no disclosure, no JS) —
+   * DESIGN.md authorises re-composition for small screens.
+   */
   .site-header__bar {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-md);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
     padding-block: var(--space-lg);
   }
 
@@ -72,11 +85,17 @@ const currentPath = Astro.url.pathname;
     color: var(--color-tertiary);
   }
 
+  /*
+   * Below 768px the five destinations need only the --space-sm gap: at 375px
+   * they fit the container on ONE row, at 320px on two rows of whole labels.
+   * From 768px the nav has the row to itself and regains --space-lg (the
+   * ENG-103 rule, unchanged).
+   */
   .primary-nav ul {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -90,10 +109,16 @@ const currentPath = Astro.url.pathname;
    * 14px/1.5 (21px); 4px block padding on each side gives 29px height, and the
    * horizontal gap already provides the separation. The anchors come from
    * Link.astro, so the rule is :global.
+   *
+   * ENG-106: `white-space: nowrap` keeps a destination from ever breaking
+   * across lines mid-label; the list wraps BETWEEN whole labels instead. It
+   * adds no width beyond the widest single label ("Start a Project"), which
+   * fits the 320px content box on its own, so nothing can overflow.
    */
   .primary-nav :global(a) {
     display: inline-block;
     padding-block: var(--space-xs);
+    white-space: nowrap;
   }
 
   /*
@@ -109,9 +134,24 @@ const currentPath = Astro.url.pathname;
   /* Route not yet implemented (G2/G3): plain text, no dead link. */
   .primary-nav span {
     color: var(--color-secondary);
+    white-space: nowrap;
   }
 
+  /*
+   * From the existing 768px breakpoint the header is two-up again — the
+   * approved desktop composition (ENG-103's, restored verbatim) — and the nav
+   * regains the wider --space-lg gap. 1024px needs no rule: the flex row
+   * already settles against the container's max-width.
+   */
   @media (min-width: 768px) {
+    .site-header__bar {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+
     .primary-nav ul {
       gap: var(--space-lg);
     }

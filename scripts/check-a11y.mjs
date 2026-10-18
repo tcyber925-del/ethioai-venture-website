@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * ENG-103 — deterministic regression checks for the Batch 2 accessibility
- * and navigation fixes.
+ * and navigation fixes, extended by ENG-106 with the /work card single-target
+ * contract.
+ * and navigation fixes, plus the ENG-107 in-content conversion CTA.
  *
  * Why this is a build-output gate, not a unit test: every invariant here only
  * exists in the COMPILED markup. `role="list"`, `aria-current="page"`, the
@@ -35,7 +37,20 @@
  *      class itself or is styled through a marker-stripped ANCESTOR selector
  *      like `.not-found__nav ul` — still exposes role="list", so the ENG-103
  *      fix is protected beyond the two navs and on every list, not just the
- *      first.
+ *      first;
+ *   6.–9. on pages that render work cards, the ENG-106 single-hit-target
+ *      contract: exactly one interactive element per card, a positioning
+ *      context plus a zero-inset absolute overlay on the card's anchor, a
+ *      border-color change on both :hover and :focus-within, and a
+ *      prefers-reduced-motion override that neutralises the card transition.
+ *   6. the two evidence indexes each ship exactly ONE in-content "Start a
+ *      Project" anchor inside <main> — scoped to <main> on purpose, because
+ *      the header and footer nav items point at the same route on every page
+ *      and must not be counted — labelled with the approved wording, placed
+ *      AFTER the evidence it converts from (.project-card on /work;
+ *      .entry-list or .empty-state on /research, whichever that page ships,
+ *      and only checked when it ships one), and, on /research, not a
+ *      descendant of the empty-state panel (ENG-107).
  *
  * Local reproduction: npm run build && npm run check:a11y
  * Regression battery: tests/check-a11y.test.mjs (fixture dist/ trees).
@@ -348,6 +363,267 @@ function isMarkerStripped(tag, ancestorClasses, cssText) {
 
 const NAV_LABELS = ["Primary", "Footer"];
 
+/*
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ENG-106 — the /work project card is one hit target across its whole surface.
+ *
+ * The card root is the positioning context and the card's existing title anchor
+ * carries a stretched `::after` overlay, so the entire card activates the one
+ * link that already ships: no second anchor, no wrapper element, no click
+ * handler, and therefore still exactly one tab stop per card.
+ *
+ * All four facts below exist only in the COMPILED output, and each can be lost
+ * without any source-level error (a dropped rule tree-shakes away, `:global()`
+ * can compile to a selector matching nothing, an added button type-checks
+ * fine), which is why they belong in this gate rather than in a component test:
+ *
+ *   6. every .project-card still holds exactly ONE interactive element — one
+ *      <a>, no <button> and no other focusable control;
+ *   7. the card root establishes a positioning context AND the card's anchor
+ *      carries an absolutely positioned overlay at zero inset;
+ *   8. the card root changes border-color to a token on :hover AND on
+ *      :focus-within (the ResearchCard card-state treatment, so the state is
+ *      visible to pointer AND keyboard users);
+ *   9. a prefers-reduced-motion block neutralises that transition.
+ *
+ * 8 and 9 are deliberately narrow. global.css already blanket-sets
+ * `transition-duration: .01ms !important` on `*` under reduced motion, so a
+ * loose matcher would be satisfied by that rule and prove nothing about the
+ * card; and `:hover` alone would leave keyboard users with no state. Each
+ * therefore requires a rule that targets `.project-card` ITSELF.
+ */
+
+/** Strip Astro's injected scoping attributes; the emitted CSS has both. */
+const unscope = (selector) => selector.replace(/\[[^\]]*\]/g, "").trim();
+
+/** A selector group's comma-separated halves, unscoped, normalised. */
+const selectorGroups = (selector) => selector.split(",").map(unscope);
+
+/**
+ * A group that targets the card ROOT — `.project-card`, optionally followed by
+ * pseudo-classes such as `:hover`. Anchored at the end so a descendant or
+ * child selector (`.project-card .project-card__title`) cannot pass as the root.
+ * Note `.project-card__title` must not match: the negative lookahead rejects
+ * the `__` continuation of the BEM class.
+ */
+const CARD_ROOT = /\.project-card(?![\w-])(?::[\w-]+(?:\([^)]*\))?)*$/;
+
+/**
+ * A group that targets the card's ANCHOR, with or without the overlay
+ * pseudo-element. `a$` alone would also match `.project-card__meta`, so the
+ * preceding combinator is required. The pseudo-element is accepted in either
+ * spelling because Astro's minifier emits `a:after` with ONE colon.
+ */
+const CARD_ANCHOR = /\.project-card[\w\s>+~:()=-]*\ba(?::{1,2}after)?$/;
+
+/** Zero inset, either as the shorthand or as all four longhands at 0. */
+const ZERO_INSET =
+  /(?:^|;)\s*inset\s*:\s*0(?:\s+0)*\s*(?:!important)?\s*(?:;|$)/i;
+const allFourZero = (body) =>
+  ["top", "right", "bottom", "left"].every((side) =>
+    new RegExp(
+      `(?:^|;)\\s*${side}\\s*:\\s*0(?:px|%)?\\s*(?:!important)?\\s*(?:;|$)`,
+      "i",
+    ).test(body),
+  );
+
+/**
+ * The bodies of every `prefers-reduced-motion` at-rule, so a check can require a
+ * rule targeting the card rather than matching global.css's blanket `*`
+ * override. Brace-matched, so a nested block is read whole.
+ */
+function reducedMotionBodies(cssText) {
+  const out = [];
+  const text = stripComments(cssText);
+  const re = /@media([^{]*prefers-reduced-motion[^{]*)\{/gi;
+  while (re.exec(text) !== null) {
+    let depth = 1;
+    let i = re.lastIndex;
+    while (i < text.length && depth > 0) {
+      if (text[i] === "{") depth += 1;
+      else if (text[i] === "}") depth -= 1;
+      i += 1;
+    }
+    out.push(text.slice(re.lastIndex, i - 1));
+    re.lastIndex = i;
+  }
+  return out;
+}
+
+/**
+ * The inner HTML of every `.project-card` on the page. ProjectCard renders no
+ * nested <li>, so the first `</li>` after the opening tag is the card's own
+ * close; if that ever stops being true the extraction is what fails, not a
+ * silently weakened assertion.
+ */
+function projectCards(html) {
+  const out = [];
+  const open = /<li\b[^>]*\bclass="[^"]*\bproject-card\b[^"]*"[^>]*>/gi;
+  let match;
+  while ((match = open.exec(html)) !== null) {
+    const close = html.indexOf("</li>", open.lastIndex);
+    out.push(html.slice(match.index, close === -1 ? html.length : close));
+  }
+  return out;
+}
+
+/** Focusable controls that are neither an anchor nor a button. */
+const OTHER_CONTROLS =
+  /<(?:input|select|textarea)\b|\btabindex\s*=\s*["']?(?!-1\b)[-\d]/i;
+
+/**
+ * Card assertions 6–9. `css` is the CSS THIS page sees (its linked stylesheets
+ * plus its inline <style>), so a page that lost the card's rules fails its own
+ * check rather than borrowing another page's.
+ */
+function checkWorkCards(route, html, css) {
+  const cards = projectCards(html);
+  if (cards.length === 0) return;
+
+  // 6. one interactive element — one anchor, no button, nothing else focusable.
+  cards.forEach((card, index) => {
+    const anchors = (card.match(/<a\b/gi) ?? []).length;
+    const buttons = (card.match(/<button\b/gi) ?? []).length;
+    if (anchors !== 1) {
+      fail(
+        `${route}: .project-card #${index + 1} holds ${anchors} <a> element(s); ` +
+          "ENG-106 requires exactly one interactive element (one tab stop) per card",
+      );
+    }
+    if (buttons > 0 || OTHER_CONTROLS.test(card)) {
+      fail(
+        `${route}: .project-card #${index + 1} holds a control beyond its title ` +
+          `link (${buttons} <button>); ENG-106 requires exactly one interactive ` +
+          "element per card",
+      );
+    }
+  });
+
+  // The card root's DEFAULT boundary token, so the hover/focus state can be
+  // required to actually CHANGE it. Without this a rule that re-states
+  // `border-color: var(--color-border)` would satisfy the check vacuously.
+  let defaultBorderToken = null;
+  for (const r of rules(css)) {
+    const root = selectorGroups(r.selector).find((g) => CARD_ROOT.test(g));
+    if (!root) continue;
+    const token = r.body.match(
+      /(?:^|;)\s*border\s*:\s*[^;}]*?var\(\s*(--[a-z0-9-]+)\s*\)/i,
+    );
+    if (token) defaultBorderToken = token[1];
+  }
+
+  // 7. positioning context on the root + a zero-inset absolute overlay on the
+  //    card's anchor. Astro emits the pseudo-element as `a:after` (one colon),
+  //    so both spellings are accepted by CARD_ANCHOR.
+  let positionsRoot = false;
+  let hasOverlay = false;
+  for (const r of rules(css)) {
+    for (const group of selectorGroups(r.selector)) {
+      if (
+        CARD_ROOT.test(group) &&
+        /(?:^|;)\s*position\s*:\s*relative\s*(?:!important)?\s*(?:;|$)/i.test(
+          r.body,
+        )
+      ) {
+        positionsRoot = true;
+      }
+      if (
+        CARD_ANCHOR.test(group) &&
+        /(?:^|;)\s*position\s*:\s*absolute\s*(?:!important)?\s*(?:;|$)/i.test(
+          r.body,
+        ) &&
+        (ZERO_INSET.test(r.body) || allFourZero(r.body))
+      ) {
+        hasOverlay = true;
+      }
+    }
+  }
+  if (!positionsRoot) {
+    fail(
+      `${route}: the .project-card root does not establish a positioning ` +
+        "context (position: relative); ENG-106's card overlay needs one to " +
+        "stretch across the card",
+    );
+  }
+  if (!hasOverlay) {
+    fail(
+      `${route}: the .project-card anchor carries no absolutely positioned ` +
+        "zero-inset overlay; ENG-106 requires the whole card surface to " +
+        "activate the one title link",
+    );
+  }
+
+  // 8. border-color to a DIFFERENT token on :hover and on :focus-within.
+  const hoverToken = (() => {
+    let found = null;
+    for (const r of rules(css)) {
+      const isHover = selectorGroups(r.selector).some(
+        (g) => CARD_ROOT.test(g) && /:hover\b/.test(g),
+      );
+      if (!isHover) continue;
+      const token = r.body.match(
+        /(?:^|;)\s*border-color\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)/i,
+      );
+      if (token) found ??= token[1];
+    }
+    return found;
+  })();
+  const focusToken = (() => {
+    let found = null;
+    for (const r of rules(css)) {
+      const isFocus = selectorGroups(r.selector).some(
+        (g) => CARD_ROOT.test(g) && /:focus-within\b/.test(g),
+      );
+      if (!isFocus) continue;
+      const token = r.body.match(
+        /(?:^|;)\s*border-color\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)/i,
+      );
+      if (token) found ??= token[1];
+    }
+    return found;
+  })();
+
+  const unchanged =
+    defaultBorderToken !== null &&
+    hoverToken === defaultBorderToken &&
+    focusToken === defaultBorderToken;
+  if (hoverToken === null || focusToken === null) {
+    const missing = [
+      ...(hoverToken === null ? [":hover"] : []),
+      ...(focusToken === null ? [":focus-within"] : []),
+    ];
+    fail(
+      `${route}: the .project-card root has no ${missing.join(" and no ")} ` +
+        "rule setting border-color to a token; ENG-106 requires both (the " +
+        "ResearchCard card-state treatment, visible to pointer AND keyboard " +
+        "users)",
+    );
+  } else if (unchanged) {
+    fail(
+      `${route}: the .project-card :hover / :focus-within state re-states the ` +
+        `default boundary token (${defaultBorderToken}); ENG-106 requires a ` +
+        "VISIBLE change of boundary on hover and keyboard focus",
+    );
+  }
+
+  // 9. the card's own transition neutralised under reduced motion — a rule on
+  //    `.project-card` inside the at-rule, not global.css's blanket `*` reset.
+  const neutralised = reducedMotionBodies(css).some((body) =>
+    rules(body).some(
+      (r) =>
+        selectorGroups(r.selector).some((g) => CARD_ROOT.test(g)) &&
+        /(?:^|;)\s*transition\s*:\s*none\b/i.test(r.body),
+    ),
+  );
+  if (!neutralised) {
+    fail(
+      `${route}: no prefers-reduced-motion rule neutralises the .project-card ` +
+        "transition; ENG-106 requires the card transition to be disabled when " +
+        "the user asks for reduced motion",
+    );
+  }
+}
+
 for (const file of htmlFiles) {
   const relFile = relative(distDir, file).split(sep).join("/");
   const route = emittedRoute(relFile);
@@ -436,6 +712,152 @@ for (const file of htmlFiles) {
     }
   };
   stripped(html);
+
+  // 6–9. the /work project card's single-hit-target contract (ENG-106). A
+  //    no-op on pages that render no cards.
+  checkWorkCards(route, html, css);
+}
+
+/*
+ * 6. ENG-107 — the in-content conversion CTA on the two evidence indexes.
+ *
+ * Why the build output: the count, the label, the position and the
+ * empty-state nesting are all facts about the COMPILED page. A source edit
+ * can leave the CTA in the wrong branch of a ternary, nest it inside the
+ * empty state, or add a second one, and only dist/ shows it.
+ *
+ * Scope: the assertions run on a page that (a) was built and (b) carries a
+ * `<main>` region — i.e. a real BaseLayout page. A route with no built file is
+ * another gate's invariant (check:dist / check:seo own route presence), and a
+ * page with no `<main>` has no in-content region to assert about, so neither is
+ * claimed here. Both indexes are always laid out in the real build, so every
+ * assertion below runs in CI.
+ */
+
+const CTA_HREF = "/start-a-project";
+const CTA_LABEL = "Start a Project";
+
+/** The evidence block each index converts from, first match wins. */
+const CTA_ROUTES = [
+  { route: "/work", evidence: ["project-card"], lastOf: true },
+  {
+    route: "/research",
+    evidence: ["entry-list", "empty-state"],
+    lastOf: false,
+  },
+];
+
+/** The `[start, end)` offsets of the page's <main> region. */
+function mainRegion(html) {
+  const start = html.search(/<main\b/i);
+  if (start === -1) return null;
+  const end = html.indexOf("</main>", start);
+  return end === -1 ? null : { start, end };
+}
+
+/** An element's visible text: tags dropped, whitespace collapsed. */
+const textOf = (inner) =>
+  inner
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Offsets of every `class="…"` attribute whose value carries `cls` as a token. */
+function classIndexes(text, cls) {
+  const out = [];
+  for (const m of text.matchAll(/class="([^"]*)"/g)) {
+    if (m[1].split(/\s+/).includes(cls)) out.push(m.index);
+  }
+  return out;
+}
+
+/**
+ * `[start, end)` of the element carrying the `class="…"` attribute at `attr`,
+ * found by counting same-name tags from the `<` that opens it.
+ */
+function elementRange(html, attr) {
+  const open = html.lastIndexOf("<", attr);
+  const name = html.slice(open).match(/^<(\w+)/)?.[1];
+  if (!name) return null;
+  const tag = new RegExp(`<(/?)${name}\\b[^>]*>`, "gi");
+  tag.lastIndex = open;
+  let depth = 0;
+  let m;
+  while ((m = tag.exec(html)) !== null) {
+    if (m[1] === "/") {
+      depth -= 1;
+      if (depth === 0) return { start: open, end: m.index };
+    } else if (!/\/>$/.test(m[0].trimEnd())) {
+      depth += 1;
+    }
+  }
+  return null;
+}
+
+for (const { route, evidence, lastOf } of CTA_ROUTES) {
+  const file = join(distDir, route.replace(/^\//, ""), "index.html");
+  if (!existsSync(file)) continue;
+  const html = read(file);
+  const region = mainRegion(html);
+  if (!region) continue;
+  // Everything below is measured inside <main>, so the header/footer nav
+  // items — expected on every page — can never be read as an in-content CTA.
+  const slice = html.slice(region.start, region.end);
+
+  const anchors = [
+    ...slice.matchAll(
+      new RegExp(`<a\\b[^>]*href="${CTA_HREF}"[^>]*>([\\s\\S]*?)</a>`, "g"),
+    ),
+  ];
+
+  if (anchors.length !== 1) {
+    fail(
+      `${route}: expected exactly one in-content "${CTA_LABEL}" CTA inside ` +
+        `<main>, found ${anchors.length}`,
+    );
+    continue;
+  }
+  const cta = anchors[0];
+
+  const label = textOf(cta[1]);
+  if (label !== CTA_LABEL) {
+    fail(
+      `${route}: in-content CTA text is "${label}"; ENG-107 requires ` +
+        `exactly "${CTA_LABEL}"`,
+    );
+  }
+
+  // Evidence first: whichever block this page ships, the CTA follows it.
+  const shipped = evidence.filter((cls) => classIndexes(slice, cls).length > 0);
+  const [evidenceClass] = shipped;
+  if (evidenceClass) {
+    const indexes = classIndexes(slice, evidenceClass);
+    const boundary = lastOf ? indexes[indexes.length - 1] : indexes[0];
+    if (cta.index < boundary) {
+      fail(
+        `${route}: in-content CTA appears before the ${lastOf ? "last " : ""}` +
+          `.${evidenceClass}; evidence must come first (ENG-107)`,
+      );
+    }
+  }
+
+  // The research CTA is a sibling of the empty state, never part of it: a CTA
+  // inside the panel would imply research exists.
+  if (route === "/research") {
+    for (const open of classIndexes(slice, "empty-state")) {
+      const range = elementRange(slice, open);
+      const inside =
+        range && cta.index >= range.start && cta.index <= range.end
+          ? true
+          : false;
+      if (inside) {
+        fail(
+          `${route}: in-content CTA sits inside the empty state; it must ` +
+            "follow the empty-state panel (ENG-107)",
+        );
+      }
+    }
+  }
 }
 
 if (failures.length > 0) {
@@ -447,5 +869,9 @@ if (failures.length > 0) {
 console.log(
   `check:a11y passed — ${htmlFiles.length} page(s), chip boundary ` +
     `${chipRule?.[1] ?? "?"}, nav semantics + aria-current + target size, ` +
-    "marker-stripped lists gated (class + ancestor selectors), 0 problems.",
+    "marker-stripped lists gated (class + ancestor selectors), work-card " +
+    "single-target + overlay + hover/focus + reduced-motion gated, " +
+    "0 problems.",
+  "marker-stripped lists gated (class + ancestor selectors), one " +
+    "in-content CTA per evidence index gated, 0 problems.",
 );
