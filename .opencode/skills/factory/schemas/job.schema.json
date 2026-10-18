@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FactoryJob",
+  "type": "object",
+  "required": ["id", "source", "feature", "repo", "base_branch", "base_commit",
+               "risk_tier", "branch", "worktree", "stage", "round",
+               "retries_left", "reviews", "approval", "updated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[0-9]{3}-[a-z0-9-]+$" },
+    "source": {
+      "type": "object",
+      "required": ["provider", "dedupe_key"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "enum": ["manual", "linear", "github"] },
+        "id": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "dedupe_key": { "type": "string" }
+      }
+    },
+    "feature": { "type": "string", "minLength": 1 },
+    "linear_id": { "type": ["string", "null"] },
+    "repo": { "type": "string" },
+    "base_branch": { "type": "string" },
+    "base_commit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{7,40}$" },
+    "risk_tier": { "enum": ["auto", "review", "approval"] },
+    "branch": { "type": "string" },
+    "worktree": { "type": "string" },
+    "herdr": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace_id": { "type": ["string", "null"] },
+        "pane_id": { "type": ["string", "null"] },
+        "reviewer_pane_ids": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": { "type": ["string", "null"] },
+            "security": { "type": ["string", "null"] },
+            "scope": { "type": ["string", "null"] },
+            "visual": { "type": ["string", "null"] }
+          }
+        },
+        "panes_opened_by_run": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "stage": {
+      "enum": ["intake", "needs_clarification", "planning",
+               "awaiting_plan_approval", "building", "verifying", "repairing",
+               "reviewing", "awaiting_human_review", "approved_to_merge",
+               "handed_off", "merged", "queued", "blocked", "needs_human",
+               "rejected", "cancelled"]
+    },
+    "round": { "type": "integer", "minimum": 0 },
+    "spec_approved": { "type": "boolean" },
+    "retries_left": { "type": "integer", "minimum": 0, "maximum": 2 },
+    "reviews": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "enum": ["pending", "PASS", "CHANGES", "NOT_APPLICABLE"] },
+        "security": { "enum": ["pending", "PASS", "CHANGES", "NOT_APPLICABLE"] },
+        "scope": { "enum": ["pending", "PASS", "CHANGES", "NOT_APPLICABLE"] },
+        "visual": { "enum": ["pending", "PASS", "CHANGES", "NOT_APPLICABLE"] }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approved", "diff_ref"],
+      "properties": {
+        "approved": { "type": "boolean" },
+        "diff_ref": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "enqueued_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}
