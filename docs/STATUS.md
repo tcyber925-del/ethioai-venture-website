@@ -34,8 +34,10 @@ verification) — are also Done.
   squash commit; read the current tip with `git log -1 --oneline main` rather than from this line.
 - **36 pull requests** — 33 merged, 3 closed (#28, #33, #35), 0 open, counted as of the merge of
   ENG-108 (PR #36). The three closed PRs are superseded duplicates, not abandoned work: #28 by #32,
-  #33 by #34, #35 by #30. Merges are squashed, so feature branches are not ancestors of `main`; each
-  merged PR's identity is preserved in a commit subject line on `main`.
+  #33 by #34, #35 by #30. Merges are **squashed from #13 onward**, so those feature branches are
+  not ancestors of `main`; each merged PR's identity is preserved in a commit subject line on
+  `main`. The earliest 12 PRs (#1–#12) landed as merge commits instead, so their branches **are**
+  ancestors of `main`.
 - **No stale feature branches remain on the remote** — the only branches on `origin` are `main` and
   the open ENG-108 branch, which is deleted once its PR merges. The earlier 12-branch cleanup is
   complete, and the 2026-10-20 cleanup removed the three factory job branches (ENG-106, ENG-107,
@@ -122,11 +124,23 @@ reported, not fixed, because the issue's explicit non-goals reserve whole-card w
 
 ENG-103's PR is the only verification evidence; it was not re-verified against the live origin.
 
-Change Request CR-001 — the escalation that blocked ENG-106 and ENG-107 until the Impeccable
-tool substitution was approved — is recorded in `factory/changes/CR-001.md`, with the Founder
-Decision that resolved it in `factory/changes/CR-001.decision.md`. Both are tracked in the
-repository, so the decision that unblocked those two PRs is readable without access to the
-factory job folders.
+## Change Request CR-001 — the Impeccable tool substitution
+
+CR-001 is the escalation that blocked **ENG-106** (Batch 3A, mobile navigation and work-card
+usability) and **ENG-107** (Batch 3B, Work/Research conversion and reading clarity) until the
+founder approved the globally-installed Impeccable skill as the substitute for the audit their
+acceptance criteria required. Both jobs then approved and merged (PR #31, PR #32).
+
+- The Change Request is recorded in `factory/changes/CR-001.md`.
+- The Founder Decision that resolved it is recorded in `factory/changes/CR-001.decision.md`.
+
+Both are tracked in the repository, so the decision that unblocked those two PRs is readable
+without access to the factory job folders (which are gitignored scratch). The decision file
+records when and what was decided; attributing **who** decided it is a founder action, still open
+— see the "Related, not blocking" section of the Change Request.
+
+The ENG-103 row above records the same tool blocker for ENG-103's own AC11, which was never
+re-audited and remains a founder call.
 
 ## Known limitations
 
