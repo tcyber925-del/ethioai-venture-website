@@ -21,36 +21,44 @@ V1 is complete and released. Every phase gate closed:
 | G3 — Conversion & Quality    | Start a Project form, SEO, analytics, integrated QA                      | Done (ENG-83 … ENG-86)                         |
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
 
-Linear project **P-ENG-6** has 23 issues, all Done. Follow-ups raised during the release
-wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), ENG-100
-(EthioSci entry and demo/GitHub event verification) — are also Done.
+Linear project **P-ENG-6** has 28 issues, all Done — 21 covering G0 specification through G4
+release, plus 7 follow-ups (ENG-94, ENG-97, ENG-101, ENG-102, ENG-103, ENG-106, ENG-107).
+Follow-ups raised during the release wave but tracked outside the project — ENG-95
+(work-page regression gate) and ENG-100 (EthioSci entry and demo/GitHub event
+verification) — are also Done.
 
 ## Git state
 
 - **`main`** — `ffd0330`, "Docs: document Python dependency for the font pipeline in README
-  prerequisites (#29)"
-- **36 pull requests** — 33 merged, 3 closed (#28, #33, #35), 0 open. Counted as of the merge of
-  ENG-108 (PR #36), the change that added this section's successor; the three closed PRs are
-  superseded duplicates, not abandoned work. Merges are squashed, so feature branches are not
-  ancestors of `main`; each PR's identity is preserved in the commit subject line.
-- **No stale feature branches remain on the remote** — `git ls-remote --heads origin` returns only
-  `main`. The earlier 12-branch cleanup is complete, and the 2026-10-20 cleanup removed the three
-  factory job branches (ENG-106, ENG-107, the README prerequisites job) plus two superseded
-  branches whose work had already landed by another route.
+  prerequisites (#29)", as of the ENG-108 branch. Merging ENG-108 (PR #36) moves `main` on by one
+  squash commit; read the current tip with `git log -1 --oneline main` rather than from this line.
+- **36 pull requests** — 33 merged, 3 closed (#28, #33, #35), 0 open, counted as of the merge of
+  ENG-108 (PR #36). The three closed PRs are superseded duplicates, not abandoned work: #28 by #32,
+  #33 by #34, #35 by #30. Merges are squashed, so feature branches are not ancestors of `main`; each
+  merged PR's identity is preserved in a commit subject line on `main`.
+- **No stale feature branches remain on the remote** — the only branches on `origin` are `main` and
+  the open ENG-108 branch, which is deleted once its PR merges. The earlier 12-branch cleanup is
+  complete, and the 2026-10-20 cleanup removed the three factory job branches (ENG-106, ENG-107,
+  the README prerequisites job) plus two superseded branches whose work had already landed by
+  another route.
 - **Local worktrees** — one, the primary checkout. The three factory job worktrees under
   `../ethioai-venture-website-factory/` were removed after their jobs were merged.
 
-## Verification (ENG-101 snapshot, 2026-10-13)
+## Verification
 
-Measured when this page was created (#25). Numbers for the current tree — after ENG-102
-added `check:fonts`/`check:pending` and ENG-103 added `check:a11y` — are **434 tests /
-46 suites** (measured on the ENG-103 branch; the gates are listed in the ENG-103 section).
+The table below is the **ENG-101 snapshot from 2026-10-13** (#25) and is kept as the
+historical record of that release. For the current tree, measure it yourself:
 
 ```sh
 npm run verify
 ```
 
-| Check                                 | Result                                                                              |
+As of 2026-10-20 (ENG-108): **455 tests / 46 suites, 0 failures**, and **14 pages** built —
+after ENG-102 added `check:fonts`/`check:pending`, ENG-103 added `check:a11y`, and ENG-106
+and ENG-107 extended that gate with the work-card and in-content-CTA contracts.
+`check:dist` now reports 268 internal references (251 in the snapshot below).
+
+| Check                                 | Result (ENG-101 snapshot, 2026-10-13)                                               |
 | ------------------------------------- | ----------------------------------------------------------------------------------- |
 | `format:check` / `lint` / `typecheck` | pass                                                                                |
 | `npm test`                            | **314 tests, 28 suites, 0 failures**                                                |
@@ -60,9 +68,9 @@ npm run verify
 | `npm run check:seo`                   | 14 pages, 13 sitemap URLs, 0 problems                                               |
 | `npm run check:work`                  | 2 hide rules across 15 CSS sources, 3 routes present                                |
 
-Nine `node:test` suites carry the regression contracts: `analytics`, `analytics-client`,
-`check-dist`, `check-seo`, `check-work`, `content-slugs`, `route-patterns`,
-`site-assets` and `start-a-project`.
+Thirteen test files carry the regression contracts: `analytics`, `analytics-client`,
+`check-a11y`, `check-dist`, `check-pending`, `check-seo`, `check-work`, `content-predicate`,
+`content-slugs`, `fonts`, `route-patterns`, `site-assets` and `start-a-project`.
 
 **Two build warnings are expected, not defects:** the `research` collection is empty by
 evidence policy, so Astro warns `The collection "research" does not exist or is empty`
