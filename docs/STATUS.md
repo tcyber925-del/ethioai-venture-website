@@ -22,10 +22,8 @@ V1 is complete and released. Every phase gate closed:
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
 
 Linear project **P-ENG-6** has 28 issues, all Done. The phase table above names **23** of
-them, because ENG-94 and ENG-97 appear there as G1 gate items and are also counted among
-the follow-ups below; the remaining **5** are the UX batches and docs work (ENG-101,
-ENG-102, ENG-103, ENG-106, ENG-107). 23 + 5 = 28. The 7 issues added after the table was
-first written are ENG-94, ENG-97, ENG-101, ENG-102, ENG-103, ENG-106 and ENG-107.
+them; the remaining **5** are the UX batches and docs work (ENG-101, ENG-102, ENG-103,
+ENG-106, ENG-107), which the table does not cover because it predates them. 23 + 5 = 28.
 
 Follow-ups raised during the release wave but tracked outside the project — ENG-95
 (work-page regression gate) and ENG-100 (EthioSci entry and demo/GitHub event
@@ -52,8 +50,9 @@ verification) — are also Done.
 
 ## Verification
 
-The table below is the **ENG-101 snapshot from 2026-10-13** (#25) and is kept as the
-historical record of that release. For the current tree, measure it yourself:
+The table below is the **ENG-101 snapshot, measured on `main` at `fd46407` (2026-10-05)** and
+committed by PR #25 on 2026-10-09. It is kept as the historical record of that release.
+For the current tree, measure it yourself:
 
 ```sh
 npm run verify
@@ -64,7 +63,7 @@ after ENG-102 added `check:fonts`/`check:pending`, ENG-103 added `check:a11y`, a
 and ENG-107 extended that gate with the work-card and in-content-CTA contracts.
 `check:dist` now reports 268 internal references (251 in the snapshot below).
 
-| Check                                 | Result (ENG-101 snapshot, 2026-10-13)                                               |
+| Check                                 | Result (ENG-101 snapshot, `main` at `fd46407`)                                      |
 | ------------------------------------- | ----------------------------------------------------------------------------------- |
 | `format:check` / `lint` / `typecheck` | pass                                                                                |
 | `npm test`                            | **314 tests, 28 suites, 0 failures**                                                |
