@@ -8,8 +8,8 @@ This page records where the project actually stands. It is a snapshot, not a con
 the approved requirements live in Notion (MIS v1.0 and specifications 01–06) and the
 executable acceptance criteria live in Linear. Numbers below were measured by running the
 commands shown, not copied from an earlier report — except where a section says
-otherwise. The Verification section keeps its 2026-10-13 table as a labelled historical
-snapshot, and states the current figures separately.
+otherwise. The Verification section keeps its ENG-101 snapshot table as a labelled
+historical record, and states the current figures separately.
 
 ## Where V1 stands
 
