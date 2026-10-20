@@ -92,13 +92,13 @@ re-verified against the live origin since 2026-10-05.
 
 ## Open follow-ups
 
-| Item                                                     | State                                                                                                                                                    | Owner                   |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                   | Founder                 |
-| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                   | Founder                 |
-| ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
-| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` returns only `main`; the 2026-10-20 cleanup removed the three merged factory job branches and two superseded ones.  | Anyone with push access |
-| `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
+| Item                                                     | State                                                                                                                                                                                                               | Owner                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                                                                              | Founder                 |
+| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                                                                              | Founder                 |
+| ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                                                            | Founder                 |
+| Delete merged remote branches (was 12)                   | Done. The 2026-10-20 cleanup removed the three merged factory job branches and two superseded ones; the only branches left on `origin` are `main` and the open ENG-108 branch, which is deleted once its PR merges. | Anyone with push access |
+| `og:image`                                               | Not built: no approved brand image exists.                                                                                                                                                                          | Founder                 |
 
 ### ENG-103 — Batch 2 accessibility and navigation polish
 
