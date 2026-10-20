@@ -29,8 +29,10 @@ wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), 
 
 - **`main`** — `ffd0330`, "Docs: document Python dependency for the font pipeline in README
   prerequisites (#29)"
-- **35 pull requests** — 32 merged, 3 closed, 0 open. Merges are squashed, so feature branches
-  are not ancestors of `main`; each PR's identity is preserved in the commit subject line.
+- **36 pull requests** — 33 merged, 3 closed (#28, #33, #35), 0 open. Counted as of the merge of
+  ENG-108 (PR #36), the change that added this section's successor; the three closed PRs are
+  superseded duplicates, not abandoned work. Merges are squashed, so feature branches are not
+  ancestors of `main`; each PR's identity is preserved in the commit subject line.
 - **No stale feature branches remain on the remote** — `git ls-remote --heads origin` returns only
   `main`. The earlier 12-branch cleanup is complete, and the 2026-10-20 cleanup removed the three
   factory job branches (ENG-106, ENG-107, the README prerequisites job) plus two superseded
