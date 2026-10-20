@@ -1,0 +1,8 @@
+Impeccable audit — ENG-106 changed components
+Command: impeccable detect src/components/Header.astro src/components/work/ProjectCard.astro
+Run:     2026-10-16 (round-2 repair), worktree factory/002-mobile-nav-work-card @ 48ca99b
+Tool:    /home/tcyber/.agents/skills/impeccable (globally installed)
+
+RESULT: ZERO findings. Exit code 0. No output was produced by the detector,
+which is how it reports a clean scan. This file is deliberately empty below
+this header so the absence of findings is not mistaken for a failed run.

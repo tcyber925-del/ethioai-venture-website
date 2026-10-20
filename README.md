@@ -4,8 +4,8 @@ Public website for **EthioAI Venture** — a static-first [Astro](https://astro.
 
 **Status: V1 shipped and verified in production on 2026-10-05**, deployed at
 `https://ethioai-venture-website.tcyber925.workers.dev`. All 28 Linear issues of project
-**P-ENG-6** (G0 specification through G4 release, plus the UX batches and follow-ups tracked
-in it) are Done.
+**P-ENG-6** are Done — 23 covering the G0 to G4 phase gates, plus ENG-101, ENG-102,
+ENG-103, ENG-106 and ENG-107, which sit outside that scope.
 
 For the current milestone, verification numbers and open follow-ups see
 [`docs/STATUS.md`](docs/STATUS.md). The approved product and architecture record lives in

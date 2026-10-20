@@ -22,8 +22,9 @@ V1 is complete and released. Every phase gate closed:
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
 
 Linear project **P-ENG-6** has 28 issues, all Done. The phase table above names **23** of
-them; the remaining **5** are the UX batches and docs work (ENG-101, ENG-102, ENG-103,
-ENG-106, ENG-107), which the table does not cover because it predates them. 23 + 5 = 28.
+them — the G0 to G4 phase gates. The remaining **5** sit outside that scope: ENG-101 (docs
+refresh), ENG-102 (UX batch 1), ENG-103 (UX batch 2), ENG-106 (UX batch 3A) and ENG-107
+(UX batch 3B). 23 + 5 = 28. ENG-96 is **not** a member of this project.
 
 Follow-ups raised during the release wave but tracked outside the project — ENG-95
 (work-page regression gate) and ENG-100 (EthioSci entry and demo/GitHub event
@@ -101,7 +102,7 @@ re-verified against the live origin since 2026-10-05.
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                                                                              | Founder                 |
 | Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                                                                              | Founder                 |
-| ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                                                            | Founder                 |
+| ENG-96 — Work status taxonomy and project image metadata | Backlog, and **not a member of P-ENG-6**. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                           | Founder                 |
 | Delete merged remote branches (was 12)                   | Done. The 2026-10-20 cleanup removed the three merged factory job branches and two superseded ones; the only branches left on `origin` are `main` and the open ENG-108 branch, which is deleted once its PR merges. | Anyone with push access |
 | `og:image`                                               | Not built: no approved brand image exists.                                                                                                                                                                          | Founder                 |
 

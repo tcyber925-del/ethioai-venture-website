@@ -1,0 +1,22 @@
+
+/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card/src/pages/start-a-project.astro
+  line 271: [side-tab] border-inline-start: 3px solid
+    → Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.
+
+/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card/src/styles/fonts.css
+  line 52: [overused-font] font-family: "Inter
+    → Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.
+  line 86: [overused-font] font-family: "Inter
+    → Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.
+
+3 anti-patterns found.
+
+── Advisory (not counted as failures) ──
+
+/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card/src/styles/global.css
+  line 72: [design-system-font-size] font-size: clamp(2.25rem, 1.5rem + 3.5vw, var(--text-h1-size)) has fluid endpoint 2.25rem off the DESIGN.md type ramp
+    → A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.
+  line 79: [design-system-font-size] font-size: clamp(1.75rem, 1rem + 3vw, var(--text-h2-size)) has fluid endpoint 1.75rem off the DESIGN.md type ramp
+    → A literal font-size is off the type ramp documented in DESIGN.md typography. Use a documented size step or update the design system if the new step is intentional.
+
+2 advisory notes. Suppress with --no-advisory.

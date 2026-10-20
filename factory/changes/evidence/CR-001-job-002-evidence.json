@@ -1,0 +1,67 @@
+{
+  "job_id": "002-mobile-nav-work-card",
+  "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+  "generated_at": "2026-10-16T15:20:00Z",
+  "checks": [
+    {
+      "check": "fast_gate/format:check",
+      "category": "format",
+      "command": "npm run format:check",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card",
+      "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+      "started_at": "2026-10-16T14:32:39Z",
+      "ended_at": "2026-10-16T14:32:48Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/002-mobile-nav-work-card/evidence/orchestrator/fast_format-check.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/lint",
+      "category": "lint",
+      "command": "npm run lint",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card",
+      "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+      "started_at": "2026-10-16T14:32:48Z",
+      "ended_at": "2026-10-16T14:33:07Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/002-mobile-nav-work-card/evidence/orchestrator/fast_lint.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/typecheck",
+      "category": "types",
+      "command": "npm run typecheck",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card",
+      "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+      "started_at": "2026-10-16T14:33:07Z",
+      "ended_at": "2026-10-16T14:33:51Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/002-mobile-nav-work-card/evidence/orchestrator/fast_typecheck.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/test",
+      "category": "test",
+      "command": "npm test",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card",
+      "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+      "started_at": "2026-10-16T14:33:51Z",
+      "ended_at": "2026-10-16T14:34:33Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/002-mobile-nav-work-card/evidence/orchestrator/fast_test.log",
+      "result": "passed"
+    },
+    {
+      "check": "full_gate/verify",
+      "category": "build",
+      "command": "npm run verify",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/002-mobile-nav-work-card",
+      "diff_ref": "48ca99b52e9c915d6cd9c1a6f670038ca642d077",
+      "started_at": "2026-10-16T15:08:10Z",
+      "ended_at": "2026-10-16T15:08:59Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/002-mobile-nav-work-card/evidence/orchestrator/full_verify.log",
+      "result": "passed"
+    }
+  ]
+}
