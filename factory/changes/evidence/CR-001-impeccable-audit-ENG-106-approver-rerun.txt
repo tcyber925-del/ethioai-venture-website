@@ -1,0 +1,30 @@
+Impeccable audit — independent re-run by the approver
+Source: factory/jobs/002-mobile-nav-work-card/round-3/decision.md, section 2 (the job folder is gitignored scratch)
+Run:    2026-10-16, by the approver, against job 002's two changed components
+Tool:   /home/tcyber/.agents/skills/impeccable (globally installed, founder-approved substitute per CR-001)
+
+The approver re-ran the detector rather than taking the job's artifact on trust.
+This is the independent exit-status corroboration for the clean-scan artifact:
+  CR-001-impeccable-audit-ENG-106-changed-components.txt
+
+Extracted verbatim from the approver's decision.
+
+Both artifacts exist in `evidence/`:
+
+- `evidence/impeccable-audit-changed-components.txt` (526 bytes)
+- `evidence/impeccable-audit-full-src.txt` (1920 bytes)
+
+I did not take these on trust. I re-ran the detector myself against the two
+changed components:
+
+```
+/home/tcyber/.agents/skills/impeccable/scripts/impeccable detect \
+  src/components/Header.astro src/components/work/ProjectCard.astro
+→ exit 0, no output
+```
+
+That reproduces the artifact's claim exactly ("ZERO findings. Exit code 0. No
+output was produced by the detector, which is how it reports a clean scan").
+I also confirmed the tool itself is real rather than a name: the skill
+directory, `SKILL.md` (version 4.4.0), and the executable detector script all
+exist and run.

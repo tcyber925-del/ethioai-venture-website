@@ -1,13 +1,15 @@
 # Project status
 
-**Last updated:** 2026-10-13 (Linear **ENG-103**; Git state and ENG-103 section refreshed)
+**Last updated:** 2026-10-20 (Linear **ENG-108**; Git state and branch cleanup refreshed)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
 This page records where the project actually stands. It is a snapshot, not a contract:
 the approved requirements live in Notion (MIS v1.0 and specifications 01–06) and the
 executable acceptance criteria live in Linear. Numbers below were measured by running the
-commands shown, not copied from an earlier report.
+commands shown, not copied from an earlier report — except where a section says
+otherwise. The Verification section keeps its ENG-101 snapshot table as a labelled
+historical record, and states the current figures separately.
 
 ## Where V1 stands
 
@@ -21,30 +23,54 @@ V1 is complete and released. Every phase gate closed:
 | G3 — Conversion & Quality    | Start a Project form, SEO, analytics, integrated QA                      | Done (ENG-83 … ENG-86)                         |
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
 
-Linear project **P-ENG-6** has 23 issues, all Done. Follow-ups raised during the release
-wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), ENG-100
-(EthioSci entry and demo/GitHub event verification) — are also Done.
+_A fact about the tracker, not about this repository — the phase-table breakdown is
+checkable here, but membership and Done state need Linear access._
+
+Linear project **P-ENG-6** has 28 issues, all Done. The phase table above names **23** of
+them — the G0 to G4 phase gates. The remaining **5** sit outside that scope: ENG-101 (docs
+refresh), ENG-102 (UX batch 1), ENG-103 (UX batch 2), ENG-106 (UX batch 3A) and ENG-107
+(UX batch 3B). 23 + 5 = 28. ENG-96 is **not** a member of this project.
+
+Follow-ups raised during the release wave but tracked outside the project — ENG-95
+(work-page regression gate) and ENG-100 (EthioSci entry and demo/GitHub event
+verification) — are also Done.
 
 ## Git state
 
-- **`main`** — `b2f7980`, "ENG-101: refresh README to shipped V1 state and add docs/STATUS.md (#25)"
-- **27 pull requests** — 26 merged, 1 open (#27, the ENG-103 branch). Merges are squashed, so
-  feature branches are not ancestors of `main`; each PR's identity is preserved in the commit
-  subject line.
-- **No stale feature branches remain on the remote** — only `main` and the open ENG-103 branch.
-  The earlier 12-branch cleanup is complete.
+- **`main`** — `ffd0330`, "Docs: document Python dependency for the font pipeline in README
+  prerequisites (#29)", as of the ENG-108 branch. Merging ENG-108 (PR #36) moves `main` on by one
+  squash commit; read the current tip with `git log -1 --oneline main` rather than from this line.
+- **36 pull requests** — 33 merged, 3 closed (#28, #33, #35), 0 open, counted as of the merge of
+  ENG-108 (PR #36). The three closed PRs are superseded duplicates, not abandoned work: #28 by #32,
+  #33 by #34, #35 by #30. Merges are **squashed from #13 onward**, so those feature branches are
+  not ancestors of `main`; each merged PR's identity is preserved in a commit subject line on
+  `main`. The earliest 12 PRs (#1–#12) landed as merge commits instead, so their branches **are**
+  ancestors of `main`.
+- **No stale feature branches remain on the remote** — the only branches on `origin` are `main` and
+  the open ENG-108 branch, which is deleted once its PR merges. The earlier 12-branch cleanup is
+  complete. The three factory job branches (ENG-106, ENG-107, the README prerequisites job) were
+  deleted by GitHub automatically as each PR merged, on 2026-10-17 and 2026-10-18. The 2026-10-20
+  cleanup removed the two branches whose PRs were closed without merging (#28's and #35's heads),
+  whose work had already landed by another route.
+- **Local worktrees** — one, the primary checkout. The three factory job worktrees under
+  `../ethioai-venture-website-factory/` were removed after their jobs were merged.
 
-## Verification (ENG-101 snapshot, 2026-10-13)
+## Verification
 
-Measured when this page was created (#25). Numbers for the current tree — after ENG-102
-added `check:fonts`/`check:pending` and ENG-103 added `check:a11y` — are **434 tests /
-46 suites** (measured on the ENG-103 branch; the gates are listed in the ENG-103 section).
+The table below is the **ENG-101 snapshot, measured on `main` at `fd46407` (2026-10-05)** and
+committed by PR #25 on 2026-10-09. It is kept as the historical record of that release.
+For the current tree, measure it yourself:
 
 ```sh
 npm run verify
 ```
 
-| Check                                 | Result                                                                              |
+As of 2026-10-20 (ENG-108): **455 tests / 46 suites, 0 failures**, and **14 pages** built —
+after ENG-102 added `check:fonts`/`check:pending`, ENG-103 added `check:a11y`, and ENG-106
+and ENG-107 extended that gate with the work-card and in-content-CTA contracts.
+`check:dist` now reports 268 internal references (251 in the snapshot below).
+
+| Check                                 | Result (ENG-101 snapshot, `main` at `fd46407`)                                      |
 | ------------------------------------- | ----------------------------------------------------------------------------------- |
 | `format:check` / `lint` / `typecheck` | pass                                                                                |
 | `npm test`                            | **314 tests, 28 suites, 0 failures**                                                |
@@ -54,9 +80,9 @@ npm run verify
 | `npm run check:seo`                   | 14 pages, 13 sitemap URLs, 0 problems                                               |
 | `npm run check:work`                  | 2 hide rules across 15 CSS sources, 3 routes present                                |
 
-Nine `node:test` suites carry the regression contracts: `analytics`, `analytics-client`,
-`check-dist`, `check-seo`, `check-work`, `content-slugs`, `route-patterns`,
-`site-assets` and `start-a-project`.
+Thirteen test files carry the regression contracts: `analytics`, `analytics-client`,
+`check-a11y`, `check-dist`, `check-pending`, `check-seo`, `check-work`, `content-predicate`,
+`content-slugs`, `fonts`, `route-patterns`, `site-assets` and `start-a-project`.
 
 **Two build warnings are expected, not defects:** the `research` collection is empty by
 evidence policy, so Astro warns `The collection "research" does not exist or is empty`
@@ -78,13 +104,13 @@ re-verified against the live origin since 2026-10-05.
 
 ## Open follow-ups
 
-| Item                                                     | State                                                                                                                                                    | Owner                   |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                   | Founder                 |
-| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                   | Founder                 |
-| ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
-| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` now returns only `main` and the open ENG-103 branch.                                                                | Anyone with push access |
-| `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
+| Item                                                     | State                                                                                                                                                                                                                                                                                             | Owner                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                                                                                                                                                            | Founder                 |
+| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                                                                                                                                                            | Founder                 |
+| ENG-96 — Work status taxonomy and project image metadata | Backlog, and **not a member of P-ENG-6**. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                                                                                                         | Founder                 |
+| Delete merged remote branches (was 12)                   | Done. The three factory job branches were deleted by GitHub as their PRs merged (2026-10-17, 2026-10-18); the 2026-10-20 cleanup removed the two heads of closed PRs #28 and #35. The only branches left on `origin` are `main` and the open ENG-108 branch, which is deleted once its PR merges. | Anyone with push access |
+| `og:image`                                               | Not built: no approved brand image exists.                                                                                                                                                                                                                                                        | Founder                 |
 
 ### ENG-103 — Batch 2 accessibility and navigation polish
 
@@ -107,6 +133,29 @@ reported, not fixed, because the issue's explicit non-goals reserve whole-card w
 | Impeccable audit/critique (AC11)                                | **Tool blocker resolved 2026-10-16; ENG-103 itself not retro-audited.** The skill is installed globally at `~/.agents/skills/impeccable`, not repo-local — the earlier `.impeccable/` note was correct but looked in the wrong place. The founder approved that tool as the substitute (Change Request CR-001). Audits have since run under that approval for ENG-106 (PR #31) and ENG-107 (PR #32): **zero findings** on each job's changed components, with out-of-scope findings documented rather than implemented. This row still reads as not-run because ENG-103's own AC11 was never re-audited; doing that is a founder call. | Founder |
 
 ENG-103's PR is the only verification evidence; it was not re-verified against the live origin.
+
+## Change Request CR-001 — the Impeccable tool substitution
+
+CR-001 is the escalation that blocked **ENG-106** (Batch 3A, mobile navigation and work-card
+usability) and **ENG-107** (Batch 3B, Work/Research conversion and reading clarity) until the
+founder approved the globally-installed Impeccable skill as the substitute for the audit their
+acceptance criteria required. Both jobs then approved and merged (PR #31, PR #32).
+
+- The Change Request is recorded in `factory/changes/CR-001.md`.
+- The Founder Decision that resolved it is recorded in `factory/changes/CR-001.decision.md`.
+
+Both are tracked in the repository, so the decision that unblocked those two PRs is readable
+without access to the factory job folders (which are gitignored scratch). The decision file
+records when and what was decided; attributing **who** decided it is a founder action, still open
+— see the "Related, not blocking" section of the Change Request.
+
+The audit outputs and the two jobs' `evidence.json` are copied into `factory/changes/evidence/`
+and tracked, so the "zero findings" claim above is checkable rather than asserted: the detector
+found 0 issues on each job's changed components, and the 3 anti-patterns plus 2 advisory notes
+elsewhere in `src` name only files neither job touched.
+
+The ENG-103 row above records the same tool blocker for ENG-103's own AC11, which was never
+re-audited and remains a founder call.
 
 ## Known limitations
 

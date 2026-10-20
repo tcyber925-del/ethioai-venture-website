@@ -1,0 +1,67 @@
+{
+  "job_id": "003-work-research-cta",
+  "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+  "generated_at": "2026-10-16T16:50:00Z",
+  "checks": [
+    {
+      "check": "fast_gate/format:check",
+      "category": "format",
+      "command": "npm run format:check",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/003-work-research-cta",
+      "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+      "started_at": "2026-10-16T16:47:19Z",
+      "ended_at": "2026-10-16T16:47:23Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/003-work-research-cta/evidence/orchestrator/fast_format-check.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/lint",
+      "category": "lint",
+      "command": "npm run lint",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/003-work-research-cta",
+      "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+      "started_at": "2026-10-16T16:47:23Z",
+      "ended_at": "2026-10-16T16:47:35Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/003-work-research-cta/evidence/orchestrator/fast_lint.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/typecheck",
+      "category": "types",
+      "command": "npm run typecheck",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/003-work-research-cta",
+      "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+      "started_at": "2026-10-16T16:47:35Z",
+      "ended_at": "2026-10-16T16:47:52Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/003-work-research-cta/evidence/orchestrator/fast_typecheck.log",
+      "result": "passed"
+    },
+    {
+      "check": "fast_gate/test",
+      "category": "test",
+      "command": "npm test",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/003-work-research-cta",
+      "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+      "started_at": "2026-10-16T16:47:52Z",
+      "ended_at": "2026-10-16T16:48:18Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/003-work-research-cta/evidence/orchestrator/fast_test.log",
+      "result": "passed"
+    },
+    {
+      "check": "full_gate/verify",
+      "category": "build",
+      "command": "npm run verify",
+      "cwd": "/mnt/data/tcyber/Projects/ethioai-venture-website-factory/003-work-research-cta",
+      "diff_ref": "eb6fe184d4926fd639a017b0baeefbee829e43cb",
+      "started_at": "2026-10-16T16:48:18Z",
+      "ended_at": "2026-10-16T16:49:25Z",
+      "exit_status": 0,
+      "output_ref": "/mnt/data/tcyber/Projects/ethioai-venture-website/factory/jobs/003-work-research-cta/evidence/orchestrator/full_verify.log",
+      "result": "passed"
+    }
+  ]
+}
