@@ -21,8 +21,12 @@ V1 is complete and released. Every phase gate closed:
 | G3 — Conversion & Quality    | Start a Project form, SEO, analytics, integrated QA                      | Done (ENG-83 … ENG-86)                         |
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
 
-Linear project **P-ENG-6** has 28 issues, all Done — 21 covering G0 specification through G4
-release, plus 7 follow-ups (ENG-94, ENG-97, ENG-101, ENG-102, ENG-103, ENG-106, ENG-107).
+Linear project **P-ENG-6** has 28 issues, all Done. The phase table above names **23** of
+them, because ENG-94 and ENG-97 appear there as G1 gate items and are also counted among
+the follow-ups below; the remaining **5** are the UX batches and docs work (ENG-101,
+ENG-102, ENG-103, ENG-106, ENG-107). 23 + 5 = 28. The 7 issues added after the table was
+first written are ENG-94, ENG-97, ENG-101, ENG-102, ENG-103, ENG-106 and ENG-107.
+
 Follow-ups raised during the release wave but tracked outside the project — ENG-95
 (work-page regression gate) and ENG-100 (EthioSci entry and demo/GitHub event
 verification) — are also Done.
