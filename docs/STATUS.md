@@ -7,7 +7,9 @@
 This page records where the project actually stands. It is a snapshot, not a contract:
 the approved requirements live in Notion (MIS v1.0 and specifications 01–06) and the
 executable acceptance criteria live in Linear. Numbers below were measured by running the
-commands shown, not copied from an earlier report.
+commands shown, not copied from an earlier report — except where a section says
+otherwise. The Verification section keeps its 2026-10-13 table as a labelled historical
+snapshot, and states the current figures separately.
 
 ## Where V1 stands
 
@@ -20,6 +22,9 @@ V1 is complete and released. Every phase gate closed:
 | G2 — Core Pages              | Home, solutions, work, research, about (index + detail)                  | Done (ENG-78 … ENG-82)                         |
 | G3 — Conversion & Quality    | Start a Project form, SEO, analytics, integrated QA                      | Done (ENG-83 … ENG-86)                         |
 | G4 — Release                 | Deploy and production verification, release notes and retrospective      | Done (ENG-88, ENG-89)                          |
+
+_A fact about the tracker, not about this repository — the phase-table breakdown is
+checkable here, but membership and Done state need Linear access._
 
 Linear project **P-ENG-6** has 28 issues, all Done. The phase table above names **23** of
 them — the G0 to G4 phase gates. The remaining **5** sit outside that scope: ENG-101 (docs
