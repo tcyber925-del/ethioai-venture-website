@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-13 (Linear **ENG-103**; Git state and ENG-103 section refreshed)
+**Last updated:** 2026-10-20 (Linear **ENG-108**; Git state and branch cleanup refreshed)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
@@ -27,12 +27,16 @@ wave — ENG-95 (work-page regression gate), ENG-97 (content slug enforcement), 
 
 ## Git state
 
-- **`main`** — `b2f7980`, "ENG-101: refresh README to shipped V1 state and add docs/STATUS.md (#25)"
-- **27 pull requests** — 26 merged, 1 open (#27, the ENG-103 branch). Merges are squashed, so
-  feature branches are not ancestors of `main`; each PR's identity is preserved in the commit
-  subject line.
-- **No stale feature branches remain on the remote** — only `main` and the open ENG-103 branch.
-  The earlier 12-branch cleanup is complete.
+- **`main`** — `ffd0330`, "Docs: document Python dependency for the font pipeline in README
+  prerequisites (#29)"
+- **35 pull requests** — 32 merged, 3 closed, 0 open. Merges are squashed, so feature branches
+  are not ancestors of `main`; each PR's identity is preserved in the commit subject line.
+- **No stale feature branches remain on the remote** — `git ls-remote --heads origin` returns only
+  `main`. The earlier 12-branch cleanup is complete, and the 2026-10-20 cleanup removed the three
+  factory job branches (ENG-106, ENG-107, the README prerequisites job) plus two superseded
+  branches whose work had already landed by another route.
+- **Local worktrees** — one, the primary checkout. The three factory job worktrees under
+  `../ethioai-venture-website-factory/` were removed after their jobs were merged.
 
 ## Verification (ENG-101 snapshot, 2026-10-13)
 
@@ -83,7 +87,7 @@ re-verified against the live origin since 2026-10-05.
 | Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                   | Founder                 |
 | Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                   | Founder                 |
 | ENG-96 — Work status taxonomy and project image metadata | Backlog. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time. | Founder                 |
-| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` now returns only `main` and the open ENG-103 branch.                                                                | Anyone with push access |
+| Delete merged remote branches (was 12)                   | Done. `git ls-remote --heads origin` returns only `main`; the 2026-10-20 cleanup removed the three merged factory job branches and two superseded ones.  | Anyone with push access |
 | `og:image`                                               | Not built: no approved brand image exists.                                                                                                               | Founder                 |
 
 ### ENG-103 — Batch 2 accessibility and navigation polish
@@ -107,6 +111,12 @@ reported, not fixed, because the issue's explicit non-goals reserve whole-card w
 | Impeccable audit/critique (AC11)                                | **Tool blocker resolved 2026-10-16; ENG-103 itself not retro-audited.** The skill is installed globally at `~/.agents/skills/impeccable`, not repo-local — the earlier `.impeccable/` note was correct but looked in the wrong place. The founder approved that tool as the substitute (Change Request CR-001). Audits have since run under that approval for ENG-106 (PR #31) and ENG-107 (PR #32): **zero findings** on each job's changed components, with out-of-scope findings documented rather than implemented. This row still reads as not-run because ENG-103's own AC11 was never re-audited; doing that is a founder call. | Founder |
 
 ENG-103's PR is the only verification evidence; it was not re-verified against the live origin.
+
+Change Request CR-001 — the escalation that blocked ENG-106 and ENG-107 until the Impeccable
+tool substitution was approved — is recorded in `factory/changes/CR-001.md`, with the Founder
+Decision that resolved it in `factory/changes/CR-001.decision.md`. Both are tracked in the
+repository, so the decision that unblocked those two PRs is readable without access to the
+factory job folders.
 
 ## Known limitations
 
