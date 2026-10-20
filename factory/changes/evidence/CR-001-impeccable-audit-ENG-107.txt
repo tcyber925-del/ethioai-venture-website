@@ -1,0 +1,61 @@
+Impeccable audit — ENG-107 changed components and full site
+Source: factory/jobs/003-work-research-cta/build.md, acceptance criterion 16 (the job folder is gitignored scratch)
+Run:    2026-10-16, worktree factory/003-work-research-cta @ eb6fe18
+Tool:   /home/tcyber/.agents/skills/impeccable (globally installed, founder-approved substitute per CR-001)
+
+Extracted verbatim from the job's build report.
+
+16. [x] **Impeccable audit — RAN (not blocked).** The founder-approved tool at
+    `/home/tcyber/.agents/skills/impeccable` was used as the substitute, so
+    this criterion is satisfied rather than escalated. Run from the worktree
+    with `scripts/impeccable context` (reported `NO_PRODUCT_MD` +
+    `SCOPED_EXISTING_ALLOWED`, loaded `DESIGN.md`) followed by the `audit`
+    playbook's bundled detector. **Full report:**
+
+    **Audit Health Score: 18/20 (Excellent — minor polish)**
+
+    | # | Dimension | Score | Key finding |
+    |---|---|---|---|
+    | 1 | Accessibility | 3 | CTA button text contrast **7.88:1** (AA + AAA); keyboard order, `:focus-visible` outline and reduced motion all verified; the inherited **1.42:1** panel boundary is the open WCAG 1.4.11 failure |
+    | 2 | Performance | 4 | +249 bytes HTML per page; shared CSS bundle byte-identical (6715 B); identical inline-script bytes and block counts; no new request, dependency, image or JS |
+    | 3 | Theming | 3 | tokens only (`--radius-lg` 12px, `--space-xl` 32px, `--space-2xl`/`--space-4xl` 48/80, colours via `var()`); no literal values added. The project has no dark theme at all, so this dimension cannot score higher — pre-existing |
+    | 4 | Responsive | 4 | 28/28 viewport measurements clean; CTA button 132×52px at 375 and 1280 (≥ the 44px touch guideline); actions row wraps |
+    | 5 | Implementation Integrity | 4 | detector: **0 findings** on all three changed files; the region reuses the approved component (no duplicated `routeExists` guard or panel CSS) |
+
+    Detector findings, all verified as out of this PR's scope:
+    - `impeccable detect src/pages/work/index.astro src/pages/research/index.astro src/components/solutions/StartProjectCta.astro` → **0 findings, exit 0**.
+    - `impeccable detect src/` → 3 anti-patterns, none in a changed file:
+      `start-a-project.astro:271` `[side-tab]`, `fonts.css:52,86`
+      `[overused-font]` (Inter, shipped under ENG-102 by founder decision);
+      2 advisory: `global.css:72,79` `[design-system-font-size]` fluid clamp
+      endpoints off the DESIGN.md ramp.
+    - `impeccable detect http://localhost:4321/work/ …/research/` (live) →
+      1 anti-pattern, `[overused-font]` Inter, site-wide and deliberate.
+
+    Documented findings with severity, none fixed here:
+    - **P1 Accessibility** — CTA panel boundary `--color-border` measures
+      **1.42:1** against `--color-surface` (WCAG 1.4.11 needs 3:1). Location:
+      `StartProjectCta.astro` `.cta`, inherited. Impact: the region is
+      defined by a boundary a low-vision user cannot see. ENG-107 does not
+      request a contrast change. Suggest: `$impeccable colorize`.
+    - **P2 Theming/Contrast** — panel background vs page background is
+      **1.05:1**, so the panel has no affordance other than that failing
+      border. This strengthens the P1 and is the reason it now ships on three
+      pages. Suggest: `$impeccable colorize`.
+    - **P2 Implementation Integrity** — with the secondary button suppressed,
+      one primary button sits in a full-width panel, leaving ~900px of empty
+      panel at 1280px (`/solutions` balances it with two buttons). Fixing it
+      means restyling the shared component, which would change the
+      `/solutions` markup AC6 holds byte-identical. Suggest:
+      `$impeccable layout`, **approver decision required**.
+    - **P3** `[side-tab]` on the form page, `[overused-font]` Inter, and the
+      two `global.css` advisory notes are all pre-existing and belong to other
+      issues.
+
+    Recommended order if the founder takes them up: `$impeccable colorize`
+    (P1 boundary) → `$impeccable layout` (P2 panel balance, needs approval) →
+    `$impeccable polish`. Out of ENG-107 scope, not run.
+
+    **Limit:** this is a technical audit of the two built pages. It does not
+    replace screen-reader testing, which stays in ENG-86.
+

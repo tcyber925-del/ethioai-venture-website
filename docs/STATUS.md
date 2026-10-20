@@ -43,9 +43,10 @@ verification) — are also Done.
   ancestors of `main`.
 - **No stale feature branches remain on the remote** — the only branches on `origin` are `main` and
   the open ENG-108 branch, which is deleted once its PR merges. The earlier 12-branch cleanup is
-  complete, and the 2026-10-20 cleanup removed the three factory job branches (ENG-106, ENG-107,
-  the README prerequisites job) plus two superseded branches whose work had already landed by
-  another route.
+  complete. The three factory job branches (ENG-106, ENG-107, the README prerequisites job) were
+  deleted by GitHub automatically as each PR merged, on 2026-10-17 and 2026-10-18. The 2026-10-20
+  cleanup removed the two branches whose PRs were closed without merging (#28's and #35's heads),
+  whose work had already landed by another route.
 - **Local worktrees** — one, the primary checkout. The three factory job worktrees under
   `../ethioai-venture-website-factory/` were removed after their jobs were merged.
 
@@ -98,13 +99,13 @@ re-verified against the live origin since 2026-10-05.
 
 ## Open follow-ups
 
-| Item                                                     | State                                                                                                                                                                                                               | Owner                   |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                                                                              | Founder                 |
-| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                                                                              | Founder                 |
-| ENG-96 — Work status taxonomy and project image metadata | Backlog, and **not a member of P-ENG-6**. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                           | Founder                 |
-| Delete merged remote branches (was 12)                   | Done. The 2026-10-20 cleanup removed the three merged factory job branches and two superseded ones; the only branches left on `origin` are `main` and the open ENG-108 branch, which is deleted once its PR merges. | Anyone with push access |
-| `og:image`                                               | Not built: no approved brand image exists.                                                                                                                                                                          | Founder                 |
+| Item                                                     | State                                                                                                                                                                                                                                                                                             | Owner                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Research content                                         | Closed as won't-do by decision (2026-10-05). The collection stays empty rather than inventing entries.                                                                                                                                                                                            | Founder                 |
+| Custom domain                                            | Closed by decision (2026-10-05): not purchasing one. Attaching later is a one-line change to `site.url` plus one re-verification pass.                                                                                                                                                            | Founder                 |
+| ENG-96 — Work status taxonomy and project image metadata | Backlog, and **not a member of P-ENG-6**. Change request from ENG-80's advisory review; V1 shipped with `status` as a validated free-text string and filter chips derived at render time.                                                                                                         | Founder                 |
+| Delete merged remote branches (was 12)                   | Done. The three factory job branches were deleted by GitHub as their PRs merged (2026-10-17, 2026-10-18); the 2026-10-20 cleanup removed the two heads of closed PRs #28 and #35. The only branches left on `origin` are `main` and the open ENG-108 branch, which is deleted once its PR merges. | Anyone with push access |
+| `og:image`                                               | Not built: no approved brand image exists.                                                                                                                                                                                                                                                        | Founder                 |
 
 ### ENG-103 — Batch 2 accessibility and navigation polish
 
@@ -142,6 +143,11 @@ Both are tracked in the repository, so the decision that unblocked those two PRs
 without access to the factory job folders (which are gitignored scratch). The decision file
 records when and what was decided; attributing **who** decided it is a founder action, still open
 — see the "Related, not blocking" section of the Change Request.
+
+The audit outputs and the two jobs' `evidence.json` are copied into `factory/changes/evidence/`
+and tracked, so the "zero findings" claim above is checkable rather than asserted: the detector
+found 0 issues on each job's changed components, and the 3 anti-patterns plus 2 advisory notes
+elsewhere in `src` name only files neither job touched.
 
 The ENG-103 row above records the same tool blocker for ENG-103's own AC11, which was never
 re-audited and remains a founder call.
