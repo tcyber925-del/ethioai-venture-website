@@ -3,8 +3,9 @@
 Public website for **EthioAI Venture** — a static-first [Astro](https://astro.build) + TypeScript application.
 
 **Status: V1 shipped and verified in production on 2026-10-05**, deployed at
-`https://ethioai-venture-website.tcyber925.workers.dev`. All 23 Linear issues of project
-**P-ENG-6** (G0 specification through G4 release) are Done and 24 pull requests are merged.
+`https://ethioai-venture-website.tcyber925.workers.dev`. Every Linear issue of project
+**P-ENG-6** is Done. The current issue count and its breakdown are in
+[`docs/STATUS.md`](docs/STATUS.md#where-v1-stands).
 
 For the current milestone, verification numbers and open follow-ups see
 [`docs/STATUS.md`](docs/STATUS.md). The approved product and architecture record lives in
