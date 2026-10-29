@@ -46,3 +46,15 @@ final package must correspond to the diff submitted for approval.
 
 Results come from actual execution. An agent asserting that it ran something is
 not evidence.
+
+## The full gate is recorded in the job record
+
+The full gate runs **once, before the handoff**, and its result is recorded in
+the job record's `full_gate` — the command, the exit status and the result.
+It is not in `evidence.json`: that package is the verification stage's record
+of the checks it ran against the diff, and the full gate is a later, separate
+run.
+
+The record is where the handoff reads it. `reference/state-machine.md`'s row
+into `handed_off` says "the full gate passes", and a full gate nobody
+recorded is a full gate nobody can show passed.

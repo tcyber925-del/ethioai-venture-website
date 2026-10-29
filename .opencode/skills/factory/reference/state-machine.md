@@ -20,22 +20,22 @@ Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
 | `intake` | `queued` | all six acceptance criteria hold |
 | `needs_clarification` | `queued` | the human answers the focused question |
 | `queued` | `planning` | `/factory dispatch` claims the job |
-| `planning` | `blocked` | Herdr workspace creation fails — repository state preserved, cause recorded |
+| `planning` | `blocked` | Herdr workspace creation fails — repository state preserved, cause recorded in `job.json`'s `cause` |
 | `planning` | `awaiting_plan_approval` | tier is `approval` and `spec.md` exists |
-| `planning` | `building` | tier is not `approval`, or `/factory go` is run |
+| `planning` | `building` | `spec.md` exists, and either the tier is not `approval` or `/factory go` recorded `spec_approved` |
 | `awaiting_plan_approval` | `building` | `/factory go <job-id>` records `spec_approved` |
-| `building` | `verifying` | `build.md` first line is `STATUS: READY` |
+| `building` | `verifying` | `build.md` first line is `STATUS: READY`, the worktree is clean, `HEAD` is the job branch's own commit, and no changed path matches the profile's effective `protected_paths` bound at claim (always including `.factory/profile.md` and `.factory/policies/**`) |
 | `building` | `needs_human` | `build.md` first line is `STATUS: BLOCKED` |
 | `verifying` | `repairing` | a check failed and `retries_left` remains |
 | `verifying` | `reviewing` | every check is `passed` or `not_applicable` |
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
-| `verifying` | `blocked` | evidence could not be written |
+| `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
-| `reviewing` | `awaiting_human_review` | all four verdict files exist, none carries a blocking finding, and `decision.md` says APPROVE |
+| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
-| `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref`, with every §14.2 precondition holding |
-| `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4) |
+| `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref` — the change identity, `reference/approval.md` — with every §14.2 precondition holding |
+| `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4), the change identity of `reference/approval.md` |
 | `approved_to_merge` | `handed_off` | the full gate passes and the pull request is opened (§14.3) |
 | `approved_to_merge` | `awaiting_human_review` | a §14.2 precondition fails at handoff; the approval is cleared |
 
@@ -69,11 +69,14 @@ reach: it records *that* a precondition held, not *whether* a human meant it.
 Invariant 3 still has no row behind it, because `merged` is resolved by reading
 the pull request (§9.4) and never asserted here.
 
-Invariants 4 through 8 govern edges this plan traverses, but they are prose,
-not machinery: nothing in this pack mechanically enforces any of the eight.
-A test can pin that a document *states* an invariant; it cannot make the
-orchestrator follow one. Read every invariant below as a rule the pack commits
-to in writing, not as a property a passing suite proves about runtime behaviour.
+Invariants 4 through 8 govern edges this plan traverses, and some of them are
+now machinery as well as prose: the transition writer enforces the fourth (a
+failed stage stops safely, and the main checkout's guard refuses a write over
+user work) and the fifth (an exhausted budget never becomes success), and the
+validator enforces the sixth and the eighth. A test can pin that a document
+*states* an invariant; it cannot make the orchestrator follow one — but where
+a tool enforces it, the tool is the evidence. Read every invariant below as a
+rule the pack commits to in writing.
 
 ## Invariants
 
@@ -87,6 +90,10 @@ to in writing, not as a property a passing suite proves about runtime behaviour.
 8. No skill, agent, or status view reports a state the persisted record does not support.
 
 ## Retry budget
+
+A human rework (`/factory rework`) is the one thing that resets the budget: it
+sets `retries_left` to the profile's budget and stamps `retry_budget_reset_at`,
+and a budget a human granted is the human's to grant. Nothing else may.
 
 `retries_left` starts at **2** and is **shared** across verification failures
 and review `CHANGES` verdicts — the loop cannot spin, and cannot re-roll the

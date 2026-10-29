@@ -24,26 +24,35 @@
     "repo": { "type": "string" },
     "base_branch": { "type": "string" },
     "base_commit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{7,40}$" },
+    "depends_on": {
+      "type": "array",
+      "description": "Job ids this job builds on. Dispatch claims this job only once every id here has a merged pull request.",
+      "items": { "type": "string", "pattern": "^[0-9]{3}-[a-z0-9-]+$" }
+    },
     "risk_tier": { "enum": ["auto", "review", "approval"] },
     "branch": { "type": "string" },
     "worktree": { "type": "string" },
-    "herdr": {
+    "runtime": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "workspace_id": { "type": ["string", "null"] },
-        "pane_id": { "type": ["string", "null"] },
-        "reviewer_pane_ids": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "code": { "type": ["string", "null"] },
-            "security": { "type": ["string", "null"] },
-            "scope": { "type": ["string", "null"] },
-            "visual": { "type": ["string", "null"] }
+        "invocations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stage", "agent", "session_id", "launched_at", "outcome"],
+            "properties": {
+              "stage": { "type": "string" },
+              "agent": { "type": "string" },
+              "session_id": { "type": "string", "minLength": 1 },
+              "launched_at": { "type": "string", "format": "date-time" },
+              "outcome": { "type": "string" }
+            }
           }
         },
-        "panes_opened_by_run": { "type": "integer", "minimum": 0 }
+        "max_in_flight": { "type": "integer", "minimum": 0 }
       }
     },
     "stage": {
@@ -73,11 +82,68 @@
       "properties": {
         "approved": { "type": "boolean" },
         "diff_ref": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"], "format": "date-time" },
+        "job": { "type": ["string", "null"] },
+        "base_commit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{7,40}$" },
+        "approver": { "type": ["string", "null"] }
+      }
+    },
+    "full_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result"],
+      "properties": {
+        "command": { "type": ["string", "null"] },
+        "exit_status": { "type": ["integer", "null"] },
+        "result": { "enum": ["passed", "failed", "blocked", "not_run", "not_applicable"] },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch", "pushed"],
+      "properties": {
+        "branch": { "type": "string" },
+        "ref": { "type": "string" },
+        "pushed": { "type": "boolean" },
+        "pr_url": { "type": ["string", "null"] },
         "at": { "type": ["string", "null"], "format": "date-time" }
       }
     },
+    "cause": { "type": ["string", "null"] },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protected_paths", "pinned_at"],
+      "properties": {
+        "protected_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "The effective protected paths the job was claimed under, sorted."
+        },
+        "pinned_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "retry_budget_reset_at": { "type": ["string", "null"], "format": "date-time" },
     "enqueued_at": { "type": "string", "format": "date-time" },
     "started_at": { "type": "string", "format": "date-time" },
     "updated_at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "stage": { "const": "blocked" } }, "required": ["stage"] },
+      "then": {
+        "required": ["cause"],
+        "properties": { "cause": { "type": "string", "minLength": 1 } }
+      }
+    },
+    {
+      "if": { "properties": { "stage": { "const": "needs_human" } }, "required": ["stage"] },
+      "then": {
+        "required": ["cause"],
+        "properties": { "cause": { "type": "string", "minLength": 1 } }
+      }
+    }
+  ]
 }

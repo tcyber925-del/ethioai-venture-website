@@ -10,7 +10,7 @@ verdict**.
 | `code` | correctness, types, error handling, idiom match, dead code, speculative generality | always |
 | `security` | access control, secrets, input handling, dependencies, security implications | always |
 | `scope` | acceptance criteria genuinely met; no drift outside the approved boundary | always |
-| `visual` | rendering, layout, responsive behaviour, interaction, browser console | only when UI changes; otherwise `NOT_APPLICABLE` **with a stated reason** |
+| `visual` | rendering, layout, responsive behaviour, interaction — judged from the diff and the source | only when UI changes; otherwise `NOT_APPLICABLE` **with a stated reason** |
 
 ## Artifact
 
@@ -43,6 +43,22 @@ file that is absent is treated as a verdict that was never returned.
 Silent omission is indistinguishable from a reviewer that never ran. A
 `NOT_APPLICABLE` with no stated reason is malformed: it stops the orchestrator
 just like a missing file, and is treated as a verdict that was never returned.
+
+## Recording the verdicts
+
+`tools/transition.mjs --job <job-folder> --sync` reads the four
+`round-<N>/review-{code,security,scope,visual}.md` files and records their
+verdicts in `job.json`'s `reviews` object. It is a field write, not a
+transition: the stage does not move, and it takes the same lock and atomic
+rename as every other write.
+
+- A file that exists is recorded exactly as its first line reads.
+- A role with no file is left at whatever the record already says. A partial
+  wave must never replace a returned verdict with `pending`.
+- A malformed verdict, or a `NOT_APPLICABLE` with no stated reason, refuses the
+  whole write: nothing is recorded, and the refusal is appended to the job's
+  `rejections.log`.
+- With nothing to change, the record is not rewritten.
 
 ## Untrusted input
 

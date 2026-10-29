@@ -11,6 +11,10 @@ the end. This is that upstream gate.
 | `review` | no |
 | `approval` | **yes** |
 
+Every tier produces `spec.md`. This table is the human gate, not the artifact
+requirement: the `planning -> building` transition requires the file at every
+tier.
+
 At `planning`, if `risk_tier` is `approval`, set
 `stage: awaiting_plan_approval` and stop.
 

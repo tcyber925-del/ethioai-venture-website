@@ -9,7 +9,15 @@ export default defineConfig([
     // (TMPDIR=$PWD/.tmp), and it is in .gitignore. Flat config does not read
     // .gitignore, so without this a reviewer's own scratch script fails
     // `npm run lint` and therefore `npm run verify`.
-    ignores: ["dist/", ".astro/", "node_modules/", ".tmp/"],
+    //
+    // `.opencode/` is the factory harness, maintained outside the application
+    // and refreshed wholesale by `install.sh --update` (ENG-110). Its
+    // `skills/factory/tools/*.mjs` are the pack's own Node scripts: they run in
+    // Node and use Node globals, so linting them as application code fails on
+    // `no-undef` for `process` alone. Ignoring them keeps an upstream pack
+    // refresh from turning this repository's gate red, which is the same
+    // reason `.opencode/` is already in `.prettierignore`.
+    ignores: ["dist/", ".astro/", "node_modules/", ".tmp/", ".opencode/"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

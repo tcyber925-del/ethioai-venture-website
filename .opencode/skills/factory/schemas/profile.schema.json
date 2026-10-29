@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FactoryProfile",
+  "description": "The project profile's fields. The profile on disk is Markdown with `## <field>` sections, so this schema describes the FIELDS: each one a non-empty string, because a section with an empty body is a fact the agent would have to invent. `concurrency` is the only optional field -- it defaults to 3 and is hard-capped at 5.",
+  "type": "object",
+  "required": ["repo", "base_branch", "setup_command", "fast_gate", "full_gate",
+               "high_risk_areas", "protected_paths", "review_perspectives",
+               "non_goals", "known_limitations"],
+  "additionalProperties": false,
+  "properties": {
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Owner/name of the git repository."
+    },
+    "base_branch": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Branch every job branches from and hands off to."
+    },
+    "setup_command": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Command that prepares a fresh checkout (install dependencies, generate types)."
+    },
+    "fast_gate": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Verification command run on every build round. Must not require a build step."
+    },
+    "full_gate": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Verification command run once before handoff. Must match CI exactly."
+    },
+    "high_risk_areas": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Paths or subsystems that force the `approval` tier and always escalate."
+    },
+    "protected_paths": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One repository-relative glob per Markdown bullet, or `none`. A change touching one stops for a human on every tier before verification."
+    },
+    "review_perspectives": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Which reviewers apply to this project, and any project-specific checklist."
+    },
+    "non_goals": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Explicitly out-of-scope work that must not be introduced."
+    },
+    "known_limitations": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Things this project's checks do not cover. Disclose; never paper over."
+    },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Jobs `/factory dispatch` runs in parallel when given no argument. Optional; defaults to 3. Hard-capped at 5. One value applies to the whole project."
+    }
+  }
+}

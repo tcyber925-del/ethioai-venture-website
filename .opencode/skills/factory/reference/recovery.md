@@ -9,14 +9,23 @@ this file rather than restating it.
 ## What recover reads
 
 Only persisted state: `job.json` for the stage and the recorded `worktree` and
-`branch`, the verdict files under the job folder, and the review history. It
-reads; it never infers a stage the record does not name.
+`branch`, the recorded `runtime` block, the verdict files under the job folder,
+the job's rejection log, and the review history. It reads; it never infers a
+stage the record does not name.
+
+**And the rejection log.** Every refusal by the transition writer is appended
+to `rejections.log` in the job's own folder, one JSON object per line: which
+job, which transition was attempted, the stage the job was in, which check
+failed, the tool's own conclusion, and when. `recover` reports it — it is
+usually the answer to "what happened", and a refusal that is not reported is
+a failure nobody can investigate. The log is append-only: a later refusal
+never overwrites an earlier one, and both are readable.
 
 ## What recover never does
 
-**`recover` never re-dispatches.** It does not spawn an agent, open a pane, or
+**`recover` never re-dispatches.** It does not spawn a subagent and does not
 re-run a stage — including the stage that failed. §17.1 is explicit that a dead
-pane is not retried, because auto-retrying against an unknown failure state
+subagent is not retried, because auto-retrying against an unknown failure state
 risks duplicate commits on the job branch. Keeping re-dispatch out of `recover`
 excludes that harm by construction rather than by prohibition: a command that
 cannot dispatch cannot duplicate a commit.
@@ -39,7 +48,7 @@ Plan 6's. These five are the ones recovery owns:
 | Merge conflict | Stop and request resolution; never force through silently. |
 
 Already handled elsewhere: intake unclear (`intake-gate.md`), a dead or timed-out
-pane (`herdr.md`), verification failure and review blockers (the dispatch
+subagent (`spawn.md`), verification failure and review blockers (the dispatch
 walkthrough), retries exhausted, unwritable evidence, and stale approval
 (`approval.md`).
 
@@ -47,8 +56,30 @@ walkthrough), retries exhausted, unwritable evidence, and stale approval
 
 Before routing, `recover` preserves the artifacts a human will need to decide:
 the job folder as it stands, any verdict files including their first line, the
-review history, and the transcript of a pane that died. Preservation means not
-destroying and not rewriting — `recover` writes no verdict file of its own.
+review history, the recorded `runtime` block with the session id of every
+invocation this job made, and the `rejections.log` beside them. Preservation
+means not destroying and not rewriting — `recover` writes no verdict file of
+its own, and it never truncates the rejection log.
+
+A job written before the runtime block still carries `herdr`; preserve that
+block as it stands rather than rewriting it into a `runtime` block.
+
+## The rejection log
+
+Every refusal the pack's tools make leaves a line in the job's own rejection
+log, at `factory/jobs/<job-id>/rejections.log`. The line names the job, the
+transition that was attempted, the stage the job was in, the check that
+failed, the tool's own conclusion, and the time. The log is append-only: a
+later attempt adds a line and never overwrites an earlier one, and nothing
+shaped like a credential is written into it.
+
+`recover` reads it. A job that was refused a transition carries a record of
+that refusal, so the diagnosis `recover` reports is not a guess about what
+went wrong — it is the refusal itself, with the check that failed named.
+
+Reading the log is not writing to it. `recover` writes nothing new on a
+second run, so the idempotence rule below still holds: the same failed job
+reports the same thing every time.
 
 ## Where recover routes
 
