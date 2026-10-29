@@ -20,6 +20,15 @@ astro.config.mjs
 src/**/*
 .env*
 
+## protected_paths
+- .github/workflows/**
+- package.json
+- package-lock.json
+- astro.config.mjs
+- wrangler.jsonc
+- .env*
+- AGENTS.md
+
 ## review_perspectives
 code; accessibility/security; SEO; preview smoke
 
