@@ -1,0 +1,16 @@
+--- a/.opencode/skills/factory/reference/state-machine.md
++++ b/.opencode/skills/factory/reference/state-machine.md
+@@ -33,6 +33,7 @@
+ | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
++| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
+ 
+--- a/.opencode/skills/factory/tools/lib/transitions.mjs
++++ b/.opencode/skills/factory/tools/lib/transitions.mjs
+@@
++  // A repair driven by a review CHANGES verdict has no failed check to hand
++  // the builder -- the gate passed -- so the funnel needs a second exit that
++  // returns the job to the round it came from.
++  "repairing>reviewing": () => [satisfied("the review round re-runs after the repair")],
++
+   "repairing>building": (context) =>
+     withEvidence(context, (checks) => {
