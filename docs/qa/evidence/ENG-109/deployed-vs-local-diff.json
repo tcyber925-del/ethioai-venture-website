@@ -1,18 +1,18 @@
 [
   {
     "label": "deployed",
-    "chipBorderSecondary": false,
-    "chipBorderBorder": true,
-    "pressedHasFontWeight": false,
-    "cardOverlay": false,
-    "fontPreload": false
+    "cssHash": "/_astro/BaseLayout.C6TDEktS.css",
+    "chipDefaultBorder": "--color-border (1.42:1)",
+    "pressedHasNonColourCue": false,
+    "cardFullSurfaceHitTarget": false,
+    "interFontPreload": false
   },
   {
     "label": "local",
-    "chipBorderSecondary": true,
-    "chipBorderBorder": false,
-    "pressedHasFontWeight": true,
-    "cardOverlay": false,
-    "fontPreload": true
+    "cssHash": "/_astro/BaseLayout.B2aqkuIU.css",
+    "chipDefaultBorder": "--color-secondary (7.81:1)",
+    "pressedHasNonColourCue": true,
+    "cardFullSurfaceHitTarget": true,
+    "interFontPreload": true
   }
 ]

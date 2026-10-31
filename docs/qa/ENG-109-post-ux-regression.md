@@ -35,13 +35,30 @@ dependency was added to the repository. Evidence artifacts are in `evidence/ENG-
 | Tests                                  | **455 pass, 0 fail** (`node --test`)                                                                                  |
 | Built pages                            | **14**                                                                                                                |
 | Sitemap URLs                           | 13                                                                                                                    |
-| Warnings                               | none observed in the gate output                                                                                      |
+| Warnings                               | **12 `[WARN]` lines + 1 TypeScript warning** in the gate output, all pre-existing and non-blocking — itemised below   |
 | GitHub CI, tested commit               | **success** — [CI run 41197759670](https://github.com/tcyber925-del/ethioai-venture-website/actions/runs/41197759670) |
 | Tested tree == `f094b79` product tree  | yes — `git diff --stat f094b79..HEAD -- src astro.config.mjs package.json package-lock.json public scripts` is empty  |
 
 Every sub-gate passed: `format:check`, `lint`, `typecheck`, `test`, `astro sync`, `build`,
 `check:dist` (268 internal references), `check:seo`, `check:work`, `check:fonts`,
 `check:pending`, `check:a11y`. Raw output: `evidence/ENG-109/verify.log`.
+
+### The warnings, recorded
+
+Requirement 3 asks for every warning, so they are listed rather than waved away. None is a
+regression and none affects the verdict:
+
+- **3 × `[WARN] [glob-loader] No files found matching "**/*.md" in directory "src/content/research"`**
+  and **9 × `[WARN] [content] The collection "research" does not exist or is empty. Please check
+your content config file for errors.`** — the `research` collection is deliberately empty (the
+  `/research/` page renders an explicit "No research has been published yet" state). Expected, and
+  asserted by the test suite.
+- **1 × `tests/check-pending.test.mjs:633:14 - warning ts(6133): 'm' is declared but its value is
+never read.`** — an unused variable in a test file. Pre-existing, cosmetic.
+
+That is **12 `[WARN]` lines plus 1 TypeScript warning**. "0 problems" appears in the gate output
+only as individual checks' own result strings (`check:seo`/`check:dist`), not as a claim about the
+build's warning count.
 
 ## Requirement 5 — responsive and navigation
 
@@ -53,10 +70,11 @@ All **seven viewport widths × 14 routes = 98 combinations** were checked at the
 
 - Header/nav/footer reflow cleanly; the header is 152px tall at 320px (nav on its own row) and
   78px from 768px up.
-- The "Start a Project" CTA **never wraps** at any width — measured with `Range.getClientRects()`,
-  one line at every viewport (`scrollWidth ≤ clientWidth`). The taller 52px rect at 320–375px is
-  button padding, not text wrapping.
-- No nested interactive controls and no duplicate tab stops in any of the 98 combinations.
+- The "Start a Project" CTA **never wraps** at any width — measured with `Range.getClientRects()`
+  and recorded in the sweep as `textLines: 1` at every viewport. The taller 52px box at 320–375px
+  is button padding (`boxH: 52, textLines: 1`), not text wrapping.
+- No nested interactive controls in any of the 98 combinations. Each project card exposes exactly
+  one link, and it is the card's only tab stop (verified directly on `/work/`: 2 cards, 2 links).
 - Navigation destinations all resolve; the primary nav carries Solutions / Work / Research /
   About / Start a Project.
 
@@ -73,18 +91,18 @@ Evidence: `evidence/ENG-109/responsive-sweep.json`, `interaction-probes.json`,
 
 ## Requirement 6 — accessibility
 
-| Check                                       | Result across 98 combinations                                                                                                                                   |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Exactly one meaningful `<h1>` per route     | **pass** (1 on every route; the 404 correctly has none)                                                                                                         |
-| Heading order (no skipped levels)           | **pass**                                                                                                                                                        |
-| Landmark semantics (header/nav/main/footer) | **pass**                                                                                                                                                        |
-| Current-page nav semantics                  | **pass** — `aria-current="page"` on the matching item in both the primary and footer nav (2 per route, by design)                                               |
-| Accessible names on links/buttons           | **pass** — 0 nameless controls                                                                                                                                  |
-| Focus visibility                            | **pass** — global `:focus-visible` gives `outline: 2px solid var(--color-tertiary)`; confirmed with real key events                                             |
-| Reduced motion                              | **pass** — `prefers-reduced-motion: reduce` collapses transitions to 0.01ms                                                                                     |
-| Keyboard-only journeys                      | **pass** — from the top of `/work/`, the in-content "Start a Project" CTA is reached in 8 tab stops; Skip-to-content is first                                   |
-| Contrast — Work filter chips                | **pass at the tested commit** — default border `--color-secondary` (#525252, 7.81:1), pressed `--color-tertiary` (#0f5b5a, 7.88:1), plus a `font-weight` change |
-| Contrast — form input borders               | **pass** — #525252 (7.81:1) on white                                                                                                                            |
+| Check                                       | Result across 98 combinations                                                                                                                                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exactly one meaningful `<h1>` per route     | **pass** — 1 on all 13 content routes; `/404.html` also has 1 (`"Page not found"`), which is correct for a standalone error page                                                                            |
+| Heading order (no skipped levels)           | **pass**                                                                                                                                                                                                    |
+| Landmark semantics (header/nav/main/footer) | **pass**                                                                                                                                                                                                    |
+| Current-page nav semantics                  | **pass** — `aria-current="page"` on the matching item in both the primary and footer nav: 2 on each of the 12 nav routes, and correctly **0** on `/` and `/404.html`, neither of which is a nav destination |
+| Accessible names on links/buttons           | **pass** — 0 nameless controls                                                                                                                                                                              |
+| Focus visibility                            | **pass** — global `:focus-visible` gives `outline: 2px solid var(--color-tertiary)`; confirmed with real key events                                                                                         |
+| Reduced motion                              | **pass** — `prefers-reduced-motion: reduce` collapses transitions to 0.01ms                                                                                                                                 |
+| Keyboard-only journeys                      | **pass** — from the top of `/work/`, the in-content "Start a Project" CTA is reached in 8 tab stops; Skip-to-content is first                                                                               |
+| Contrast — Work filter chips                | **pass at the tested commit** — default border `--color-secondary` (#525252, 7.81:1), pressed `--color-tertiary` (#0f5b5a, 7.88:1), plus a `font-weight` change                                             |
+| Contrast — form input borders               | **pass** — #525252 (7.81:1) on white                                                                                                                                                                        |
 
 ### Observation, not a defect — the selected filter chip
 
@@ -136,6 +154,11 @@ re-audit as an open founder call.
   and raw runs are in `evidence/ENG-109/performance.json`. No improvement is claimed — there is no
   comparable baseline.
 
+Raw evidence for this section: `evidence/ENG-109/production-smoke.json` (per-route status,
+console errors, failed requests, broken-link checks, analytics hooks), `evidence/ENG-109/performance.json`,
+and — for the deployed-origin comparison — `evidence/ENG-109/deployed-origin-work.html.txt` and
+`evidence/ENG-109/deployed-origin-baselayout.css.txt`.
+
 ## FINDING 1 — HIGH: the deployed origin serves a stale build
 
 **The deployed site does not contain ENG-103 or ENG-106.** It predates both UX batches.
@@ -177,24 +200,25 @@ limitation with the access needed, per Requirement 7. Not a product defect.
 
 ## Non-findings (checked, clean)
 
-Zero horizontal overflow at any width; CTA never wraps; no nested interactive controls; no
-nameless controls; exactly one `<h1>` per route; heading order valid; `aria-current` correct;
-reduced-motion honoured; keyboard journeys work; analytics hooks present; no unsupported research
-claims; form correctly wired and deliberately not submitted.
+Zero horizontal overflow at any width; CTA never wraps (one text line at every viewport); no
+nested interactive controls; no nameless controls; one `<h1>` on every route including the 404;
+heading order valid; `aria-current` correct (2 on nav routes, 0 on `/` and the 404); reduced-motion
+honoured; keyboard journeys work; analytics hooks present; no unsupported research claims; form
+correctly wired and deliberately not submitted.
 
 ## Acceptance criteria status
 
-| AC                                                                 | Status                                                    |
-| ------------------------------------------------------------------ | --------------------------------------------------------- |
-| 1 — commit SHA, tool versions, viewport results, commands recorded | met                                                       |
-| 2 — `npm run verify` passes, or every failure classified           | met (exit 0, 455 tests, 14 pages)                         |
-| 3 — seven viewports across affected routes, with evidence          | met (98 combinations, 0 overflow)                         |
-| 4 — keyboard/a11y checks with findings and severity                | met                                                       |
-| 5 — fresh Impeccable output + ENG-103 AC11 disposition             | **not met** — tool absent; limitation recorded, AC11 open |
-| 6 — deployed smoke: pages, nav, metadata/SEO, errors, analytics    | met                                                       |
-| 7 — production form not triggered; status stated                   | met (not submitted; status stated)                        |
-| 8 — no implementation changes under this QA issue                  | met (diff touches `docs/` only)                           |
-| 9 — concise pass/fail report with severity-ranked findings         | met (this document)                                       |
+| AC                                                                 | Status                                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| 1 — commit SHA, tool versions, viewport results, commands recorded | met                                                                                |
+| 2 — `npm run verify` passes, or every failure classified           | met (exit 0, 455 tests, 14 pages; 12 `[WARN]` lines + 1 TS warning itemised above) |
+| 3 — seven viewports across affected routes, with evidence          | met (98 combinations, 0 overflow)                                                  |
+| 4 — keyboard/a11y checks with findings and severity                | met                                                                                |
+| 5 — fresh Impeccable output + ENG-103 AC11 disposition             | **not met** — tool absent; limitation recorded, AC11 open                          |
+| 6 — deployed smoke: pages, nav, metadata/SEO, errors, analytics    | met                                                                                |
+| 7 — production form not triggered; status stated                   | met (not submitted; status stated)                                                 |
+| 8 — no implementation changes under this QA issue                  | met (diff touches `docs/` only)                                                    |
+| 9 — concise pass/fail report with severity-ranked findings         | met (this document)                                                                |
 
 ## Recommendation
 
