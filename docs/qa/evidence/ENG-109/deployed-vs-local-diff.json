@@ -1,0 +1,18 @@
+[
+  {
+    "label": "deployed",
+    "chipBorderSecondary": false,
+    "chipBorderBorder": true,
+    "pressedHasFontWeight": false,
+    "cardOverlay": false,
+    "fontPreload": false
+  },
+  {
+    "label": "local",
+    "chipBorderSecondary": true,
+    "chipBorderBorder": false,
+    "pressedHasFontWeight": true,
+    "cardOverlay": false,
+    "fontPreload": true
+  }
+]

@@ -1,0 +1,146 @@
+{
+  "workCard": {
+    "cardCount": 2,
+    "linkCount": 2,
+    "details": [
+      {
+        "title": "EthioBio",
+        "interactive": 1,
+        "href": "/work/ethiobio",
+        "tabindex": null
+      },
+      {
+        "title": "EthioSci",
+        "interactive": 1,
+        "href": "/work/ethiosci",
+        "tabindex": null
+      }
+    ],
+    "overlay": {
+      "position": "absolute",
+      "inset": "0px",
+      "content": "\"\""
+    }
+  },
+  "filter": {
+    "present": true,
+    "hidden": false,
+    "before": 2,
+    "after": 2,
+    "beforePressed": ["true", "false"],
+    "afterPressed": ["false", "true"],
+    "count": "Showing 2 of 2 projects.",
+    "focusedTag": "BUTTON",
+    "focusVisible": "rgb(17, 91, 90) 3px"
+  },
+  "keyboardWork": {
+    "reachedCta": true,
+    "steps": 8,
+    "seq": [
+      "body:Skip to contentEthioAI Venture",
+      "a:Skip to content",
+      "a:EthioAI Venture",
+      "a:Solutions",
+      "a:Work",
+      "a:Research",
+      "a:About",
+      "a:Start a Project"
+    ]
+  },
+  "researchCta": [
+    {
+      "text": "Start a Project",
+      "href": "/start-a-project",
+      "visible": true,
+      "inMain": false,
+      "claim": false
+    },
+    {
+      "text": "Start a Project",
+      "href": "/start-a-project",
+      "visible": true,
+      "inMain": true,
+      "claim": false
+    },
+    {
+      "text": "Start a Project",
+      "href": "/start-a-project",
+      "visible": true,
+      "inMain": false,
+      "claim": false
+    }
+  ],
+  "researchBody": {
+    "text": "Research\n\nEach entry follows the same sequence: question, context, investigation, experiment, result, what we learned, and what comes next.\n\nNo research has been published yet.\n\nStart a Project",
+    "emptyState": false
+  },
+  "reducedMotion": {
+    "chipTransition": "1e-05s",
+    "cardTransition": "1e-05s",
+    "mediaMatches": true
+  },
+  "focusVisible": {
+    "tag": "A",
+    "outlineColor": "rgb(23, 23, 23)",
+    "outlineWidth": "3px",
+    "outlineStyle": "none",
+    "boxShadow": "none"
+  },
+  "form": {
+    "present": true,
+    "action": "https://formspree.io/f/xrpeggll",
+    "method": "post",
+    "honeypots": 2,
+    "inputCount": 6,
+    "inputs": [
+      {
+        "tag": "textarea",
+        "type": null,
+        "name": "problem",
+        "required": true,
+        "labelled": true,
+        "border": "rgb(82, 82, 82)"
+      },
+      {
+        "tag": "input",
+        "type": "text",
+        "name": "name",
+        "required": true,
+        "labelled": true,
+        "border": "rgb(82, 82, 82)"
+      },
+      {
+        "tag": "input",
+        "type": "email",
+        "name": "email",
+        "required": true,
+        "labelled": true,
+        "border": "rgb(82, 82, 82)"
+      },
+      {
+        "tag": "input",
+        "type": "text",
+        "name": "organization",
+        "required": false,
+        "labelled": true,
+        "border": "rgb(82, 82, 82)"
+      },
+      {
+        "tag": "input",
+        "type": "text",
+        "name": "_honey",
+        "required": false,
+        "labelled": false,
+        "border": "rgb(82, 82, 82)"
+      },
+      {
+        "tag": "input",
+        "type": "text",
+        "name": "_gotcha",
+        "required": false,
+        "labelled": false,
+        "border": "rgb(82, 82, 82)"
+      }
+    ]
+  }
+}

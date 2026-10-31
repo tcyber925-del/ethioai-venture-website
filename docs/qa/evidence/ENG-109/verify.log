@@ -1,0 +1,675 @@
+
+> ethioai-venture-website@0.0.0 verify
+> npm run format:check && npm run lint && npm run typecheck && npm run test && npx astro sync && npm run build && npm run check:dist && npm run check:seo && npm run check:work && npm run check:fonts && npm run check:pending && npm run check:a11y
+
+
+> ethioai-venture-website@0.0.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> ethioai-venture-website@0.0.0 lint
+> eslint .
+
+
+> ethioai-venture-website@0.0.0 typecheck
+> astro check
+
+11:56:34 [content] Syncing content
+11:56:34 [WARN] [glob-loader] No files found matching "**/*.md" in directory "src/content/research"
+11:56:34 [content] Synced content
+11:56:34 [types] Generated 512ms
+11:56:34 [check] Getting diagnostics for Astro files in /workspace/project/ethioai-venture-website-factory/001-post-ux-qa-regression...
+[96mtests/check-pending.test.mjs[0m:[93m633[0m:[93m14[0m - [93mwarning[0m[90m ts(6133): [0m'm' is declared but its value is never read.
+
+[7m633[0m             (m, a, t, c) =>
+[7m   [0m [93m             ~[0m
+
+Result (63 files): 
+- 0 errors
+- 0 warnings
+- 1 hint
+
+
+> ethioai-venture-website@0.0.0 test
+> node --test
+
+▶ listeners are registered on the fake globals
+  ✔ registers load on window and click/focusin/submit on document (1.08005ms)
+✔ listeners are registered on the fake globals (2.04781ms)
+▶ click delegation (AC1, AC3, AC5)
+  ✔ in-content anchor clicks classify from href (0.9352ms)
+  ✔ section-open events are in-content only: header/footer nav clicks don't count (0.55109ms)
+  ✔ CTA clicks count from nav too (cta-start-a-project is not in-content gated) (0.19589ms)
+  ✔ unclassified surfaces report nothing (0.21156ms)
+✔ click delegation (AC1, AC3, AC5) (2.27413ms)
+▶ explicit hook precedence (AC4)
+  ✔ data-analytics-event on the anchor wins over href classification (0.64603ms)
+  ✔ a hook on an ancestor wins over the anchor href (0.19702ms)
+  ✔ hooks report even outside <main> (only section-open events are gated) (0.23499ms)
+  ✔ non-element targets are ignored (0.28083ms)
+✔ explicit hook precedence (AC4) (1.78185ms)
+▶ form lifecycle (AC2)
+  ✔ first focusin in the hooked form reports form-start exactly once (0.58306ms)
+  ✔ focusin outside a hooked form reports nothing (0.13917ms)
+  ✔ submit on the hooked form reports form-submit; unhooked forms don't (0.16301ms)
+  ✔ submit target without element surface is ignored (0.08029ms)
+✔ form lifecycle (AC2) (1.15243ms)
+▶ queue and flush semantics
+  ✔ events before count.js arrives are queued, then flushed on the first report (0.26859ms)
+  ✔ a slow count.js that appears after load still receives pre-load events (0.21455ms)
+  ✔ load flushes the queue when count.js already ran (0.13475ms)
+  ✔ queue is bounded with drop-oldest semantics (0.33448ms)
+  ✔ nothing is ever sent when count.js never appears (0.34511ms)
+✔ queue and flush semantics (1.56765ms)
+▶ goatcounterEndpoint
+  ✔ empty site ID (pending provisioning) disables analytics with null (0.94475ms)
+  ✔ whitespace-only site ID also disables analytics (0.17024ms)
+  ✔ site ID derives the official count endpoint (0.22779ms)
+  ✔ valid site slug forms are accepted (0.22746ms)
+  ✔ invalid site IDs are rejected with a diagnostic naming the value (0.62571ms)
+  ✔ surrounding whitespace in the site ID is tolerated (0.16638ms)
+  ✔ current config is either pending (null) or a valid goatcounter endpoint (3.47627ms)
+✔ goatcounterEndpoint (7.50024ms)
+▶ delegation hook contract (documented for ENG-83)
+  ✔ form hook attribute (0.41393ms)
+  ✔ element event hook attribute (0.21461ms)
+  ✔ form event names (0.20864ms)
+✔ delegation hook contract (documented for ENG-83) (1.20058ms)
+▶ AC1 — Start a Project CTA clicks classify from href
+  ✔ "/start-a-project" → cta-start-a-project (0.27983ms)
+  ✔ "/start-a-project/" → cta-start-a-project (0.13536ms)
+  ✔ "/start-a-project?from=nav#top" → cta-start-a-project (0.06107ms)
+  ✔ "/start-a-project-old" → null (0.07259ms)
+  ✔ "/start-a-project/other" → null (0.06221ms)
+✔ AC1 — Start a Project CTA clicks classify from href (0.84189ms)
+▶ AC3 — work/project opens classify from href
+  ✔ "/work" → work-open (0.14649ms)
+  ✔ "/work/" → work-open (0.068ms)
+  ✔ "/work?status=x" → work-open (0.04426ms)
+  ✔ "/work/ethiobio" → project-open (0.04083ms)
+  ✔ "/work/ethiobio#evidence" → project-open (0.0398ms)
+  ✔ "/workflow" → null (0.04117ms)
+  ✔ "/works" → null (0.0838ms)
+✔ AC3 — work/project opens classify from href (0.67245ms)
+▶ AC5 — solution/research engagement classifies from href
+  ✔ "/solutions" → solution-open (0.16692ms)
+  ✔ "/solutions/workflow-automation" → solution-open (0.05687ms)
+  ✔ "/research" → research-open (0.04685ms)
+  ✔ "/research/some-note" → research-open (0.06061ms)
+  ✔ "/solutionsx" → null (0.05037ms)
+  ✔ "/researching" → null (0.04705ms)
+✔ AC5 — solution/research engagement classifies from href (0.65244ms)
+▶ AC4 — demo/GitHub clicks require an explicit hook
+  ✔ explicit hook wins over href classification (0.1246ms)
+  ✔ explicit hook works on internal hrefs too (0.10342ms)
+  ✔ empty/whitespace explicit hook falls back to href classification (0.08564ms)
+  ✔ external links without a hook are never classified (0.09317ms)
+✔ AC4 — demo/GitHub clicks require an explicit hook (0.58508ms)
+▶ untracked surfaces stay null (privacy: counts only, no surprises)
+  ✔ "/" → null (0.17552ms)
+  ✔ "/about" → null (0.05225ms)
+  ✔ "#main" → null (0.04934ms)
+  ✔ "mailto:hi@example.com" → null (0.06248ms)
+  ✔ "tel:+25111" → null (0.04966ms)
+  ✔ "" → null (0.06754ms)
+  ✔ "work/ethiobio" → null (0.05174ms)
+✔ untracked surfaces stay null (privacy: counts only, no surprises) (0.75865ms)
+▶ the Start a Project form is wired to the analytics client
+  ✔ the form renders FORM_HOOK_ATTRIBUTE (0.15856ms)
+  ✔ the gate is the analytics enabled flag, not a literal (0.20556ms)
+✔ the Start a Project form is wired to the analytics client (0.48406ms)
+✔ passes on a compliant build (110.251703ms)
+✔ REDS when the chip boundary regresses to --color-border (77.429916ms)
+✔ REDS when the chip pressed state loses its non-colour cue (81.566835ms)
+✔ accepts the chip pressed state when it carries a weight cue (95.123144ms)
+✔ REDS when the chip rule is missing entirely (94.858295ms)
+✔ REDS when a nav list loses role=list (79.628655ms)
+✔ REDS when aria-current is missing on the current route (92.878454ms)
+✔ REDS when aria-current is added on a link that is not current (89.260165ms)
+✔ REDS when nav links carry no block padding (93.279655ms)
+✔ REDS when nav block padding is zeroed out (117.795763ms)
+✔ REDS when block padding is zeroed via the two-value form (99.884554ms)
+✔ REDS when block padding is zeroed with !important (96.688094ms)
+✔ REDS when a page does not link the stylesheet carrying the nav rule (81.618365ms)
+✔ accepts the nav rule when it arrives via an inline <style> (92.215285ms)
+✔ REDS when a marker-stripped list loses role=list (92.350324ms)
+✔ does not require role=list on a list that keeps its markers (96.208875ms)
+✔ REDS when a SECOND list of the same class loses role=list (88.405284ms)
+✔ REDS when a marker-stripped <ol> loses role=list (95.064325ms)
+✔ REDS when list-style:none arrives only inside a media query (131.078672ms)
+✔ REDS when list-style-type:none strips a list's markers (86.079475ms)
+✔ REDS when a classless list is stripped by an ancestor selector (92.071215ms)
+✔ REDS when the target size is sub-minimum (108.184073ms)
+✔ REDS when a later padding shorthand overrides the block padding (99.498724ms)
+✔ REDS when the spacing token resolves below the minimum (83.052915ms)
+✔ REDS when the primary nav is absent (89.693365ms)
+✔ root route marks nothing current (97.564384ms)
+✔ passes a compliant work card (98.685694ms)
+✔ REDS when a card gains a second interactive element (84.986266ms)
+✔ REDS when a card gains a button alongside its title link (85.436954ms)
+✔ REDS when the card root loses its positioning context (100.917265ms)
+✔ REDS when the card's zero-inset overlay is removed (88.508734ms)
+✔ REDS when the overlay is present but no longer covers the card (116.937763ms)
+✔ REDS when the card loses its :focus-within state (90.823265ms)
+✔ REDS when the hover and focus states re-state the default boundary (90.729295ms)
+✔ REDS when the reduced-motion override is dropped (83.710415ms)
+✔ the blanket global reduced-motion rule does not satisfy the card check (101.866694ms)
+✔ accepts the four-longhand zero inset on the overlay (102.655024ms)
+✔ does not require the card contract on a page that renders no cards (98.689964ms)
+✔ passes on a compliant Work index: one in-content CTA after the evidence (101.981084ms)
+✔ passes on a compliant Research index: CTA after the empty state (97.398264ms)
+✔ does not count the shell nav's own /start-a-project links (102.125494ms)
+✔ REDS when the in-content CTA is missing entirely (92.936164ms)
+✔ REDS when a second in-content CTA is added (98.847525ms)
+✔ REDS when the in-content CTA wording is altered (101.479914ms)
+✔ REDS when the CTA moves before the evidence (99.076554ms)
+✔ REDS when the research CTA is nested inside the empty state (96.811984ms)
+✔ REDS when the research CTA moves before the entry list (99.632884ms)
+✔ clean page passes (113.108023ms)
+✔ empty lang fails (86.498285ms)
+✔ h1 inside inline script ignored (95.674234ms)
+✔ missing script src fails (91.419115ms)
+✔ empty viewport fails (85.288315ms)
+✔ commented-out dead link ignored (83.551005ms)
+✔ fragment to missing target fails (89.715844ms)
+✔ unquoted dead href fails (110.208234ms)
+✔ base64 srcset dead target fails (94.476734ms)
+✔ base64 srcset live target passes (84.408715ms)
+✔ raw svg payload live resume passes (96.777255ms)
+✔ raw svg payload dead resume fails (91.986574ms)
+✔ comma filename live passes (90.573485ms)
+✔ comma filename dead fails (87.479255ms)
+✔ data:text payload passes (101.678134ms)
+✔ apostrophe inside differently-quoted description passes (98.648404ms)
+✔ uppercase tags/attrs pass (111.340933ms)
+✔ unquoted name=description passes (101.695264ms)
+✔ content-before-name order passes (91.757825ms)
+✔ whitespace around = passes (101.390734ms)
+✔ spaced dead href fails (113.925573ms)
+✔ spaced dead srcset fails (90.552865ms)
+✔ spaced live href passes (99.654664ms)
+✔ self-closing h1 counts as the h1 (98.945234ms)
+✔ <base> moves relative resolution (86.547055ms)
+✔ <base> pointing at a missing dir fails (94.784955ms)
+✔ payload word.ext fragment never resumes (96.902465ms)
+✔ bare-relative entry after data: is skipped (90.155344ms)
+✔ trailing-space live href passes (98.451025ms)
+✔ trailing-space dead href fails (100.388274ms)
+✔ numeric entity decodes to live path (108.598563ms)
+✔ undecodable named entity skipped (87.351125ms)
+✔ payload style= fragment never resumes (96.799994ms)
+✔ fake h1 inside attribute value ignored (95.275215ms)
+✔ offsite base sends root-relative refs offsite (96.763744ms)
+✔ quote-suffix payload token never resumes (review repro) (94.354545ms)
+✔ xlink:href dead target fails (94.218284ms)
+✔ xlink:href live target passes (88.985385ms)
+✔ fragment under <base> resolves against it (missing base dir fails) (82.272955ms)
+✔ fragment under root <base> passes (86.380375ms)
+✔ fragment without <base> is same-document (skipped) (102.430564ms)
+✔ documented residual: clean quote-free payload path token can red (97.162234ms)
+✔ prose mentioning href= is not a link (89.827705ms)
+✔ code sample text mentioning src= is not a link (89.951034ms)
+✔ style-string href= is not a link (85.725715ms)
+✔ template inner markup is inert (79.821086ms)
+✔ h1 inside template does not count (83.642865ms)
+✔ h1 inside textarea does not count (95.607324ms)
+✔ h1 inside style string does not count (93.266315ms)
+✔ h1 inside title does not count (90.039684ms)
+✔ interior newline in root path normalizes (111.069624ms)
+✔ backslash in root path maps to slash (111.212293ms)
+✔ uppercase .HTML page is checked (not exempt) (96.346074ms)
+✔ quote > inside html attr doesn't hide lang (92.203015ms)
+✔ quote > inside html attr with lang absent fails (98.702444ms)
+✔ literal <html lang> in content can't rescue bare html (75.717456ms)
+✔ quote > inside meta attr doesn't hide description (100.962324ms)
+✔ empty description behind quote > fails (90.222704ms)
+✔ content-before-name behind quote > passes (103.340734ms)
+✔ quote > inside base attr still detected (95.007695ms)
+✔ empty title behind quote > fails (89.696245ms)
+✔ non-empty title behind quote > passes (86.501004ms)
+✔ fake empty title inside <style> doesn't count (81.563345ms)
+✔ fake empty meta inside <template> doesn't count (101.580545ms)
+✔ svg <title> in body can't rescue missing document title (97.474364ms)
+✔ h1 inside <noscript> doesn't count (85.659355ms)
+✔ dead link only inside <noscript> ignored (96.072074ms)
+✔ description only inside <noscript> fails (100.380894ms)
+✔ quote > in script open tag doesn't disable later scanning (75.791036ms)
+✔ attribute-shaped href inside alt value is not a link (76.421585ms)
+✔ attribute-shaped href inside content value is not a link (78.451285ms)
+✔ attribute-shaped href inside data value is not a link (79.819156ms)
+✔ attribute-shaped srcset inside alt value is not a srcset (80.705595ms)
+✔ lookalike lang=zz inside html attr value can't rescue missing lang (76.268086ms)
+✔ namespaced attr value with h1 doesn't inflate the count (107.338323ms)
+✔ namespaced dead reference still reds (count fixed, link genuinely dead) (96.313385ms)
+✔ unclosed container fails loudly (malformed, documented boundary) (89.247744ms)
+✔ title-shaped markup inside head attr value can't shadow the real title (84.087855ms)
+✔ body-shaped markup inside head attr value can't truncate the head (84.019485ms)
+✔ title-shaped markup inside attr value can't fake a missing title (81.004786ms)
+✔ text-level h1 behind prose shaped like name = "..." still counts (79.577346ms)
+✔ text-level second h1 isn't masked by prose-shaped blanking (77.461025ms)
+✔ template-shaped text in attr value can't open a strip (false red) (83.965025ms)
+✔ template-shaped text in attr value can't eat a live dead link (78.481126ms)
+✔ comment-shaped text in attr value can't eat a live dead link (74.599555ms)
+✔ script-shaped text in attr value can't eat a live dead link (80.050486ms)
+✔ unclosed comment runs to EOF (like parsers) (75.564885ms)
+✔ self-closing <script/> still opens (raw body dropped) (85.162025ms)
+✔ unquoted value with apostrophe can't open a phantom quote (desc meta) (76.903296ms)
+✔ unquoted value with apostrophe keeps later h1 outside the tag (92.235064ms)
+✔ phantom quote with no later quote still scans the dead link (95.483844ms)
+✔ named entity without semicolon is skipped, not red-flagged (93.085575ms)
+✔ numeric entity without semicolon decodes to the real path (83.477095ms)
+✔ abrupt <!--> comment closes at its > (h1 still counts) (82.822895ms)
+✔ abrupt <!---> comment closes at its > (h1 still counts) (82.750415ms)
+✔ svg h1 breaks out of foreign content and counts (two real h1s) (76.996766ms)
+✔ math h1 breaks out of foreign content and counts (two real h1s) (75.258535ms)
+✔ page whose only heading is an svg h1 passes (breakout → one real h1) (77.113326ms)
+✔ h1 inside svg foreignObject (HTML integration point) counts (91.691644ms)
+✔ svg <title> is an integration point — its h1 counts, not raw text (77.644876ms)
+✔ first <base> WITH href wins (href-less <base> skipped) (86.671465ms)
+✔ CDATA text node: link and h1 inside it are invisible (foreign content) (76.161705ms)
+✔ iframe fallback content is a child document — link not scanned (81.500165ms)
+✔ iframe src is kept and checked (open tag survives) (77.174376ms)
+✔ object fallback content never renders — link not scanned (80.114865ms)
+✔ plaintext runs to EOF — trailing link not scanned (97.252564ms)
+✔ xmp raw-text body not scanned (85.782045ms)
+✔ noframes raw-text body not scanned (91.770445ms)
+✔ <?php ... ?> is a bogus comment — dropped to its first > (89.581745ms)
+✔ <!foo ...> non-doctype markup declaration is a bogus comment (91.090424ms)
+✔ <object data> is scanned — missing target reds (72.164856ms)
+✔ <object data> present target passes (78.025225ms)
+✔ plain data= on a non-object element is not a fetch target (79.268726ms)
+✔ duplicate href: browsers keep the first — second never fetched (74.135775ms)
+✔ svg <title> in head (before <body>) is not the document title (74.806396ms)
+✔ <svg / > stays open — its title lands in the svg, not the head (85.295775ms)
+✔ <svg / > stays open — title behind it is a foreign label whose h1 counts (100.053614ms)
+✔ <math / > stays open — its title lands in the math, not the head (71.917096ms)
+✔ <svg title=x/> — unquoted value swallows the slash, tag stays open (87.714525ms)
+✔ <svg /> — structural slash before `>` self-closes (77.901795ms)
+✔ <svg title="x"/> — quoted value ends before the slash, self-closes (85.250115ms)
+✔ <svg a=b c/> — slash glued to an attribute name still self-closes (87.441095ms)
+✔ video poster= is a documented non-checked fetch attribute (94.414694ms)
+✔ form action=/formaction= are documented non-checked fetch attributes (89.776045ms)
+✔ utm_-tagged dead URL is checked — &utm_source is no entity (83.968475ms)
+✔ live target with utm_ query passes (query discarded before lookup) (75.641255ms)
+✔ bare &gclid param at the end doesn't silence a dead target (76.293996ms)
+✔ entity-shaped text in the fragment doesn't silence a dead target (75.819455ms)
+✔ entity-shaped text in the PATHNAME stays a documented skip (no table) (82.919506ms)
+✔ unquoted value keeps `=` — live /a=b.html passes (no false red) (90.892284ms)
+✔ unquoted value keeps `=` — /exists=dead stays dead (no false pass) (87.361155ms)
+✔ unquoted value keeps the apostrophe — /it's.html passes (78.150435ms)
+✔ unquoted value keeps `"` — /say"hi.html passes (78.034756ms)
+✔ unquoted value keeps a backtick — /a`b.html passes (99.135244ms)
+✔ unquoted value keeps `<` — /a<b.html passes (85.754845ms)
+✔ analytics disabled: a clean dist passes and reports the state (82.135835ms)
+✔ analytics disabled: count-script bytes in dist fail (87.984015ms)
+✔ analytics disabled: markup event hooks in dist fail (89.885675ms)
+✔ analytics disabled: listener code in a bundled asset fails (80.764405ms)
+✔ analytics enabled: every page must carry the count script (168.67735ms)
+✔ analytics enabled: one page missing the count script fails the build (76.559145ms)
+✔ an invalid site ID fails the check with the build diagnostic (73.685786ms)
+▶ check:pending passes on a correct build
+  ✔ the fixture is genuinely correct (57.637827ms)
+  ✔ the fixture is non-trivial — it must exercise real steps (0.67765ms)
+✔ check:pending passes on a correct build (59.472467ms)
+▶ check:pending catches the regressions it exists for
+  ✔ RED on a step is neither rendered nor named pending (53.922247ms)
+  ✔ RED on a step is both rendered and named pending (57.878096ms)
+  ✔ RED on a pending entry names a step that is not approved (50.452117ms)
+  ✔ RED on a solution step vanishes silently (43.181048ms)
+  ✔ RED on Related Work is named pending without the honest reason (47.583397ms)
+  ✔ RED on the pending note claims no relationship while Related Work is rendered (59.649516ms)
+  ✔ RED on a chip-less, prose-less card presents an entry with no evidence (46.109748ms)
+  ✔ RED on an evidence card drops a link its prose claims, and the href reappears later on the page (53.432806ms)
+  ✔ RED on a technology chip is altered on the card (50.458348ms)
+  ✔ RED on a chip is invented for an entry that does not exist (51.390717ms)
+  ✔ RED on the approved summary is no longer rendered (51.749997ms)
+  ✔ RED on the evidence prose is altered in the output (46.507668ms)
+  ✔ RED on the section proves the website again (60.047216ms)
+  ✔ RED on an approved summary is fabricated on the homepage (54.171637ms)
+  ✔ RED on an evidence card drops a link its prose claims (49.608887ms)
+  ✔ RED on a live region moves inside the form (50.742377ms)
+  ✔ RED on a live region is dropped by the build (46.474037ms)
+  ✔ RED on the primary nav loses an item (44.436018ms)
+  ✔ RED on the primary nav is restyled as buttons (48.449327ms)
+  ✔ RED on a page is missing from the build entirely (49.517187ms)
+✔ check:pending catches the regressions it exists for (1018.53698ms)
+▶ two evidenced entries coexist
+  ✔ both entries' chips match their own lists, in either card order (107.989693ms)
+  ✔ a stack-declaring entry with no card at all is still caught (53.155527ms)
+✔ two evidenced entries coexist (161.38278ms)
+▶ an ampersand in an approved URL is not a false red
+  ✔ the gate passes on a rendered href Astro has escaped (43.544528ms)
+✔ an ampersand in an approved URL is not a false red (43.675698ms)
+▶ the gate follows the `slug:` field, not the filename
+  ✔ renaming a slug in frontmatter does not redden the gate (51.317737ms)
+  ✔ but a genuinely missing card for that entry still reddens (45.991817ms)
+✔ the gate follows the `slug:` field, not the filename (97.570064ms)
+▶ check:pending is wired into verify and CI
+  ✔ npm run verify runs the gate after the build (0.13576ms)
+  ✔ CI runs the gate after the build step (0.06766ms)
+  ✔ the gate refuses to run without a build (37.112838ms)
+✔ check:pending is wired into verify and CI (37.516178ms)
+✔ clean dist passes (116.539993ms)
+✔ svg <title> decoy in head cannot satisfy presence (97.575764ms)
+✔ <title> after the body anchor does not count (88.897955ms)
+✔ svg label matching another page's title is not a duplicate (91.352635ms)
+✔ <title> inside an inline script body does not count (96.900434ms)
+✔ <title> inside an inline style body does not count (94.600364ms)
+✔ <svg title=x/> is not self-closing — a later <title> stays foreign (95.763345ms)
+✔ <svg/> really self-closing — a later <title> counts (79.916085ms)
+✔ <svg title="x"/> self-closes — a later <title> counts (92.524835ms)
+✔ duplicate head title across pages reds (99.288725ms)
+✔ duplicate meta description across pages reds (89.672604ms)
+✔ 404 without noindex reds (98.068405ms)
+✔ noindex on a non-404 page reds (92.322934ms)
+✔ canonical not equal to emitted path reds (107.847114ms)
+✔ missing canonical on a non-noindex page reds (96.034564ms)
+✔ canonical on the noindex 404 reds (95.109575ms)
+✔ missing og:url reds (93.095664ms)
+✔ og:url ≠ canonical reds (79.857195ms)
+✔ missing twitter:card reds (80.574476ms)
+✔ missing Open Graph tags red (76.847975ms)
+✔ missing JSON-LD reds (92.835605ms)
+✔ unparseable JSON-LD reds (83.687045ms)
+✔ JSON-LD @type other than WebSite reds (101.399584ms)
+✔ body-scoped canonical does not satisfy the check (98.182514ms)
+✔ body-scoped meta description does not satisfy the check (79.047805ms)
+✔ body-scoped noindex is ignored — the page still passes (85.553285ms)
+✔ dead sitemap <loc> reds (80.530935ms)
+✔ sitemap <loc> off the site base reds (90.425495ms)
+✔ robots.txt without the sitemap line reds (94.044855ms)
+✔ passes when both hide rules and all pages are present (46.559037ms)
+✔ finds the rules in a stylesheet that carries only design tokens (43.998197ms)
+✔ matches Astro's injected scoping attribute between class and [hidden] (47.571917ms)
+✔ fails when the scoped project-card rule is absent from the inline style (41.553958ms)
+✔ fails when the project-card hide rule is dropped from the build (42.367687ms)
+✔ fails when the filter hide rule is dropped from the build (35.976508ms)
+✔ fails when the selector survives but its declaration does not (36.581408ms)
+✔ tolerates minified declaration spacing and ordering (47.463587ms)
+✔ fails when a declared project page is missing from the build (47.660778ms)
+✔ fails when the /work index itself is missing (39.890667ms)
+✔ requires a page for every declared project slug, not a fixed list (35.412478ms)
+✔ reports a missing dist instead of throwing (37.955978ms)
+✔ does not require an external stylesheet when inline styles carry the rules (48.996897ms)
+✔ fails when there is no CSS and no HTML to inspect (39.802097ms)
+✔ still requires the /work index when no content collection is present (84.763155ms)
+✔ fails when the rule appears only as prose in the page body (47.426158ms)
+✔ fails when both rules sit in an HTML comment with zero shipped CSS (42.668527ms)
+✔ fails when the rule is only a CSS comment inside a real style block (40.045458ms)
+✔ fails when the rule appears only inside an attribute value (36.353108ms)
+✔ still passes when the rule is inside a real style block, and names the carrier (36.195947ms)
+✔ discovers slugs in nested collection directories (41.685528ms)
+✔ ignores a slug: line in the body and a trailing comment (43.384407ms)
+✔ accepts flat file.html build output as well as directory format (53.000947ms)
+▶ hasContent — the one definition of approved content
+  ✔ absent values are not content (0.78991ms)
+  ✔ a string with non-whitespace is content (0.13459ms)
+  ✔ whitespace-only is NOT content (0.20345ms)
+  ✔ leading or trailing whitespace around real content still counts (0.12027ms)
+✔ hasContent — the one definition of approved content (2.50632ms)
+▶ hasListItem — the same rule, applied to a list
+  ✔ an absent or empty list has no content (1.21075ms)
+  ✔ a list of only blank entries has no content (0.13988ms)
+  ✔ one real entry is enough (0.15135ms)
+✔ hasListItem — the same rule, applied to a list (1.79106ms)
+▶ every surface uses the shared predicate
+  ✔ src/components/solutions/RelatedWork.astro imports the shared predicate (0.61129ms)
+  ✔ src/components/solutions/RelatedWork.astro has no local "has content" test (3.26583ms)
+  ✔ src/components/work/ProjectCard.astro imports the shared predicate (0.26506ms)
+  ✔ src/components/work/ProjectCard.astro has no local "has content" test (0.31304ms)
+  ✔ src/components/solutions/SolutionCard.astro imports the shared predicate (0.13496ms)
+  ✔ src/components/solutions/SolutionCard.astro has no local "has content" test (0.28212ms)
+  ✔ src/components/research/ResearchCard.astro imports the shared predicate (0.14562ms)
+  ✔ src/components/research/ResearchCard.astro has no local "has content" test (0.27275ms)
+  ✔ src/pages/research/[slug].astro imports the shared predicate (0.11624ms)
+  ✔ src/pages/research/[slug].astro has no local "has content" test (0.51314ms)
+  ✔ src/pages/index.astro imports the shared predicate (0.18086ms)
+  ✔ src/pages/index.astro has no local "has content" test (0.81289ms)
+  ✔ src/pages/work/[project].astro imports the shared predicate (0.10508ms)
+  ✔ src/pages/work/[project].astro has no local "has content" test (0.66172ms)
+  ✔ src/pages/solutions/[slug].astro imports the shared predicate (0.14968ms)
+  ✔ src/pages/solutions/[slug].astro has no local "has content" test (0.53411ms)
+✔ every surface uses the shared predicate (9.132749ms)
+▶ decodeStore
+  ✔ resolves the string-pool format into collections, entries and data (1.14621ms)
+✔ decodeStore (2.20947ms)
+▶ parseDuplicateWarnings
+  ✔ extracts collection, colliding slug and both files (1.236129ms)
+  ✔ tolerates the message without its blank line (0.29905ms)
+  ✔ returns empty for a clean sync (0.27215ms)
+✔ parseDuplicateWarnings (2.123089ms)
+▶ listCollectionMdFiles
+  ✔ missing collection directory fails with a clear diagnostic (0.73718ms)
+✔ listCollectionMdFiles (0.88627ms)
+▶ findDuplicateSlugs
+  ✔ reports a slug used twice, naming the colliding slug and both files (0.48978ms)
+  ✔ returns empty when every slug is unique (0.20759ms)
+  ✔ ignores entries without a slug (0.1538ms)
+✔ findDuplicateSlugs (1.28079ms)
+▶ src/content slug uniqueness
+  ✔ no duplicate slugs in any collection (1524.52821ms)
+✔ src/content slug uniqueness (1524.67869ms)
+▶ frontmatter shapes (materialized through Astro's parser)
+  ✔ detects both bypass duplicates and parses every other shape (2643.385674ms)
+  ✔ detects a byte-identical copy via reconciliation (digest dedupe never warns) (2553.94327ms)
+  ✔ attributes a duplicate on a COLD store — declared slug, no loader warning needed (2443.358396ms)
+✔ frontmatter shapes (materialized through Astro's parser) (7640.99189ms)
+▶ the Inter subsets are present and well formed
+  ✔ both subsets ship (0.95885ms)
+  ✔ the OFL licence travels with the binaries (0.19027ms)
+  ✔ the shipped subsets are the ones tools/build-fonts.py produces (0.87356ms)
+✔ the Inter subsets are present and well formed (3.18507ms)
+▶ the stylesheet declares the faces
+  ✔ Inter is declared for the weights the design system uses (0.42541ms)
+  ✔ font-display is swap, so text is never invisible (0.14542ms)
+  ✔ both subsets are referenced, and unicode-range gates them (0.13844ms)
+  ✔ the latin range starts at U+0001 and covers U+2192 (0.28425ms)
+  ✔ no external font provider is referenced (0.2375ms)
+✔ the stylesheet declares the faces (2.37206ms)
+▶ the head preloads the face every page needs
+  ✔ the latin face is preloaded (0.2617ms)
+  ✔ preload carries crossorigin (0.26265ms)
+  ✔ latin-ext is not preloaded (0.1489ms)
+  ✔ fonts.css is imported before the token and global stylesheets (0.14494ms)
+✔ the head preloads the face every page needs (1.11663ms)
+▶ the locked font token is untouched
+  ✔ --font-sans still names Inter first (0.15249ms)
+✔ the locked font token is untouched (0.23745ms)
+▶ check:fonts passes on correct output
+  ✔ accepts a well-formed build (47.199407ms)
+✔ check:fonts passes on correct output (47.326707ms)
+▶ check:fonts catches the regressions it exists for
+  ✔ RED on the minifier's U+?? corruption survives the build (50.144697ms)
+  ✔ RED on no @font-face reaches the output (54.693967ms)
+  ✔ RED on the latin face loses the → codepoint (43.525307ms)
+  ✔ RED on the latin range reverts to a U+0000 start (47.910437ms)
+  ✔ RED on the fonts are not emitted at all (46.044378ms)
+  ✔ RED on the licence is not shipped with the binaries (55.359806ms)
+  ✔ RED on the preload is dropped (40.447948ms)
+  ✔ RED on the preload loses crossorigin (fetched twice) (46.335307ms)
+  ✔ RED on the preload points at the wrong subset, preloading one no page needs (43.153468ms)
+  ✔ RED on the faces are served from an external font host (45.084287ms)
+  ✔ RED on font-display is not swap (41.056578ms)
+✔ check:fonts catches the regressions it exists for (514.71179ms)
+▶ check:fonts refuses to run without a build
+  ✔ exits non-zero when dist/ is absent (37.279038ms)
+✔ check:fonts refuses to run without a build (37.413437ms)
+▶ check:fonts is wired into verify and CI
+  ✔ npm run verify runs it after the build (0.30401ms)
+  ✔ CI runs it after Build (0.53011ms)
+✔ check:fonts is wired into verify and CI (1.01ms)
+▶ normalizeRoutePath
+  ✔ "/work" → "work" (1.09832ms)
+  ✔ "/work/" → "work" (1.75519ms)
+  ✔ "/work?tab=1#top" → "work" (0.33036ms)
+  ✔ "/" → "" (0.21049ms)
+  ✔ "" → "" (0.10396ms)
+  ✔ "#anchor" → "" (0.08128ms)
+  ✔ "/solutions/workflow-automation" → "solutions/workflow-automation" (0.19621ms)
+✔ normalizeRoutePath (5.15051ms)
+▶ isInternalSitePath
+  ✔ "/work" → true (0.77191ms)
+  ✔ "/" → true (0.17597ms)
+  ✔ "/solutions/x?y" → true (0.15101ms)
+  ✔ "//cdn.example.com/x" → false (0.81318ms)
+  ✔ "https://example.com" → false (0.07131ms)
+  ✔ "mailto:hi@example.com" → false (0.19901ms)
+  ✔ "tel:+25111" → false (0.05965ms)
+  ✔ "#anchor" → false (0.05189ms)
+  ✔ "" → false (0.04979ms)
+✔ isInternalSitePath (2.91758ms)
+▶ segmentPattern
+  ✔ dynamic segment matches any single segment (0.32626ms)
+  ✔ literal segment is regex-escaped (0.16463ms)
+✔ segmentPattern (0.61484ms)
+▶ filePattern / routeMatchesFile
+  ✔ index vs index → true (0.32069ms)
+  ✔ about vs about → true (0.10036ms)
+  ✔ start-a-project vs start-a-project → true (0.23509ms)
+  ✔ solutions/index vs solutions → false (0.17948ms)
+  ✔ work/[project] vs work/ethiobio → true (0.12081ms)
+  ✔ work/[project] vs work → false (0.0607ms)
+  ✔ work/[project] vs work/a/b → false (0.04938ms)
+  ✔ research/[slug] vs research/my-note → true (0.09764ms)
+  ✔ solutions/[slug] vs solutions/workflow-automation → true (0.10068ms)
+  ✔ docs/[...slug] vs docs → true (0.15045ms)
+  ✔ docs/[...slug] vs docs/a/b → true (0.0601ms)
+  ✔ [...slug] vs anything → true (0.0904ms)
+  ✔ a.b/c vs a.b/c → true (0.08388ms)
+  ✔ a.b/c vs axb/c → false (0.0654ms)
+✔ filePattern / routeMatchesFile (2.17123ms)
+▶ isCurrentNavHref (ENG-103 aria-current)
+  ✔ "/work" on "/work" → true (0.39751ms)
+  ✔ "/work" on "/work/" → true (0.25635ms)
+  ✔ "/work" on "/work/ethiosci" → true (0.07788ms)
+  ✔ "/work" on "/work/ethiosci/" → true (0.06261ms)
+  ✔ "/work" on "/workshop" → false (0.0552ms)
+  ✔ "/work" on "/workplace" → false (0.05474ms)
+  ✔ "/work" on "/about" → false (0.05178ms)
+  ✔ "/solutions" on "/solutions/workflow-automation" → true (0.04722ms)
+  ✔ "/" on "/" → true (0.28523ms)
+  ✔ "/" on "/about" → false (0.07356ms)
+  ✔ "/about" on "/" → false (0.05961ms)
+  ✔ "/work?tab=1#top" on "/work" → true (0.33979ms)
+  ✔ "/work" on "/work?x=1" → true (0.45215ms)
+✔ isCurrentNavHref (ENG-103 aria-current) (2.70234ms)
+▶ the head declares the site icon
+  ✔ SVG monogram is the primary icon (2.03754ms)
+  ✔ a legacy .ico fallback is declared too (0.15638ms)
+✔ the head declares the site icon (3.48396ms)
+▶ the icon assets exist and are well formed
+  ✔ favicon.svg is parseable XML (0.69254ms)
+  ✔ favicon.svg is an SVG with an intrinsic size (0.26625ms)
+  ✔ the monogram uses the design-system colours, not new brand values (0.23181ms)
+  ✔ favicon.ico is a valid multi-size ICO container (0.4033ms)
+✔ the icon assets exist and are well formed (1.96084ms)
+▶ start-a-project endpoint is a single config constant
+  ✔ config holds the one Formspree endpoint URL (0.88681ms)
+  ✔ page imports the constant and hardcodes no endpoint (0.21529ms)
+✔ start-a-project endpoint is a single config constant (2.40183ms)
+▶ start-a-project qualification fields are minimal and problem-first
+  ✔ exactly the approved control names, problem description first (0.974959ms)
+  ✔ required fields and email typing (0.31112ms)
+  ✔ organization is optional (privacy: minimal necessary data) (0.1988ms)
+✔ start-a-project qualification fields are minimal and problem-first (1.800029ms)
+▶ start-a-project spam protection and states
+  ✔ both honeypot fields present (founder decision 2026-10-04: AC-literal _honey + Formspree's built-in _gotcha) (0.54548ms)
+  ✔ client-side success and error regions exist (0.23114ms)
+  ✔ AJAX submission requests Formspree's JSON response; the native POST attribute stays for the no-JS fallback (0.22089ms)
+  ✔ success follows Formspree's documented contracts — 2xx JSON without a server-side complaint — never a guessed ok:true flag (0.92793ms)
+  ✔ success state actually hides the form — author [hidden] rule beats form's display:flex — and releases the send lock (0.29992ms)
+  ✔ error state takes keyboard focus (WCAG 2.4.3) — mirror of the status region (0.22784ms)
+✔ start-a-project spam protection and states (2.92977ms)
+ℹ tests 455
+ℹ suites 46
+ℹ pass 455
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14010.890104
+11:56:53 [content] Syncing content
+11:56:53 [WARN] [glob-loader] No files found matching "**/*.md" in directory "src/content/research"
+11:56:53 [content] Synced content
+11:56:53 [types] Generated 446ms
+
+> ethioai-venture-website@0.0.0 build
+> astro build
+
+11:56:54 [content] Syncing content
+11:56:54 [WARN] [glob-loader] No files found matching "**/*.md" in directory "src/content/research"
+11:56:54 [content] Synced content
+11:56:54 [types] Generated 409ms
+11:56:54 [build] output: "static"
+11:56:54 [build] mode: "static"
+11:56:54 [build] directory: /workspace/project/ethioai-venture-website-factory/001-post-ux-qa-regression/dist/
+11:56:54 [build] Collecting build info...
+11:56:54 [build] ✓ Completed in 435ms.
+11:56:54 [build] Building static entrypoints...
+11:56:54 [vite] ✓ built in 283ms
+11:56:54 [vite] ✓ built in 20ms
+11:56:54 [build] Rearranging server assets...
+
+ generating static routes 
+11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+11:56:54   ├─ /404.html (+11ms) 
+11:56:54   ├─ /about/index.html (+4ms) 
+11:56:54   ├─ /research/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+3ms) 
+11:56:54   ├─ /robots.txt (+1ms) 
+11:56:54   ├─ /sitemap.xml11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+2ms) 
+11:56:54   ├─ /solutions/ai-applications-agents/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+7ms) 
+11:56:54   ├─ /solutions/ai-knowledge-systems/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+2ms) 
+11:56:54   ├─ /solutions/ai-product-engineering/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+2ms) 
+11:56:54   ├─ /solutions/document-intelligence/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+2ms) 
+11:56:54   ├─ /solutions/workflow-automation/index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+2ms) 
+11:56:54   ├─ /solutions/index.html (+3ms) 
+11:56:54   ├─ /start-a-project/index.html (+3ms) 
+11:56:54   ├─ /work/ethiobio/index.html (+2ms) 
+11:56:54   ├─ /work/ethiosci/index.html (+2ms) 
+11:56:54   ├─ /work/index.html (+3ms) 
+11:56:54   ├─ /index.html11:56:54 [WARN] [content] The collection "research" does not exist or is empty. Please check your content config file for errors.
+ (+4ms) 
+11:56:54 ✓ Completed in 75ms.
+
+11:56:54 [build] ✓ Completed in 409ms.
+11:56:54 [build] 14 page(s) built in 846ms
+11:56:54 [build] Complete!
+
+> ethioai-venture-website@0.0.0 check:dist
+> node scripts/check-dist.mjs
+
+check:dist passed — 14 page(s), 268 internal reference(s), analytics enabled (ethioaiventure), 0 problems.
+
+> ethioai-venture-website@0.0.0 check:seo
+> node scripts/check-seo.mjs
+
+check:seo passed — 14 page(s), 13 sitemap URL(s), 0 problems.
+
+> ethioai-venture-website@0.0.0 check:work
+> node scripts/check-work.mjs
+
+check:work passed — 2 hide rule(s) in 15 CSS source(s), 3 route(s) present. project card hide rule → 404.html <style>, about/index.html <style>, index.html <style>; status filter hide rule → 404.html <style>, about/index.html <style>, index.html <style>
+
+> ethioai-venture-website@0.0.0 check:fonts
+> node scripts/check-fonts.mjs
+
+check:fonts passed — 1 stylesheet(s), 14 page preload(s), 3 asset(s), 0 problems.
+
+> ethioai-venture-website@0.0.0 check:pending
+> node scripts/check-pending.mjs
+
+check:pending passed — 2 project page(s), 5 solution page(s), 0 problems.
+
+> ethioai-venture-website@0.0.0 check:a11y
+> node scripts/check-a11y.mjs
+
+check:a11y passed — 14 page(s), chip boundary --color-secondary, nav semantics + aria-current + target size, marker-stripped lists gated (class + ancestor selectors), work-card single-target + overlay + hover/focus + reduced-motion gated, 0 problems. marker-stripped lists gated (class + ancestor selectors), one in-content CTA per evidence index gated, 0 problems.

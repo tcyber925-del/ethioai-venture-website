@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "ttfb": 76,
+      "domContentLoaded": 112,
+      "load": 116,
+      "fcp": 124,
+      "transferSize": 7242,
+      "decoded": 35025,
+      "resourceBytes": 14354,
+      "resourceCount": 4,
+      "types": {
+        "Document": 1,
+        "Script": 1,
+        "Stylesheet": 1,
+        "Ping": 1
+      }
+    },
+    {
+      "ttfb": 60,
+      "domContentLoaded": 94,
+      "load": 96,
+      "fcp": 108,
+      "transferSize": 7252,
+      "decoded": 35025,
+      "resourceBytes": 14364,
+      "resourceCount": 4,
+      "types": {
+        "Document": 1,
+        "Script": 1,
+        "Stylesheet": 1,
+        "Ping": 1
+      }
+    },
+    {
+      "ttfb": 32,
+      "domContentLoaded": 62,
+      "load": 64,
+      "fcp": 76,
+      "transferSize": 7252,
+      "decoded": 35025,
+      "resourceBytes": 14364,
+      "resourceCount": 4,
+      "types": {
+        "Document": 1,
+        "Script": 1,
+        "Stylesheet": 1,
+        "Ping": 1
+      }
+    }
+  ],
+  "median": {
+    "ttfb": 60,
+    "fcp": 108,
+    "domContentLoaded": 94,
+    "load": 96,
+    "resourceBytes": 14364,
+    "resourceCount": 4
+  }
+}
