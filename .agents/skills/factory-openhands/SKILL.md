@@ -72,66 +72,102 @@ The orchestrator writes `evidence.json` (by running the gate itself) and writes
 `job.json` **only** through `tools/transition.mjs`. Never edit the record by
 hand.
 
+Scope the prompt, not just the table. Each subagent is told its one artifact and
+that everything else — source, `job.json`, another role's artifact — is
+read-only. That instruction is the only thing holding the boundary here; the
+next section says why, and what still catches a breach.
+
 ## Known limitation — the fence is weaker here
 
 `reference/permissions.md` enforces its deny-all fence in the engine: a
 read-only agent cannot write or shell out because the engine denies it. The
 OpenHands subagent types have no equivalent declarative fence — `code-explorer`
-and `general-purpose` both hold a shell. So the six read-only agents are fenced
-by **instruction**, not by enforcement.
+and `general-purpose` both hold a shell, and neither can be restricted to a
+single writable path. So the six read-only agents are fenced by **instruction**,
+not by enforcement.
 
 This is the same shape of gap `permissions.md` already documents for `builder`:
-"the base policy grants it, and only the model declines to use it." Two
-mitigations keep the boundary meaningful:
+"the base policy grants it, and only the model declines to use it." The risk is
+concrete: a prompt-injected subagent could modify source, `job.json`, or another
+role's artifact. Three things bound that risk, and none of them is the fence:
 
-1. The prompt names the single artifact the agent may write, and states that
+1. **The prompt names the single artifact the agent may write** and states that
    every other path is read-only.
-2. The orchestrator never trusts the agent's report — completion is decided by
-   reading the artifact (`spawn.md` §Waiting is not proof), and the transition
-   tool refuses any transition whose row trigger is not satisfied: an artifact a
-   trigger presupposes, and that is missing, makes the trigger false. The
-   invariant sweep is a separate call — `validate.mjs --all --to <stage>` — and
-   its `reject` is a stop, not a soft pass.
+2. **Completion is decided by reading the artifact**, never by an invocation
+   returning (`spawn.md` §Waiting is not proof).
+3. **The pack's own gates still have to pass.** A subagent that writes source
+   outside its scope still faces `building>verifying`, which refuses a change
+   touching a protected path, and the handoff, which re-verifies the policy
+   binding and all six §14.2 preconditions before it pushes.
 
-Do not claim the fence is enforced. It is not.
+If a job touches `high_risk_areas` or a protected path, or the operator cannot
+accept instruction-only fencing for a given job, **do not dispatch it here** —
+park it at `needs_human` and route it to a human-gated path. Do not claim the
+fence is enforced. It is not.
 
 ## Running a job
 
-Set up once, in the main checkout:
-
-```bash
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm ci
-```
-
-Claim a job and create its worktree (`isolation.md`'s order: inspect, then
-create):
+Inspect first, then claim, then create the worktree — the order `isolation.md`
+and `SKILL.md` step 2 require. The claim is the `mkdir`; it must come before the
+worktree so a concurrent dispatch cannot take the same job.
 
 ```bash
 git status --porcelain                      # inspect; a dirty tree does not block
 git rev-parse main                          # base_commit for the record
+
+mkdir factory/jobs/<job-id>                 # claim. NO -p: it must be able to fail
 git worktree add -b factory/<job-id> ../ethioai-venture-website-factory/<job-id> main
 ```
 
-Create the record through the one writer:
+Write the record through the one writer. `--create` writes the **first** record
+only, at `stage: "queued"` — it refuses a folder that already holds one, so a job
+that already has `job.json` is advanced, never re-created:
 
 ```bash
 node .opencode/skills/factory/tools/transition.mjs \
   --job factory/jobs/<job-id> --create --record '<job.json>'
+
+# the claim, which binds the profile's effective protected_paths to the job
+node .opencode/skills/factory/tools/transition.mjs \
+  --job factory/jobs/<job-id> --to planning
 ```
 
-Fast gate every build round, full gate once before handoff, both from the
-worktree and both with the temp prefix:
+A fresh worktree has no `node_modules`. Run the profile's `setup_command`
+**inside the worktree** before any gate (`isolation.md`: "a fresh checkout has
+no `node_modules`, no generated types, no `.env`"):
 
 ```bash
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run format:check
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run lint
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run typecheck
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm test
+cd ../ethioai-venture-website-factory/<job-id>
+TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm ci
+```
+
+Fast gate every build round — one `&&` chain, as `reference/fast-gate.md`
+defines it, so a failure stops the rest:
+
+```bash
+TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run format:check && \
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run lint && \
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run typecheck && \
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm test
+```
+
+Full gate once, before the handoff, as a single command from a fresh build:
+
+```bash
 TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run verify
 ```
 
 Never invoke an individual `check:*` script: each reads `dist/`, and without a
 preceding build it passes against yesterday's build (`reference/fast-gate.md`).
+
+Record the full gate's result in the job record before the handoff. `handoff.mjs`
+refuses when `full_gate` is missing or not `passed`, and `--set` takes JSON:
+
+```bash
+node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/<job-id> \
+  --set-fields \
+  --set 'full_gate={"command":"npm run verify","exit_status":0,"result":"passed"}'
+```
 
 Before a protected transition, and before the handoff, let the pack's tools
 decide:
@@ -141,9 +177,12 @@ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/<job-id> --a
 node .opencode/skills/factory/tools/handoff.mjs --job factory/jobs/<job-id>
 ```
 
-The exit code is the answer: `0` permit, `1` reject, `2` inconclusive,
-`3` usage error. A non-zero exit is never a pass. `handoff.mjs` pushes the job
-branch and opens the pull request; it never merges.
+Exit codes differ by tool. `validate.mjs` and `transition.mjs` share `0` permit,
+`1` reject, `2` inconclusive, `3` usage error. `handoff.mjs` shares `0`–`3` and
+adds **`4` — the side effect failed**: the push or the pull request did not go
+through. Code `4` is not a usage error; route it to `/factory recover`, not to a
+retry, because the branch may already be pushed. A non-zero exit is never a pass.
+`handoff.mjs` pushes the job branch and opens the pull request; it never merges.
 
 Clean up a finished worktree (`isolation.md` §Cleanup — `needs_human` preserves
 its worktree, only a merged or cancelled job removes one):
