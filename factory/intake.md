@@ -14,4 +14,4 @@ to *consider* the issue. It does not authorize an agent to write code.
 
 A human may also hand a request directly to `/factory <description>`. Tracker
 polling — provider filters, the pipeline, and the reporting contract — is
-specified in `reference/intake.md`.
+specified in `.opencode/skills/factory/reference/intake.md`.
