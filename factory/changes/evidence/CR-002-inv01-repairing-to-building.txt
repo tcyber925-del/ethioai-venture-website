@@ -1,0 +1,4 @@
+INV-01/EDGE_IN_TABLE  permit        the transition `repairing` -> `building` is a row in `reference/state-machine.md`
+INV-01/TRIGGER_FALSE  reject        the trigger does not hold: the evidence names no failed check to hand to the builder
+reject
+INV01_EXIT=1
