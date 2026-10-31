@@ -77,6 +77,24 @@ that everything else — source, `job.json`, another role's artifact — is
 read-only. That instruction is the only thing holding the boundary here; the
 next section says why, and what still catches a breach.
 
+Record every spawn. `spawn.md` requires one `runtime.invocations` entry per
+subagent, written at spawn time, and INV-03 rejects a claimed reviewer verdict
+whose agent has no recorded session — and a `decision.md` with no recorded
+approver invocation. A run that skips this fails validation at `reviewing`:
+
+```bash
+node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/<job-id> \
+  --set-fields \
+  --append 'runtime.invocations={"stage":"reviewing","agent":"reviewer-code","session_id":"<id>","launched_at":"<ISO-8601>","outcome":"running"}'
+```
+
+The `agent` value must be the pack agent name (`reviewer-code`, `reviewer-security`,
+`reviewer-scope`, `reviewer-visual`, `approver`, `spec-writer`, `builder`), not
+the OpenHands subagent type — INV-03 matches on the pack name. Set `outcome` to
+`running` at spawn and update that same entry when the session ends, by index
+(`--set 'runtime.invocations.0.outcome=completed'`); INV-03 rejects two
+reviewers that share a `session_id`, so give each its own.
+
 ## Known limitation — the fence is weaker here
 
 `reference/permissions.md` enforces its deny-all fence in the engine: a
@@ -132,49 +150,95 @@ node .opencode/skills/factory/tools/transition.mjs \
   --job factory/jobs/<job-id> --to planning
 ```
 
-A fresh worktree has no `node_modules`. Run the profile's `setup_command`
-**inside the worktree** before any gate (`isolation.md`: "a fresh checkout has
-no `node_modules`, no generated types, no `.env`"):
+Set the two roots once, so a `cd` into the worktree cannot redirect the
+record, validate or handoff commands at the main checkout:
 
 ```bash
-cd ../ethioai-venture-website-factory/<job-id>
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm ci
+MAIN_ROOT=$(git rev-parse --show-toplevel)      # the main checkout
+JOB_DIR="$MAIN_ROOT/factory/jobs/<job-id>"      # the record lives here
+```
+
+A fresh worktree has no `node_modules`. Run the profile's `setup_command` and
+every gate **inside the worktree**, in a subshell so the shell's own directory
+never changes (`isolation.md`: "a fresh checkout has no `node_modules`, no
+generated types, no `.env`"):
+
+```bash
+( cd ../ethioai-venture-website-factory/<job-id> &&
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm ci )
 ```
 
 Fast gate every build round — one `&&` chain, as `reference/fast-gate.md`
-defines it, so a failure stops the rest:
+defines it, so a failure stops the rest. Run it in the worktree subshell:
 
 ```bash
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run format:check && \
+( cd ../ethioai-venture-website-factory/<job-id> &&
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run format:check && \
   TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run lint && \
   TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run typecheck && \
-  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm test
-```
-
-Full gate once, before the handoff, as a single command from a fresh build:
-
-```bash
-TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run verify
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm test )
 ```
 
 Never invoke an individual `check:*` script: each reads `dist/`, and without a
 preceding build it passes against yesterday's build (`reference/fast-gate.md`).
 
-Record the full gate's result in the job record before the handoff. `handoff.mjs`
-refuses when `full_gate` is missing or not `passed`, and `--set` takes JSON:
+A gate that only runs is not evidence. The validator requires a schema-shaped
+`evidence.json` (at least one check, each with `check`, `category`, `command`,
+`cwd`, `diff_ref`, `started_at`, `ended_at`, `result`) before the job may leave
+`verifying`. Write it from the gate's real exit status — capture the status in
+the same block that runs the gate, never hand-write `passed`:
 
 ```bash
-node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/<job-id> \
-  --set-fields \
-  --set 'full_gate={"command":"npm run verify","exit_status":0,"result":"passed"}'
+( cd ../ethioai-venture-website-factory/<job-id> &&
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run format:check ) \
+  && FAST=0 || FAST=$?
+cat > "$JOB_DIR/evidence.json" <<EOF
+{"job_id":"<job-id>","diff_ref":"$(git -C ../ethioai-venture-website-factory/<job-id> rev-parse HEAD)",
+ "checks":[{"check":"format:check","category":"format","command":"npm run format:check",
+   "cwd":"../ethioai-venture-website-factory/<job-id>","diff_ref":"$(git -C ../ethioai-venture-website-factory/<job-id> rev-parse HEAD)",
+   "started_at":"…","ended_at":"…","exit_status":$FAST,
+   "result":"$([ "$FAST" = 0 ] && echo passed || echo failed)"}]}
+EOF
 ```
 
-Before a protected transition, and before the handoff, let the pack's tools
-decide:
+A failing check means `verifying>repairing` while retries remain, or
+`verifying>needs_human` — never a handoff.
+
+## Approval and handoff
+
+The full gate is the last thing before handoff, and it must be recorded. Capture
+its real exit status and record `passed` only when it is `0`; a failed gate is
+`failed` or `blocked`, and `handoff.mjs` trusts the record rather than rerunning
+the gate, so a wrong value ships a broken change:
 
 ```bash
-node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/<job-id> --all --to <stage>
-node .opencode/skills/factory/tools/handoff.mjs --job factory/jobs/<job-id>
+( cd ../ethioai-venture-website-factory/<job-id> &&
+  TMPDIR=$PWD/.tmp npm_config_cache=$PWD/.tmp/npm npm run verify ) \
+  && FULL=0 || FULL=$?
+node "$MAIN_ROOT/.opencode/skills/factory/tools/transition.mjs" --job "$JOB_DIR" \
+  --set-fields \
+  --set "full_gate={\"command\":\"npm run verify\",\"exit_status\":$FULL,\"result\":\"$([ "$FULL" = 0 ] && echo passed || echo failed)\"}"
+```
+
+If `$FULL` is non-zero, stop — do not reach for the handoff.
+
+Only a human may approve. Bind the approval to the exact commit, then advance
+the stage; `handoff.mjs` requires `approved_to_merge` and refuses any other:
+
+```bash
+node "$MAIN_ROOT/.opencode/skills/factory/tools/transition.mjs" --job "$JOB_DIR" \
+  --set-fields \
+  --set 'approval={"approved":true,"diff_ref":"<approved-commit>","at":"<ISO-8601>"}'
+node "$MAIN_ROOT/.opencode/skills/factory/tools/transition.mjs" --job "$JOB_DIR" \
+  --to approved_to_merge
+```
+
+Before the handoff, let the pack's tools decide. Both read the record, so run
+them from `$MAIN_ROOT`:
+
+```bash
+node "$MAIN_ROOT/.opencode/skills/factory/tools/validate.mjs" --job "$JOB_DIR" --all --to approved_to_merge
+node "$MAIN_ROOT/.opencode/skills/factory/tools/handoff.mjs" --job "$JOB_DIR"
 ```
 
 Exit codes differ by tool. `validate.mjs` and `transition.mjs` share `0` permit,
