@@ -383,8 +383,13 @@ reviewers launches them for every in-flight job, four each, all together.
    - Evidence could not be written — set `stage: "blocked"` with the cause and
      stop.
 
-8. **Route a repair.** A job set to `repairing` is re-dispatched: set
-   `stage: "building"` and return to step 5 with the failing check's output.
+8. **Route a repair.** A job set to `repairing` is re-dispatched by the failure
+   source it came from:
+   - **A failed check** — set `stage: "building"` and return to step 5 with the
+     failing check's output.
+   - **A review `CHANGES` verdict** — set `stage: "reviewing"` and return to
+     step 9. There is no failed check to hand the builder; the round re-runs
+     against the repaired commit.
    The budget was already spent in the write that set `repairing`.
 
 9. **Run the review round.** Set `stage: "reviewing"` if it is not already

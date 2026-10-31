@@ -31,6 +31,7 @@ Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
+| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
 | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
@@ -103,3 +104,9 @@ that sets `stage: "repairing"` — whether the job arrived there from
 `verifying` or from `reviewing`. `repairing` is the single funnel both failure
 sources pass through, which is why the budget cannot be re-rolled by failing a
 different way. It resets only on explicit human `/factory rework`.
+
+The funnel has one exit per failure source, because only one of them carries a
+failing check. A check failure re-dispatches the builder (`repairing` →
+`building`, handing it the failing check's output); a review `CHANGES` verdict
+has no failed check to hand over, so it re-runs the round (`repairing` →
+`reviewing`). Neither exit moves the budget, which was spent on the way in.
