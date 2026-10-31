@@ -1,0 +1,13 @@
+ docs/qa/ENG-109-post-ux-regression.md              |   240 +
+ .../ENG-109/deployed-origin-baselayout.css.txt     |     1 +
+ .../evidence/ENG-109/deployed-origin-work.html.txt |    30 +
+ .../evidence/ENG-109/deployed-vs-local-diff.json   |    18 +
+ docs/qa/evidence/ENG-109/deployed-work-1280.png    |   Bin 0 -> 64487 bytes
+ docs/qa/evidence/ENG-109/interaction-probes.json   |   146 +
+ docs/qa/evidence/ENG-109/local-work-1280.png       |   Bin 0 -> 51319 bytes
+ docs/qa/evidence/ENG-109/local-work-320.png        |   Bin 0 -> 40164 bytes
+ docs/qa/evidence/ENG-109/performance.json          |    60 +
+ docs/qa/evidence/ENG-109/production-smoke.json     |   249 +
+ docs/qa/evidence/ENG-109/responsive-sweep.json     | 13365 +++++++++++++++++++
+ docs/qa/evidence/ENG-109/verify.log                |   675 +
+ 12 files changed, 14784 insertions(+)
