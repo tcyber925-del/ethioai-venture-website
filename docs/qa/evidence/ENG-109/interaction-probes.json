@@ -35,17 +35,39 @@
   },
   "keyboardWork": {
     "reachedCta": true,
-    "steps": 8,
+    "steps": 12,
+    "ctaStops": [7, 12],
     "seq": [
-      "body:Skip to contentEthioAI Venture",
       "a:Skip to content",
       "a:EthioAI Venture",
       "a:Solutions",
       "a:Work",
       "a:Research",
       "a:About",
-      "a:Start a Project"
-    ]
+      "a:Start a Project (nav link)",
+      "button:All statuses",
+      "button:In Development",
+      "a:EthioBio (card link)",
+      "a:EthioSci (card link)",
+      "a:Start a Project (btn btn--primary)"
+    ],
+    "note": "Real CDP Input.dispatchKeyEvent Tab walk from the top of /work/ at 1280x900; stop 12 is the in-content main CTA. Chips and both project-card links precede it."
+  },
+  "keyboardResearch": {
+    "reachedCta": true,
+    "steps": 8,
+    "ctaStops": [7, 8],
+    "seq": [
+      "a:Skip to content",
+      "a:EthioAI Venture",
+      "a:Solutions",
+      "a:Work",
+      "a:Research",
+      "a:About",
+      "a:Start a Project (nav link)",
+      "a:Start a Project (btn btn--primary)"
+    ],
+    "note": "Real CDP Input.dispatchKeyEvent Tab walk from the top of /research/ at 1280x900; no filter chips and no project cards on this route, so the in-content CTA is stop 8."
   },
   "researchCta": [
     {
