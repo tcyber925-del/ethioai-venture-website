@@ -1,0 +1,6 @@
+6d28cfb ENG-109: address round-1 review findings
+ docs/qa/ENG-109-post-ux-regression.md              | 137 +++-
+ .../evidence/ENG-109/deployed-vs-local-diff.json   |  20 +-
+ .../evidence/ENG-109/focus-visibility-probe.json   | 139 ++++
+ docs/qa/evidence/ENG-109/responsive-sweep.json     | 882 ++++++++++++++-------
+ 4 files changed, 834 insertions(+), 344 deletions(-)
