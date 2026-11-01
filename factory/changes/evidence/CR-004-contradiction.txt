@@ -1,0 +1,38 @@
+=== CR-004: the contradiction, quoted ===
+
+--- reference/state-machine.md:13 ---
+Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
+
+--- reference/learning.md:15-18 ---
+- **a job parked at `blocked` or `needs_human`, when a human asks for its record.**
+  Both are terminal transitions but neither is an outcome: `blocked` is
+  recoverable through `/factory go`, and `needs_human` is a pause. An automatic
+  record written at either describes a job that may yet succeed, and a record
+
+--- reference/recovery.md:32-34 ---
+
+Resuming is a separate, human-gated act. `recover` reports what would come next;
+a human then runs `/factory go <job-id>`, which carries the resume guarantees.
+
+--- SKILL.md:621-631 (/factory rework) ---
+   report and stop.
+2. **Confirm the budget is exhausted or a human explicitly requests the reset.**
+   If the job is not at `needs_human` with an exhausted budget, report its
+   stage and stop.
+3. **Reset only two fields.** In one write, set `retries_left` to the profile's
+   budget and `retry_budget_reset_at` to the current UTC timestamp, through
+   `tools/transition.mjs`. Touch no other field — especially not `stage`,
+   `diff_ref`, or `round`.
+4. **Report and stop.** State the job, the restored budget, the timestamp, and
+   the stage that would run next. Re-running the job itself is the human's act
+   via `/factory go`.
+
+--- SKILL.md:457-459 (/factory go preconditions) ---
+- **Allowed actions:** Set spec_approved true, stage building, then resume dispatch.
+- **Evidence before success:** spec.md present and approved.
+- **Failure behaviour:** If stage mismatches, report and stop.
+
+--- transition.mjs (FORBIDDEN) ---
+  }
+--- transition.mjs FORBIDDEN ---
+121:const FORBIDDEN = ["handoff", "stage", "id", "source", "feature", "repo", "worktree", "branch", "policy"];
