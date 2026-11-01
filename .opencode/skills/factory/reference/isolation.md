@@ -39,6 +39,16 @@ The comparison is against the job's own baseline, so the user's uncommitted
 work, which the checkout may well carry, appears in both listings and cancels
 out. Only a change made after the job started is a violation.
 
+**A base branch that advanced is not a violation.** The check has three
+outcomes, not two. When the difference is entirely committed — every differing
+path is clean against `HEAD` — the base branch moved because work landed on it,
+which is how this factory's own pull requests merge, and the baseline is
+refreshed rather than the job refused. Without that, the fix for a wedged job
+would re-wedge it: the fix lands through a merge, and the merge is what the
+guard would see. A difference the user has *not* committed is still a refusal,
+and only the dirty paths are named, so a job cannot advance over work in
+progress.
+
 The same job-scoped comparison holds for the protected-path policy: the policy
 is bound to the job when it is claimed, and the transition into `verifying` and
 the guarded handoff check that binding again. The effective binding always
