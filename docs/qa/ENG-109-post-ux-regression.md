@@ -17,11 +17,12 @@ defect.
 
 ## Method
 
-`npm run verify` ran in an isolated git worktree at the tested commit, and the browser checks
-ran against that worktree's own `dist/` over a local static server — so the deep checks describe
-the **tested commit's build**, not whatever is currently deployed. A separate production pass
-then ran the same checks against the deployed origin. Both are reported, side by side, because
-they disagree.
+`npm run verify` ran in an isolated git worktree at the tested commit, at
+`/workspace/project/ethioai-venture-website-factory/001-post-ux-qa-regression`, and the browser
+checks ran against that worktree's own `dist/` over a local static server — so the deep checks
+describe the **tested commit's build**, not whatever is currently deployed. A separate production
+pass then ran the same checks against the deployed origin. Both are reported, side by side,
+because they disagree.
 
 Harnesses are plain Node 24 using the native `WebSocket` for the DevTools Protocol; no
 dependency was added to the repository. Evidence artifacts are in `evidence/ENG-109/`.
@@ -71,8 +72,9 @@ All **seven viewport widths × 14 routes = 98 combinations** were checked at the
 - Header/nav/footer reflow cleanly; the header is 152px tall at 320px (nav on its own row) and
   78px from 768px up.
 - The "Start a Project" CTA **never wraps** at any width — measured with `Range.getClientRects()`
-  and recorded in the sweep as `textLines: 1` at every viewport. The taller 52px box at 320–375px
-  is button padding (`boxH: 52, textLines: 1`), not text wrapping.
+  and recorded in the sweep as `textLines: 1` at every viewport (294 of 294 rects). The taller
+  52px box is button padding (`boxH: 52, textLines: 1`), not text wrapping; it occurs at **all
+  seven viewports** (91 of 294 rects), not only the narrow ones.
 - No nested interactive controls in any of the 98 combinations. Each project card exposes exactly
   one link, and it is the card's only tab stop (verified directly on `/work/`: 2 cards, 2 links).
 - Navigation destinations all resolve; the primary nav carries Solutions / Work / Research /
@@ -83,11 +85,17 @@ Work-card behaviour at the tested commit, confirmed with real CDP key and mouse 
 - exactly **1 link and 1 tab stop per card** (2 cards, 2 links);
 - the `::after` overlay is present (`position:absolute; inset:0`), so the **whole card surface**
   activates the single link — a click on the card's lower padding navigated to `/work/ethiobio`;
-- keyboard: Tab reaches the card link, `:focus-visible` gives a 2px solid tertiary ring, and
-  **Enter navigates** to `/work/ethiobio`.
+- keyboard: Tab reaches the card link (10 tab stops from the top of `/work/`), `:focus-visible`
+  gives a **2px solid tertiary ring** (`rgb(15, 91, 90)`, i.e. `--color-tertiary`, offset 2px),
+  and **Enter navigates** to `/work/ethiobio`.
+
+  This ring is only observable from a real key event: `:focus-visible` does not match for a
+  programmatic `el.focus()`, which reports `outlineStyle: "none"`. The earlier
+  `interaction-probes.json` used `el.focus()` and therefore recorded no ring; both paths are now
+  recorded side by side in `focus-visibility-probe.json`.
 
 Evidence: `evidence/ENG-109/responsive-sweep.json`, `interaction-probes.json`,
-`local-work-320.png`, `local-work-1280.png`.
+`focus-visibility-probe.json`, `local-work-320.png`, `local-work-1280.png`.
 
 ## Requirement 6 — accessibility
 
@@ -98,7 +106,7 @@ Evidence: `evidence/ENG-109/responsive-sweep.json`, `interaction-probes.json`,
 | Landmark semantics (header/nav/main/footer) | **pass**                                                                                                                                                                                                    |
 | Current-page nav semantics                  | **pass** — `aria-current="page"` on the matching item in both the primary and footer nav: 2 on each of the 12 nav routes, and correctly **0** on `/` and `/404.html`, neither of which is a nav destination |
 | Accessible names on links/buttons           | **pass** — 0 nameless controls                                                                                                                                                                              |
-| Focus visibility                            | **pass** — global `:focus-visible` gives `outline: 2px solid var(--color-tertiary)`; confirmed with real key events                                                                                         |
+| Focus visibility                            | **pass** — global `:focus-visible` gives `outline: 2px solid var(--color-tertiary)`; confirmed with real key events (`focus-visibility-probe.json`: `2px solid rgb(15, 91, 90)` on the focused card link)   |
 | Reduced motion                              | **pass** — `prefers-reduced-motion: reduce` collapses transitions to 0.01ms                                                                                                                                 |
 | Keyboard-only journeys                      | **pass** — from the top of `/work/`, the in-content "Start a Project" CTA is reached in 8 tab stops; Skip-to-content is first                                                                               |
 | Contrast — Work filter chips                | **pass at the tested commit** — default border `--color-secondary` (#525252, 7.81:1), pressed `--color-tertiary` (#0f5b5a, 7.88:1), plus a `font-weight` change                                             |
@@ -178,6 +186,12 @@ The card behaviour is the clearest functional proof: on the tested build a click
 lower padding navigates to `/work/ethiobio`; on the deployed origin the same click does nothing
 (`location.pathname` stays `/work/`), because the `::after` overlay rule is missing.
 
+The comparison table above is machine-recorded in
+`evidence/ENG-109/deployed-vs-local-diff.json` (per-signal `deployed` vs `local` values, with
+the local build's overlay read as `cardFullSurfaceHitTarget: true`). The deployed capture of
+the card surface is `evidence/ENG-109/deployed-work-1280.png`, alongside the local captures
+`local-work-1280.png` and `local-work-320.png`.
+
 Two consequences worth stating plainly:
 
 1. **The deployed filter chips fail WCAG 1.4.11** (non-text contrast). The deployed chip border is
@@ -219,6 +233,25 @@ correctly wired and deliberately not submitted.
 | 7 — production form not triggered; status stated                   | met (not submitted; status stated)                                                 |
 | 8 — no implementation changes under this QA issue                  | met (diff touches `docs/` only)                                                    |
 | 9 — concise pass/fail report with severity-ranked findings         | met (this document)                                                                |
+
+## Evidence index
+
+Every committed artifact, and where it is used above:
+
+| Artifact                                              | What it holds                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `evidence/ENG-109/verify.log`                         | Full `npm run verify` output (455 tests, 14 pages, the 12 `[WARN]` lines)         |
+| `evidence/ENG-109/responsive-sweep.json`              | 98 combinations: overflow, header/nav/footer, CTA rects, headings, `aria-current` |
+| `evidence/ENG-109/interaction-probes.json`            | Card link/tab-stop counts, overlay, filter chip, keyboard journey, reduced-motion |
+| `evidence/ENG-109/focus-visibility-probe.json`        | Real key-event focus ring (`2px solid rgb(15,91,90)`) vs the `el.focus()` path    |
+| `evidence/ENG-109/production-smoke.json`              | Deployed per-route status, console errors, failed requests, analytics hooks       |
+| `evidence/ENG-109/performance.json`                   | Three cold-run navigation-timing samples and their medians                        |
+| `evidence/ENG-109/deployed-vs-local-diff.json`        | Per-signal deployed-vs-local comparison (Finding 1's table)                       |
+| `evidence/ENG-109/deployed-origin-work.html.txt`      | Deployed `/work/` markup capture (overlay rule absent)                            |
+| `evidence/ENG-109/deployed-origin-baselayout.css.txt` | Deployed CSS capture (`--color-border` chip default)                              |
+| `evidence/ENG-109/local-work-320.png`                 | Local build `/work/` at 320px                                                     |
+| `evidence/ENG-109/local-work-1280.png`                | Local build `/work/` at 1280px                                                    |
+| `evidence/ENG-109/deployed-work-1280.png`             | Deployed `/work/` at 1280px (card body click does not navigate)                   |
 
 ## Recommendation
 
