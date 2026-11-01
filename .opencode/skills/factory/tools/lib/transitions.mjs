@@ -260,6 +260,25 @@ export const PREDICATES = Object.freeze({
   // "evidence could not be written" -- a failure stage.
   "verifying>blocked": () => failureStage("blocked"),
 
+  // "a human rework re-granted the budget (`retry_budget_reset_at` is set) and
+  // `/factory go` resumes the job into a repair"
+  // `needs_human` is a pause, not a terminal state, but it is a *gated* pause:
+  // the only way out is a rework. Requiring the stamp is what makes that true --
+  // without it a job parked for a person could resume itself, and the budget a
+  // rework grants could be spent without the rework. Requiring a retry keeps
+  // the anti-spin rule: the resume spends one, so a spent budget still stops.
+  "needs_human>repairing": (context) => {
+    const reset = context.current?.retry_budget_reset_at;
+    const left = context.current?.retries_left ?? 0;
+    if (typeof reset !== "string" || reset.length === 0) {
+      return unsatisfied("no human rework is recorded, so the job may not resume");
+    }
+    if (left <= 0) {
+      return unsatisfied("the re-granted budget is spent, so the job cannot repair again");
+    }
+    return satisfied(`a rework re-granted the budget at \`${reset}\`, and ${left} retries remain`);
+  },
+
   // "the orchestrator re-dispatches the builder with the failing check's output"
   "repairing>building": (context) =>
     withEvidence(context, (checks) => {

@@ -450,20 +450,27 @@ reviewers launches them for every in-flight job, four each, all together.
 
 ## /factory go <job-id>
 
-- **Purpose:** Approve a job's plan and resume it into building.
-- **May not:** Run any stage on its own; only flip spec_approved.
+- **Purpose:** Approve a job's plan, or resume a reworked job, and set it moving again.
+- **May not:** Run any stage on its own; only flip spec_approved, or take the `needs_human` → `repairing` row.
 - **Inputs:** job id; current job state.
-- **Preconditions:** Job at awaiting_plan_approval; human has read spec.md.
-- **Allowed actions:** Set spec_approved true, stage building, then resume dispatch.
-- **Evidence before success:** spec.md present and approved.
-- **Failure behaviour:** If stage mismatches, report and stop.
-- **Outputs:** Job advanced to building, resumed.
+- **Preconditions:** Job at `awaiting_plan_approval` with `spec.md` read by a human, **or** at `needs_human` with a recorded rework (`retry_budget_reset_at` set and `retries_left` above zero).
+- **Allowed actions:** Set spec_approved true and stage building; or resume a reworked job into repairing. Then resume dispatch.
+- **Evidence before success:** `spec.md` present and approved; or a rework recorded against the job.
+- **Failure behaviour:** If the stage is neither, or the trigger does not hold, report and stop.
+- **Outputs:** Job advanced to building, or to repairing, and resumed.
 - **Autonomy tier:** human-gated resume.
 
-Run only after a human has read `spec.md`. If the job is at
-`awaiting_plan_approval`, set `spec_approved: true` and `stage: "building"`
-through `tools/transition.mjs`, then continue the dispatch walkthrough from its
-step 5.
+Run only after a human has decided. Which resume this is depends on the stage:
+
+- **At `awaiting_plan_approval`** — after a human has read `spec.md`, set
+  `spec_approved: true` and `stage: "building"` through `tools/transition.mjs`,
+  then continue the dispatch walkthrough from its step 5.
+- **At `needs_human`** — after a human has granted `/factory rework`, take the
+  `needs_human` → `repairing` row, decrementing `retries_left` and incrementing
+  `round` in the same write, then continue from step 8. The row's trigger
+  requires the rework stamp and a remaining retry, so this door opens only for a
+  job a human has reworked, and it spends the re-granted budget rather than
+  preserving it.
 
 This is also the resume door. `/factory recover` reports what resuming would do
 (`reference/recovery.md`); this command performs it, once a human has decided.

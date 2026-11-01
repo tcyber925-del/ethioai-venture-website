@@ -10,7 +10,13 @@ changes `stage` only via a row in the table below.
 `awaiting_human_review` · `approved_to_merge` · `handed_off` · `merged` ·
 `queued` · `blocked` · `needs_human` · `rejected` · `cancelled`
 
-Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
+Terminal: `merged`, `blocked`, `rejected`, `cancelled`.
+
+`needs_human` is a **pause**, not a terminal state. It has one exit, taken only
+after a human rework re-grants the budget: `/factory rework` stamps
+`retry_budget_reset_at`, and `/factory go` then resumes the job through the
+`needs_human` → `repairing` row below. A parked job with no rework recorded has
+no exit, which is the point — the pause waits for a person.
 
 ## Transitions
 
@@ -35,6 +41,7 @@ Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
 | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
+| `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
 | `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref` — the change identity, `reference/approval.md` — with every §14.2 precondition holding |
 | `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4), the change identity of `reference/approval.md` |
 | `approved_to_merge` | `handed_off` | the full gate passes and the pull request is opened (§14.3) |
@@ -110,3 +117,10 @@ failing check. A check failure re-dispatches the builder (`repairing` →
 `building`, handing it the failing check's output); a review `CHANGES` verdict
 has no failed check to hand over, so it re-runs the round (`repairing` →
 `reviewing`). Neither exit moves the budget, which was spent on the way in.
+
+A rework re-grants the budget, and the resume **spends** it: `needs_human` →
+`repairing` requires a recorded rework and a remaining retry, and the write that
+takes the row decrements `retries_left` and increments `round` exactly as any
+other repair does. So the pause cannot be used to spin the loop — a reworked job
+gets a fresh budget and at most as many further rounds as that budget allows,
+and a job with no rework recorded has no exit at all.

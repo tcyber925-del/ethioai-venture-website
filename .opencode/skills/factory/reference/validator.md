@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
 is on disk right now?" X is the record's `stage`; Y is `--to`.
 
 The set of legal edges is **parsed from the table**, never copied into code.
-The table has 22 rows. Three of them are conversational and are not
-implemented (see below); the other 19 each get a predicate that reads the
+The table has 24 rows. Three of them are conversational and are not
+implemented (see below); the other 21 each get a predicate that reads the
 row's own trigger. A row the validator has no predicate for is reported as
 `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
 
@@ -181,7 +181,8 @@ reached.
 | `reviewing` | `build.md`, `evidence.json`, `round-<N>/review-{code,security,scope,visual}.md` |
 | `awaiting_human_review` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
 | `approved_to_merge`, `handed_off`, `merged` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
-| `needs_human`, `blocked`, `rejected`, `cancelled` | none — a parked job is not advancing |
+| `needs_human`, `blocked` | none — a parked job is not advancing while it waits |
+| `rejected`, `cancelled` | none — a terminal job is not advancing |
 
 A **missing artifact** is a reject. An artifact that exists but **cannot be
 parsed** is an inconclusive when the file is unreadable or corrupt, and a
