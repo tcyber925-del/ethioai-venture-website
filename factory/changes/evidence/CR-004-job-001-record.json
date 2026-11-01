@@ -1,0 +1,147 @@
+{
+  "id": "001-post-ux-qa-regression",
+  "source": {
+    "provider": "linear",
+    "id": "ENG-109",
+    "url": "https://linear.app/tcyber/issue/ENG-109/qa-01-post-ux-integrated-regression-and-production-smoke-verification",
+    "dedupe_key": "linear:ENG-109"
+  },
+  "feature": "QA-01: Post-UX integrated regression and production smoke verification\n\n## Problem / evidence\n\nThe site shipped V1 and the UX batches have since merged: ENG-102 (PR #26), ENG-103 (PR #27), ENG-106 (PR #31), ENG-107 (PR #32), and the durable project-status/governance update ENG-108 (PR #36). The original integrated QA issue, ENG-86, was completed on 2026-10-05 before those later UX changes. This is a post-change regression pass, not a replacement for ENG-86 or a new design batch. PR #34 also records that ENG-103's own Impeccable AC11 was not re-audited; verify the current combined UX and explicitly report whether that criterion can now be considered satisfied. Do not mark it satisfied without fresh evidence.\n\n## Goal\n\nVerify the combined post-UX site at the current main/deployed version, collect reproducible evidence, and surface defects as findings or follow-up issues. Do not silently broaden scope or fix unrelated problems.\n\n## Requirements / test scope\n\n1. Repository and build: sync latest main; record tested commit SHA and environment; run `npm run verify` and record output/exit status, test count, built page count, warnings; confirm current GitHub CI for the tested commit.\n2. Responsive and navigation: test 320, 375, 768, 1024, 1280, 1440, 1920 CSS-pixel widths; check horizontal overflow, header/nav layout, Start a Project CTA wrapping, footer layout, navigation destinations; check Work card click/tap, keyboard operation, focus indication, accessible names, absence of nested interactive controls/duplicate tab stops.\n3. Accessibility: one meaningful H1 per route, heading order, landmark/list semantics, current-page nav semantics, link/button names, focus visibility, contrast including Work filter chips and input borders, reduced-motion, keyboard-only journeys; re-run the approved Impeccable audit for the current combined UX (including ENG-103's previously unaudited AC11) and save the report/evidence. Findings outside approved scope must be documented, not automatically fixed.\n4. Work/Research conversion: verify in-content Start a Project CTAs on Work and Research are visible, correctly linked, and do not make unsupported claims; test keyboard paths from both index pages to Start a Project.\n5. Browser/runtime and production smoke: record console errors, failed requests, broken internal links, critical route rendering against https://ethioai-venture-website.tcyber925.workers.dev; check page metadata, canonical URLs, sitemap/robots, key analytics hooks without fabricating events; do NOT submit the live production form or trigger a real lead notification without explicit founder approval; check performance with repeatable tooling and report tool, conditions, measurements.\n\n## Acceptance criteria\n\n- [ ] Tested commit SHA, browser/tool versions, viewport results, and commands recorded.\n- [ ] `npm run verify` passes on the tested commit, or every failure captured with exact reproduction and classified.\n- [ ] All seven viewport widths checked across affected routes; overflow and header/card/CTA behavior reported with evidence.\n- [ ] Keyboard/accessibility checks cover the routes and components listed, with findings and severity.\n- [ ] Fresh Impeccable audit output attached or committed, and ENG-103 AC11's disposition explicitly evidence-backed.\n- [ ] Deployed smoke checks cover critical pages, internal navigation, metadata/SEO, browser errors, analytics hooks.\n- [ ] Production form submission is not triggered without approval; its verification status is stated clearly.\n- [ ] No implementation changes made under this QA issue unless a concrete fix is separately approved/scoped.\n- [ ] Final result is a concise pass/fail report with severity-ranked findings, links to evidence, and a recommendation on whether another implementation batch is justified.\n\n## Non-goals\n\nNo broad redesign or new feature. No token changes, new claims, routes, services, analytics events, or form behavior. No automatic fixing of audit findings. No production form submission without explicit approval.\n\n## Execution notes\n\nRelated work: ENG-86 (original integrated QA), ENG-102, ENG-103, ENG-106, ENG-107, ENG-108. GitHub: https://github.com/tcyber925-del/ethioai-venture-website. Live origin: https://ethioai-venture-website.tcyber925.workers.dev. If a check cannot be run in the available environment, record the limitation and ask for the minimum required access rather than inferring a pass.\n",
+  "linear_id": "ENG-109",
+  "repo": "tcyber925-del/ethioai-venture-website",
+  "base_branch": "main",
+  "base_commit": "f094b79e983b3110f77651725e0e48e0db9f8936",
+  "risk_tier": "approval",
+  "branch": "factory/001-post-ux-qa-regression",
+  "worktree": "../ethioai-venture-website-factory/001-post-ux-qa-regression",
+  "runtime": {
+    "workspace_id": null,
+    "invocations": [
+      {
+        "stage": "planning",
+        "agent": "spec-writer",
+        "session_id": "oh-001-spec-20261031T114539Z",
+        "launched_at": "2026-10-31T11:45:39Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-code",
+        "session_id": "task_00000002",
+        "launched_at": "2026-10-31T12:20:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-security",
+        "session_id": "task_00000003",
+        "launched_at": "2026-10-31T12:20:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-scope",
+        "session_id": "task_00000004",
+        "launched_at": "2026-10-31T12:20:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-visual",
+        "session_id": "task_00000005",
+        "launched_at": "2026-10-31T12:20:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-code",
+        "session_id": "r1-task-00000001",
+        "launched_at": "2026-11-01T13:10:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-security",
+        "session_id": "r1-task-00000002",
+        "launched_at": "2026-11-01T13:10:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-scope",
+        "session_id": "r1-task-00000003",
+        "launched_at": "2026-11-01T13:10:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-visual",
+        "session_id": "r1-task-00000004",
+        "launched_at": "2026-11-01T13:10:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-code",
+        "session_id": "r2-task-00000005",
+        "launched_at": "2026-11-01T14:24:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-security",
+        "session_id": "r2-task-00000006",
+        "launched_at": "2026-11-01T14:24:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-scope",
+        "session_id": "r2-task-00000007",
+        "launched_at": "2026-11-01T14:24:00Z",
+        "outcome": "completed"
+      },
+      {
+        "stage": "reviewing",
+        "agent": "reviewer-visual",
+        "session_id": "r2-task-00000008",
+        "launched_at": "2026-11-01T14:24:00Z",
+        "outcome": "completed"
+      }
+    ],
+    "max_in_flight": 1
+  },
+  "stage": "needs_human",
+  "round": 2,
+  "retries_left": 2,
+  "reviews": {
+    "code": "CHANGES",
+    "security": "PASS",
+    "scope": "CHANGES",
+    "visual": "NOT_APPLICABLE"
+  },
+  "approval": {
+    "approved": false,
+    "diff_ref": null,
+    "at": null
+  },
+  "enqueued_at": "2026-10-31T11:43:56.634Z",
+  "updated_at": "2026-11-01T14:53:42.993Z",
+  "policy": {
+    "protected_paths": [
+      ".env*",
+      ".factory/policies/**",
+      ".factory/profile.md",
+      ".github/workflows/**",
+      "AGENTS.md",
+      "astro.config.mjs",
+      "package-lock.json",
+      "package.json",
+      "wrangler.jsonc"
+    ],
+    "pinned_at": "2026-10-31T11:43:59.777Z"
+  },
+  "spec_approved": true,
+  "cause": "Founder granted a rework: the two round-2 documentation-accuracy findings are to be corrected and re-reviewed",
+  "retry_budget_reset_at": "2026-11-01T14:53:42Z"
+}

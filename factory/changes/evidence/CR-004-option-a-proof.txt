@@ -1,0 +1,47 @@
+=== CR-004 Option A proof (scratch tree) ===
+captured: 2026-11-01T15:10:22Z
+
+--- diff applied to the scratch pack ---
+--- /workspace/project/ethioai-venture-website/.opencode/skills/factory/reference/state-machine.md	2026-10-31 15:20:22.569690031 +0000
++++ .opencode/skills/factory/reference/state-machine.md	2026-11-01 15:09:51.519401815 +0000
+@@ -35,6 +35,7 @@
+ | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
+ | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
+ | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
++| `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
+ | `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref` — the change identity, `reference/approval.md` — with every §14.2 precondition holding |
+ | `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4), the change identity of `reference/approval.md` |
+ | `approved_to_merge` | `handed_off` | the full gate passes and the pull request is opened (§14.3) |
+--- /workspace/project/ethioai-venture-website/.opencode/skills/factory/tools/lib/transitions.mjs	2026-10-31 15:20:22.569690031 +0000
++++ .opencode/skills/factory/tools/lib/transitions.mjs	2026-11-01 15:10:15.044365280 +0000
+@@ -261,6 +261,21 @@
+   "verifying>blocked": () => failureStage("blocked"),
+ 
+   // "the orchestrator re-dispatches the builder with the failing check's output"
++  // A rework re-grants the budget; `/factory go` spends one of it to re-enter
++  // the funnel. Without this edge a reworked job has a fresh budget and no
++  // way to use it, which is the same dead end `repairing` had before CR-002.
++  "needs_human>repairing": (context) => {
++    const reset = context.current?.retry_budget_reset_at;
++    const left = context.current?.retries_left ?? 0;
++    if (typeof reset !== "string" || reset.length === 0) {
++      return unsatisfied("no human rework is recorded, so the job may not resume");
++    }
++    if (left <= 0) {
++      return unsatisfied("the re-granted budget is spent, so the job cannot repair again");
++    }
++    return satisfied(`a rework re-granted the budget at ${reset}, and ${left} retries remain`);
++  },
++
+   "repairing>building": (context) =>
+     withEvidence(context, (checks) => {
+       const failed = checks.find((check) => check?.result === "failed");
+
+--- CASE A: rework recorded, budget 2 -> permit ---
+  ok  repairing
+
+--- CASE B: no rework stamp -> refuse ---
+  refused  INV-01/TRIGGER_FALSE: the trigger does not hold: no human rework is recorded, so the job may not resume
+
+--- CASE C: rework + budget 0 -> refuse ---
+  refused  INV-01/TRIGGER_FALSE: the trigger does not hold: the re-granted budget is spent, so the job cannot repair again
