@@ -1,0 +1,44 @@
+CR-003 — the workspace guard refuses after the base branch moves
+Job: 001-post-ux-qa-regression | stage: repairing | date: 2026-10-31
+
+== the refusal (transition.mjs --to reviewing) ==
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to reviewing
+  refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`
+  exit 1
+
+== the same refusal, as the job recorded it (rejections.log, last line) ==
+{"at":"2026-10-31T15:22:24.461Z","job":"001-post-ux-qa-regression","tool":"transition","attempted":"repairing->reviewing","stage":"repairing","failed":"MAIN_CHECKOUT_CHANGED","conclusion":"refused","detail":"the main checkout changed outside `factory/jobs/`: factory/changes/evidence/CR-002-rejections.log, factory/changes/evidence/CR-002-job-001-evidence.json, factory/changes/evidence/CR-002-option-a.patch, factory/changes/evidence/ENG-112-transition-verification.txt, factory/changes/evidence/CR-002-inv01-repairing-to-building.txt, factory/changes/CR-002.md, factory/changes/evidence/CR-002-job-001-commits.txt, factory/changes/evidence/CR-002-round-0-review-code.md, factory/changes/CR-002.decision.md, factory/changes/evidence/CR-002-job-001-diffstat.txt, factory/changes/evidence/CR-002-round-0-review-scope.md, factory/changes/evidence/CR-002-round-0-review-security.md, factory/changes/evidence/CR-002-job-001-record.json, factory/changes/evidence/CR-002-round-0-review-visual.md, .opencode/skills/factory/reference/state-machine.md, .opencode/skills/factory/tools/lib/transitions.mjs, .opencode/skills/factory/SKILL.md"}
+
+== what moved, and why ==
+  main advanced f094b79 -> fd7d1e1 by two human merges:
+fd7d1e1 ENG-112: give `repairing` an exit for review-triggered repairs (#40)
+b944994 ENG-109: CR-002 — `repairing` is a dead end for review-triggered repairs (#39)
+
+  the guard sees these paths as changed outside factory/jobs/:
+    .opencode/skills/factory/SKILL.md
+    .opencode/skills/factory/reference/state-machine.md
+    .opencode/skills/factory/tools/lib/transitions.mjs
+    factory/changes/CR-002.decision.md
+    factory/changes/CR-002.md
+    factory/changes/evidence/CR-002-inv01-repairing-to-building.txt
+    factory/changes/evidence/CR-002-job-001-commits.txt
+    factory/changes/evidence/CR-002-job-001-diffstat.txt
+    factory/changes/evidence/CR-002-job-001-evidence.json
+    factory/changes/evidence/CR-002-job-001-record.json
+    factory/changes/evidence/CR-002-option-a.patch
+    factory/changes/evidence/CR-002-rejections.log
+    factory/changes/evidence/CR-002-round-0-review-code.md
+    factory/changes/evidence/CR-002-round-0-review-scope.md
+    factory/changes/evidence/CR-002-round-0-review-security.md
+    factory/changes/evidence/CR-002-round-0-review-visual.md
+    factory/changes/evidence/CR-003-workspace-guard.txt
+    factory/changes/evidence/ENG-112-transition-verification.txt
+
+== the checkout carries no uncommitted work ==
+  $ git status --porcelain
+?? factory/changes/evidence/CR-003-workspace-guard.txt
+  (empty — every difference is a committed change from the two merges)
+
+== the base the job was cut from is still intact ==
+  $ git merge-base --is-ancestor f094b79 main
+  exit 0 — base_intact, so no approval is invalidated
