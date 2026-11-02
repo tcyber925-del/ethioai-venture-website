@@ -498,7 +498,7 @@ Any other stage: report it and stop.
 - **Purpose:** Bind a human approval to the exact change, then hand off through the guarded tool.
 - **May not:** Merge or push to the base branch; never self-initiate.
 - **Inputs:** job id, explicit approval naming this job.
-- **Preconditions:** Six 14.2 preconditions (verification, bindings, base unmoved).
+- **Preconditions:** Six 14.2 preconditions (verification, bindings, base intact).
 - **Allowed actions:** Record the approval and its binding; set approved_to_merge; run the full gate; run `tools/handoff.mjs`.
 - **Evidence before success:** Change identity bound; all verifications passed; review verdicts clean; the handoff recorded.
 - **Failure behaviour:** The tool refuses, the approval is cleared, and the job returns to awaiting_human_review.
@@ -537,7 +537,8 @@ branch, and never runs this on its own initiative.**
 
    and read the exit code: `0` permits, `1` rejects, `2` is inconclusive. The
    six preconditions are: approval bound to the current `diff_ref`; no
-   `not_run` and no `blocked` check; base branch unmoved; working tree meeting
+   `not_run` and no `blocked` check; base branch intact (a forward move holds,
+   only a rewrite fails); working tree meeting
    the merge mechanism's safety requirements; no unresolved conflict; current
    diff matching the reviewed and approved change.
 

@@ -1,13 +1,5 @@
 ENG-115 — lenient base-move rule (CR-005 Option A), verified on the real pack
-captured: 2026-11-02T10:24:40Z
-pack: .opencode/skills/factory (branch ENG-115-lenient-base-move)
-fixture: a copy of job 001's record at factory/jobs/900-eng115-verify (removed after the run)
-
-Precondition 3 is judged through validate.mjs --all --to approved_to_merge;
-Case D drives the real awaiting_human_review -> approved_to_merge transition.
-
-ENG-115 — lenient base-move rule (CR-005 Option A), verified on the real pack
-captured: 2026-11-02T10:24:34Z
+captured: 2026-11-02T10:57:28Z
 pack: .opencode/skills/factory (branch ENG-115-lenient-base-move)
 fixture: a copy of job 001's record at factory/jobs/900-eng115-verify
 
@@ -151,6 +143,29 @@ ok  approved_to_merge
   -> stage: approved_to_merge
 
 === the fix, as it stands in the pack ===
+diff --git a/.opencode/skills/factory/SKILL.md b/.opencode/skills/factory/SKILL.md
+index 64daf6d..9fc9d61 100644
+--- a/.opencode/skills/factory/SKILL.md
++++ b/.opencode/skills/factory/SKILL.md
+@@ -498,7 +498,7 @@ Any other stage: report it and stop.
+ - **Purpose:** Bind a human approval to the exact change, then hand off through the guarded tool.
+ - **May not:** Merge or push to the base branch; never self-initiate.
+ - **Inputs:** job id, explicit approval naming this job.
+-- **Preconditions:** Six 14.2 preconditions (verification, bindings, base unmoved).
++- **Preconditions:** Six 14.2 preconditions (verification, bindings, base intact).
+ - **Allowed actions:** Record the approval and its binding; set approved_to_merge; run the full gate; run `tools/handoff.mjs`.
+ - **Evidence before success:** Change identity bound; all verifications passed; review verdicts clean; the handoff recorded.
+ - **Failure behaviour:** The tool refuses, the approval is cleared, and the job returns to awaiting_human_review.
+@@ -537,7 +537,8 @@ branch, and never runs this on its own initiative.**
+ 
+    and read the exit code: `0` permits, `1` rejects, `2` is inconclusive. The
+    six preconditions are: approval bound to the current `diff_ref`; no
+-   `not_run` and no `blocked` check; base branch unmoved; working tree meeting
++   `not_run` and no `blocked` check; base branch intact (a forward move holds,
++   only a rewrite fails); working tree meeting
+    the merge mechanism's safety requirements; no unresolved conflict; current
+    diff matching the reviewed and approved change.
+ 
 diff --git a/.opencode/skills/factory/reference/approval.md b/.opencode/skills/factory/reference/approval.md
 index 7b9fb21..fc49e7d 100644
 --- a/.opencode/skills/factory/reference/approval.md
@@ -181,7 +196,7 @@ index cc56cc5..fb81768 100644
  
  Already handled elsewhere: intake unclear (`intake-gate.md`), a dead or timed-out
 diff --git a/.opencode/skills/factory/reference/state-machine.md b/.opencode/skills/factory/reference/state-machine.md
-index df61db9..acbbbc7 100644
+index df61db9..75df205 100644
 --- a/.opencode/skills/factory/reference/state-machine.md
 +++ b/.opencode/skills/factory/reference/state-machine.md
 @@ -93,7 +93,7 @@ rule the pack commits to in writing.
@@ -189,7 +204,7 @@ index df61db9..acbbbc7 100644
  4. A failed or interrupted stage resumes from persisted state or stops safely; it never restarts in a way that overwrites user work.
  5. Exhausted retries transition to `blocked` or `needs_human`, never to success.
 -6. A moved base branch, a merge conflict, or a stale approval invalidates the pending handoff.
-+6. A rewritten base branch (the recorded base commit is no longer reachable), a merge conflict, or a stale approval invalidates the pending handoff. A base that merely advanced is not a rewrite and does not.
++6. A rewritten base branch (the recorded base commit is no longer reachable), a merge conflict, or a stale approval invalidates the pending handoff. A base that merely advanced is not a rewrite, and does not invalidate it.
  7. Terminal jobs remain inspectable, with their artifacts and decisions intact.
  8. No skill, agent, or status view reports a state the persisted record does not support.
  
@@ -206,3 +221,57 @@ index 36c8b80..4c997bc 100644
 -  moved base invalidates a pending handoff. (`git merge-base --is-ancestor`
 -  then says which kind of move it was: forward, or a rewrite that no longer
 -  contains the recorded commit.) A base that is **not recorded** is a missing
+-  input rather than a moved base: the check cannot be performed at all, so it
+-  is `inconclusive`.
++  branch still contains the recorded commit. A base that moved **forward** has
++  not invalidated anything: the recorded commit is still an ancestor, so the
++  change being approved is still what the branch added to it. Only a base that
++  was **rewritten** — the recorded commit is no longer reachable — invalidates a
++  pending handoff. This is the lenient reading `approval.md` ("has not moved
++  **unexpectedly**") and its staleness table already state, and it matches
++  `isolation.md:42`'s third outcome for the same event one layer down.
++  (`git merge-base --is-ancestor` says which kind of move it was: forward, or a
++  rewrite.) A base that is **not recorded** is a missing input rather than a
++  moved base: the check cannot be performed at all, so it is `inconclusive`.
+ - **4** — the tracked working tree is clean (`git status --porcelain
+   --untracked-files=no`) **and the worktree is on the job branch**: its `HEAD`
+   is the branch's tip. A clean worktree somewhere else is not the tree that
+diff --git a/.opencode/skills/factory/tools/lib/preconditions.mjs b/.opencode/skills/factory/tools/lib/preconditions.mjs
+index 27b9699..0328236 100644
+--- a/.opencode/skills/factory/tools/lib/preconditions.mjs
++++ b/.opencode/skills/factory/tools/lib/preconditions.mjs
+@@ -126,20 +126,27 @@ export const PRECONDITIONS = Object.freeze([
+       if (!commit.ok) {
+         return { holds: false, detail: `the recorded base commit \`${baseCommit}\` is not in the worktree` };
+       }
+-      // "Has not moved" is read as: the base branch is still where the record
+-      // says it was. `approval.md` and `state-machine.md`'s sixth invariant
+-      // both say a moved base invalidates a pending handoff, and a base that
+-      // moved forward is a moved base.
++      // "Has not moved" is read as: the recorded base commit is still in the
++      // base branch's history. `approval.md` says "has not moved
++      // **unexpectedly**", and its staleness table names only a rewrite; the
++      // change identity's `base_intact` is exactly that test. A base that moved
++      // FORWARD leaves the recorded commit an ancestor, so the change being
++      // approved is still what the branch added to it. Only a rewrite -- the
++      // recorded commit no longer reachable -- invalidates the handoff.
+       if (branch.sha !== commit.sha) {
+         const ancestor = gitIsAncestor(worktree.path, commit.sha, branch.sha);
+         if (!ancestor.ok) {
+           return { undecidable: true, detail: ancestor.reason };
+         }
++        if (ancestor.ancestor) {
++          return {
++            holds: true,
++            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
++          };
++        }
+         return {
+           holds: false,
+-          detail: ancestor.ancestor
+-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
+-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
++          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+         };
+       }
+       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };
