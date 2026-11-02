@@ -1,0 +1,286 @@
+ENG-115 — lenient base-move rule (CR-005 Option A), verified on the real pack
+captured: 2026-11-02T11:23:33Z
+pack: .opencode/skills/factory (branch ENG-115-lenient-base-move)
+fixture: a copy of job 001's record at factory/jobs/900-eng115-verify
+
+=== the three base states, against job 001's real worktree ===
+worktree: ../ethioai-venture-website-factory/001-post-ux-qa-regression
+recorded base_commit: f094b79 (an ancestor of main -> forward move)
+main tip: 72959d2
+job branch tip: 85e3ee3
+
+=== CASE A — forward move (base_commit f094b79, still an ancestor) ===
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng115-verify --all --to approved_to_merge
+INV-01/EDGE_IN_TABLE             permit        the transition `awaiting_human_review` -> `approved_to_merge` is a row in `reference/state-machine.md`
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 1 fails: the record carries no approval
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 2 cannot be evaluated: the evidence package is missing, so the verification gate cannot be judged
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 3 holds: the base branch `main` advanced to `72959d2d9bf67c76d8e69c594656e4cf60d947b5` but still contains the recorded `f094b79e983b3110f77651725e0e48e0db9f8936` -- a forward move, not a rewrite
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 4 holds: the tracked working tree is clean, and it is the job branch's own commit
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 5 holds: no path is left unmerged
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 6 cannot be evaluated: the evidence package is missing
+INV-02/RECORD_VALID              permit        the record validates against `schemas/job.schema.json`
+INV-02/ARTIFACT_MISSING          reject        build.md is missing
+INV-02/ARTIFACT_MISSING          reject        evidence.json is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-code.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-security.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-scope.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-visual.md is missing
+INV-02/ARTIFACT_MISSING          reject        decision.md is missing
+INV-02/EVIDENCE_UNREADABLE       inconclusive  the evidence package cannot be read (it does not exist), so it cannot be validated
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `code` but round-3/review-code.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `security` but round-3/review-security.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `scope` but round-3/review-scope.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `NOT_APPLICABLE` for `visual` but round-3/review-visual.md does not exist
+INV-04/EVIDENCE_MISSING          reject        the evidence package is missing, so there is nothing to compare against the current change
+reject
+  exit=1
+
+=== CASE B — rewrite (base_commit 85e3ee3, NOT an ancestor of main) ===
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng115-verify --all --to approved_to_merge
+INV-01/EDGE_IN_TABLE             permit        the transition `awaiting_human_review` -> `approved_to_merge` is a row in `reference/state-machine.md`
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 1 fails: the record carries no approval
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 2 cannot be evaluated: the evidence package is missing, so the verification gate cannot be judged
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 3 fails: the base branch `main` was rewritten: it no longer contains the recorded `85e3ee317890e74761852f1569c1dbf7eb1f6853`
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 4 holds: the tracked working tree is clean, and it is the job branch's own commit
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 5 holds: no path is left unmerged
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 6 cannot be evaluated: the evidence package is missing
+INV-02/RECORD_VALID              permit        the record validates against `schemas/job.schema.json`
+INV-02/ARTIFACT_MISSING          reject        build.md is missing
+INV-02/ARTIFACT_MISSING          reject        evidence.json is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-code.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-security.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-scope.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-visual.md is missing
+INV-02/ARTIFACT_MISSING          reject        decision.md is missing
+INV-02/EVIDENCE_UNREADABLE       inconclusive  the evidence package cannot be read (it does not exist), so it cannot be validated
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `code` but round-3/review-code.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `security` but round-3/review-security.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `scope` but round-3/review-scope.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `NOT_APPLICABLE` for `visual` but round-3/review-visual.md does not exist
+INV-04/EVIDENCE_MISSING          reject        the evidence package is missing, so there is nothing to compare against the current change
+reject
+  exit=1
+
+=== CASE C — unmoved (base_commit = main tip) ===
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng115-verify --all --to approved_to_merge
+INV-01/EDGE_IN_TABLE             permit        the transition `awaiting_human_review` -> `approved_to_merge` is a row in `reference/state-machine.md`
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 1 fails: the record carries no approval
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 2 cannot be evaluated: the evidence package is missing, so the verification gate cannot be judged
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 3 holds: the base branch is `main` at `72959d2d9bf67c76d8e69c594656e4cf60d947b5`, unmoved
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 4 holds: the tracked working tree is clean, and it is the job branch's own commit
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 5 holds: no path is left unmerged
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 6 cannot be evaluated: the evidence package is missing
+INV-02/RECORD_VALID              permit        the record validates against `schemas/job.schema.json`
+INV-02/ARTIFACT_MISSING          reject        build.md is missing
+INV-02/ARTIFACT_MISSING          reject        evidence.json is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-code.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-security.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-scope.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-visual.md is missing
+INV-02/ARTIFACT_MISSING          reject        decision.md is missing
+INV-02/EVIDENCE_UNREADABLE       inconclusive  the evidence package cannot be read (it does not exist), so it cannot be validated
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `code` but round-3/review-code.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `security` but round-3/review-security.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `scope` but round-3/review-scope.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `NOT_APPLICABLE` for `visual` but round-3/review-visual.md does not exist
+INV-04/EVIDENCE_MISSING          reject        the evidence package is missing, so there is nothing to compare against the current change
+reject
+  exit=1
+
+=== CASE 0 — control: the ORIGINAL precondition 3 refuses the forward move ===
+  (scratch pack has the pre-fix preconditions.mjs; diff vs patched:)
+129,132c129,135
+<       // "Has not moved" is read as: the base branch is still where the record
+<       // says it was. `approval.md` and `state-machine.md`'s sixth invariant
+<       // both say a moved base invalidates a pending handoff, and a base that
+<       // moved forward is a moved base.
+---
+>       // "Has not moved" is read as: the recorded base commit is still in the
+>       // base branch's history. `approval.md` says "has not moved
+>       // **unexpectedly**", and its staleness table names only a rewrite; the
+>       // change identity's `base_intact` is exactly that test. A base that moved
+>       // FORWARD leaves the recorded commit an ancestor, so the change being
+>       // approved is still what the branch added to it. Only a rewrite -- the
+>       // recorded commit no longer reachable -- invalidates the handoff.
+137a141,146
+>         if (ancestor.ancestor) {
+>           return {
+>             holds: true,
+>             detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
+>           };
+>         }
+
+  $ node .tmp/eng115/pack-original/tools/validate.mjs --job factory/jobs/900-eng115-verify --all --to approved_to_merge
+INV-01/EDGE_IN_TABLE             permit        the transition `awaiting_human_review` -> `approved_to_merge` is a row in `reference/state-machine.md`
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 1 fails: the record carries no approval
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 2 cannot be evaluated: the evidence package is missing, so the verification gate cannot be judged
+INV-01/PRECONDITION_FAILS        reject        §14.2 precondition 3 fails: the base branch `main` moved: it is at `72959d2d9bf67c76d8e69c594656e4cf60d947b5`, not the recorded `f094b79e983b3110f77651725e0e48e0db9f8936`
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 4 holds: the tracked working tree is clean, and it is the job branch's own commit
+INV-01/PRECONDITION_HOLDS        permit        §14.2 precondition 5 holds: no path is left unmerged
+INV-01/PRECONDITION_UNEVALUABLE  inconclusive  §14.2 precondition 6 cannot be evaluated: the evidence package is missing
+INV-02/RECORD_VALID              permit        the record validates against `schemas/job.schema.json`
+INV-02/ARTIFACT_MISSING          reject        build.md is missing
+INV-02/ARTIFACT_MISSING          reject        evidence.json is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-code.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-security.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-scope.md is missing
+INV-02/ARTIFACT_MISSING          reject        round-3/review-visual.md is missing
+INV-02/ARTIFACT_MISSING          reject        decision.md is missing
+INV-02/EVIDENCE_UNREADABLE       inconclusive  the evidence package cannot be read (it does not exist), so it cannot be validated
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `code` but round-3/review-code.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `security` but round-3/review-security.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `PASS` for `scope` but round-3/review-scope.md does not exist
+INV-03/VERDICT_FILE_MISSING      reject        the record claims `NOT_APPLICABLE` for `visual` but round-3/review-visual.md does not exist
+INV-04/EVIDENCE_MISSING          reject        the evidence package is missing, so there is nothing to compare against the current change
+reject
+  exit=1
+
+=== CASE D — end to end: record the approval, take awaiting_human_review -> approved_to_merge ===
+  $ node tools/transition.mjs --job factory/jobs/900-eng115-verify --set-fields --set approval.approved=true \
+        --set approval.diff_ref=85e3ee3 --set approval.job=900-eng115-verify \
+        --set approval.base_commit=f094b79 --set approval.approver=founder --set approval.at=<now>
+  (approval recorded; job still at awaiting_human_review)
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng115-verify --to approved_to_merge
+ok  approved_to_merge
+  exit=0
+
+  -> stage: approved_to_merge
+
+=== the fix, as it stands in the pack ===
+diff --git a/.opencode/skills/factory/SKILL.md b/.opencode/skills/factory/SKILL.md
+index 64daf6d..9fc9d61 100644
+--- a/.opencode/skills/factory/SKILL.md
++++ b/.opencode/skills/factory/SKILL.md
+@@ -498,7 +498,7 @@ Any other stage: report it and stop.
+ - **Purpose:** Bind a human approval to the exact change, then hand off through the guarded tool.
+ - **May not:** Merge or push to the base branch; never self-initiate.
+ - **Inputs:** job id, explicit approval naming this job.
+-- **Preconditions:** Six 14.2 preconditions (verification, bindings, base unmoved).
++- **Preconditions:** Six 14.2 preconditions (verification, bindings, base intact).
+ - **Allowed actions:** Record the approval and its binding; set approved_to_merge; run the full gate; run `tools/handoff.mjs`.
+ - **Evidence before success:** Change identity bound; all verifications passed; review verdicts clean; the handoff recorded.
+ - **Failure behaviour:** The tool refuses, the approval is cleared, and the job returns to awaiting_human_review.
+@@ -537,7 +537,8 @@ branch, and never runs this on its own initiative.**
+ 
+    and read the exit code: `0` permits, `1` rejects, `2` is inconclusive. The
+    six preconditions are: approval bound to the current `diff_ref`; no
+-   `not_run` and no `blocked` check; base branch unmoved; working tree meeting
++   `not_run` and no `blocked` check; base branch intact (a forward move holds,
++   only a rewrite fails); working tree meeting
+    the merge mechanism's safety requirements; no unresolved conflict; current
+    diff matching the reviewed and approved change.
+ 
+diff --git a/.opencode/skills/factory/reference/approval.md b/.opencode/skills/factory/reference/approval.md
+index 7b9fb21..fc49e7d 100644
+--- a/.opencode/skills/factory/reference/approval.md
++++ b/.opencode/skills/factory/reference/approval.md
+@@ -117,8 +117,9 @@ identity preconditions, and they are computed from the change identity above.
+ 
+ Approval is **bound to a diff, not to a job**. Any material diff change after
+ approval clears `approval.diff_ref` and forces re-review and re-approval. A
+-merge conflict, a moved base branch, or a stale approval invalidates a pending
+-handoff until it is re-evaluated.
++merge conflict, a **rewritten** base branch (the recorded `base_commit` is no
++longer reachable — a base that merely advanced is not a rewrite), or a stale
++approval invalidates a pending handoff until it is re-evaluated.
+ 
+ The approval is recorded while the job is still at `awaiting_human_review`;
+ the stage advances to `approved_to_merge` only once the preconditions hold.
+diff --git a/.opencode/skills/factory/reference/recovery.md b/.opencode/skills/factory/reference/recovery.md
+index cc56cc5..fb81768 100644
+--- a/.opencode/skills/factory/reference/recovery.md
++++ b/.opencode/skills/factory/reference/recovery.md
+@@ -44,7 +44,7 @@ Plan 6's. These five are the ones recovery owns:
+ | Agent crashes or session ends | Report the last completed stage and the next one; resume from `job.json`, never re-running a completed stage. |
+ | Workspace creation fails | Preserve repository state and mark `blocked` with the cause. |
+ | Scope expands | Pause and reclassify the risk tier before anything continues. |
+-| Base branch moves | Invalidate the approval and re-evaluate; never proceed on a stale one. |
++| Base branch moves | A **rewrite** (the recorded base commit is no longer reachable) invalidates the approval and re-evaluates; never proceed on a stale one. A base that merely advanced forward does not — the recorded commit is still an ancestor, and the change is still what the branch added to it. |
+ | Merge conflict | Stop and request resolution; never force through silently. |
+ 
+ Already handled elsewhere: intake unclear (`intake-gate.md`), a dead or timed-out
+diff --git a/.opencode/skills/factory/reference/state-machine.md b/.opencode/skills/factory/reference/state-machine.md
+index df61db9..75df205 100644
+--- a/.opencode/skills/factory/reference/state-machine.md
++++ b/.opencode/skills/factory/reference/state-machine.md
+@@ -93,7 +93,7 @@ rule the pack commits to in writing.
+ 3. A job is never reported `merged` without confirming the merge completed via `gh pr view`.
+ 4. A failed or interrupted stage resumes from persisted state or stops safely; it never restarts in a way that overwrites user work.
+ 5. Exhausted retries transition to `blocked` or `needs_human`, never to success.
+-6. A moved base branch, a merge conflict, or a stale approval invalidates the pending handoff.
++6. A rewritten base branch (the recorded base commit is no longer reachable), a merge conflict, or a stale approval invalidates the pending handoff. A base that merely advanced is not a rewrite, and does not invalidate it.
+ 7. Terminal jobs remain inspectable, with their artifacts and decisions intact.
+ 8. No skill, agent, or status view reports a state the persisted record does not support.
+ 
+diff --git a/.opencode/skills/factory/reference/validator.md b/.opencode/skills/factory/reference/validator.md
+index 36c8b80..4c997bc 100644
+--- a/.opencode/skills/factory/reference/validator.md
++++ b/.opencode/skills/factory/reference/validator.md
+@@ -357,13 +357,16 @@ How the six are read:
+ - **2** — no check in the evidence package is `not_run` or `blocked`, and all
+   four reviews have returned.
+ - **3** — the record names a base branch and a base commit, and the base
+-  branch is still where the record says it was. A base that moved forward has
+-  moved; `approval.md` and `state-machine.md`'s sixth invariant both say a
+-  moved base invalidates a pending handoff. (`git merge-base --is-ancestor`
+-  then says which kind of move it was: forward, or a rewrite that no longer
+-  contains the recorded commit.) A base that is **not recorded** is a missing
+-  input rather than a moved base: the check cannot be performed at all, so it
+-  is `inconclusive`.
++  branch still contains the recorded commit. A base that moved **forward** has
++  not invalidated anything: the recorded commit is still an ancestor, so the
++  change being approved is still what the branch added to it. Only a base that
++  was **rewritten** — the recorded commit is no longer reachable — invalidates a
++  pending handoff. This is the lenient reading `approval.md` ("has not moved
++  **unexpectedly**") and its staleness table already state, and it matches
++  `isolation.md:42`'s third outcome for the same event one layer down.
++  (`git merge-base --is-ancestor` says which kind of move it was: forward, or a
++  rewrite.) A base that is **not recorded** is a missing input rather than a
++  moved base: the check cannot be performed at all, so it is `inconclusive`.
+ - **4** — the tracked working tree is clean (`git status --porcelain
+   --untracked-files=no`) **and the worktree is on the job branch**: its `HEAD`
+   is the branch's tip. A clean worktree somewhere else is not the tree that
+diff --git a/.opencode/skills/factory/tools/lib/preconditions.mjs b/.opencode/skills/factory/tools/lib/preconditions.mjs
+index 27b9699..0328236 100644
+--- a/.opencode/skills/factory/tools/lib/preconditions.mjs
++++ b/.opencode/skills/factory/tools/lib/preconditions.mjs
+@@ -126,20 +126,27 @@ export const PRECONDITIONS = Object.freeze([
+       if (!commit.ok) {
+         return { holds: false, detail: `the recorded base commit \`${baseCommit}\` is not in the worktree` };
+       }
+-      // "Has not moved" is read as: the base branch is still where the record
+-      // says it was. `approval.md` and `state-machine.md`'s sixth invariant
+-      // both say a moved base invalidates a pending handoff, and a base that
+-      // moved forward is a moved base.
++      // "Has not moved" is read as: the recorded base commit is still in the
++      // base branch's history. `approval.md` says "has not moved
++      // **unexpectedly**", and its staleness table names only a rewrite; the
++      // change identity's `base_intact` is exactly that test. A base that moved
++      // FORWARD leaves the recorded commit an ancestor, so the change being
++      // approved is still what the branch added to it. Only a rewrite -- the
++      // recorded commit no longer reachable -- invalidates the handoff.
+       if (branch.sha !== commit.sha) {
+         const ancestor = gitIsAncestor(worktree.path, commit.sha, branch.sha);
+         if (!ancestor.ok) {
+           return { undecidable: true, detail: ancestor.reason };
+         }
++        if (ancestor.ancestor) {
++          return {
++            holds: true,
++            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
++          };
++        }
+         return {
+           holds: false,
+-          detail: ancestor.ancestor
+-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
+-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
++          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+         };
+       }
+       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };
+
+=== job 001 untouched (content hash, not git -- it is gitignored) ===
+  before: 9c12b6b9809cca89160592ec99935ca548286a76de1a176fb4d6dbc16cfbfb4a
+  after:  9c12b6b9809cca89160592ec99935ca548286a76de1a176fb4d6dbc16cfbfb4a
+  -> unchanged
