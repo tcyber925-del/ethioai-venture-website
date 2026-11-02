@@ -392,8 +392,12 @@ reviewers launches them for every in-flight job, four each, all together.
      builder, but the repair changed the diff, and `reference/fast-gate.md`
      requires the package to correspond to the diff submitted for approval: so
      the gate re-runs against the repaired commit and `evidence.json` is
-     rewritten for it before the round re-runs. A job whose package still names
-     the pre-repair commit cannot reach `awaiting_human_review`.
+     rewritten for it before the round re-runs. The direct `repairing` →
+     `reviewing` row still exists for a repair that does not change the diff;
+     if it does, `reviewing` → `awaiting_human_review` refuses the stale
+     package. That refusal needs a package it can read and resolve: a package
+     that is missing, unreadable, or names an unresolvable ref is left to
+     precondition 2 and INV-04.
    The budget was already spent in the write that set `repairing`.
 
 9. **Run the review round.** Set `stage: "reviewing"` if it is not already

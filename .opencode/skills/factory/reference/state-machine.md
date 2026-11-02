@@ -38,7 +38,7 @@ no exit, which is the point — the pause waits for a person.
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
 | `repairing` | `verifying` | the repair was driven by a review `CHANGES` verdict, so the gate re-runs against the repaired commit (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path) before the round re-runs |
-| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
+| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs (CR-002) |
 | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
@@ -113,12 +113,18 @@ that sets `stage: "repairing"` — whether the job arrived there from
 sources pass through, which is why the budget cannot be re-rolled by failing a
 different way. It resets only on explicit human `/factory rework`.
 
-The funnel has one exit per failure source, because only one of them carries a
-failing check. A check failure re-dispatches the builder (`repairing` →
-`building`, handing it the failing check's output); a review `CHANGES` verdict
-has no failed check to hand over, so it re-runs the gate against the repaired
-commit (`repairing` → `verifying`) and then the round (`repairing` →
-`reviewing`). Neither exit moves the budget, which was spent on the way in.
+The funnel's two failure sources are re-dispatched differently, because only one
+of them carries a failing check. A check failure re-dispatches the builder
+(`repairing` → `building`, handing it the failing check's output). A review
+`CHANGES` verdict has no failed check to hand over, but the repair changed the
+diff, so the gate re-runs first (`repairing` → `verifying`) and the round then
+re-runs from `verifying` (`verifying` → `reviewing`). Neither path moves the
+budget, which was spent on the way in.
+
+The direct `repairing` → `reviewing` row (CR-002) remains: the round may re-run
+without re-gating. If the repair changed the diff, `reviewing` →
+`awaiting_human_review` refuses the now-stale package (CR-006 part B), so the
+shortcut is caught rather than silent.
 
 `repairing` → `verifying` exists because a review repair changes the diff, and
 `reference/fast-gate.md` requires the package to correspond to the diff

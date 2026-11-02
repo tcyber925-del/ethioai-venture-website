@@ -24,6 +24,53 @@ import { reason } from "./reasons.mjs";
 export const FAILURE_STAGES = Object.freeze(["needs_human", "blocked"]);
 
 /**
+ * Does the evidence package name the current change?
+ *
+ * The comparison §14.2 precondition 6 makes, and that the review-repair
+ * transitions (CR-006) reuse: every `diff_ref` the package carries must
+ * resolve to the job branch's tip. One implementation, so the approval gate
+ * and the review-repair route cannot disagree about which change was verified.
+ *
+ * Returns the precondition shape: `{ holds }`, or `{ undecidable }` when the
+ * package, a ref, or the identity cannot be read.
+ */
+export function evidenceMatchesChange(context) {
+  const current = changeIdentity(context);
+  if (!current.ok) return { undecidable: true, detail: current.reason };
+
+  const worktree = worktreeOf(context);
+  const refs = evidenceRefs(context, worktree);
+  if (refs.missing) {
+    return { undecidable: true, detail: "the evidence package is missing" };
+  }
+  if (refs.unreadable) {
+    return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
+  }
+  if (refs.problems.length > 0) {
+    const problem = refs.problems[0];
+    return {
+      undecidable: true,
+      detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
+    };
+  }
+  if (refs.targets.length === 0) {
+    return { undecidable: true, detail: "the evidence package names no change" };
+  }
+  for (const target of refs.targets) {
+    if (target.sha !== current.identity.branch_commit) {
+      return {
+        holds: false,
+        detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the change that was reviewed is not the change being approved`,
+      };
+    }
+  }
+  return {
+    holds: true,
+    detail: `the evidence names \`${current.identity.branch_commit}\`, the change being approved`,
+  };
+}
+
+/**
  * The registry. Every precondition is here, implemented or not.
  *
  * An implemented precondition returns one of:
@@ -195,39 +242,7 @@ export const PRECONDITIONS = Object.freeze([
       // not the same commit when the worktree is detached at an older one,
       // which is the exact hole the change identity was introduced to close.
       // A worktree that is not on the branch is precondition 4's business.
-      const current = changeIdentity(context);
-      if (!current.ok) return { undecidable: true, detail: current.reason };
-
-      const worktree = worktreeOf(context);
-      const refs = evidenceRefs(context, worktree);
-      if (refs.missing) {
-        return { undecidable: true, detail: "the evidence package is missing" };
-      }
-      if (refs.unreadable) {
-        return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
-      }
-      if (refs.problems.length > 0) {
-        const problem = refs.problems[0];
-        return {
-          undecidable: true,
-          detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
-        };
-      }
-      if (refs.targets.length === 0) {
-        return { undecidable: true, detail: "the evidence package names no change" };
-      }
-      for (const target of refs.targets) {
-        if (target.sha !== current.identity.branch_commit) {
-          return {
-            holds: false,
-            detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the change that was reviewed is not the change being approved`,
-          };
-        }
-      }
-      return {
-        holds: true,
-        detail: `the evidence names \`${current.identity.branch_commit}\`, the change being approved`,
-      };
+      return evidenceMatchesChange(context);
     },
   },
 ]);

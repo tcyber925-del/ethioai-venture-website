@@ -23,8 +23,7 @@ import { ROLES } from "./job-folder.mjs";
 import { gitDiffNames, gitHead, gitRevParse } from "./git.mjs";
 import { changeIdentity, worktreeOf, worktreeSafety } from "./change-identity.mjs";
 import { matchesProtectedPath, checkPolicyBinding } from "./profile.mjs";
-import { implementedPreconditions, runPreconditions } from "./preconditions.mjs";
-import { evidenceRefs } from "./refs.mjs";
+import { implementedPreconditions, runPreconditions, evidenceMatchesChange } from "./preconditions.mjs";
 import { reason } from "./reasons.mjs";
 
 const satisfied = (detail) => [reason("INV-01/TRIGGER_SATISFIED", { detail })];
@@ -326,21 +325,16 @@ export const PREDICATES = Object.freeze({
     // being reviewed. `fast-gate.md`: "the final package must correspond to the
     // diff submitted for approval." Refuse a package that names another change,
     // so the omission is caught here rather than surfacing late at the handoff.
-    // A package that is missing, unreadable, or names no change is left to
-    // precondition 2 and INV-04; this row only rejects a package that is
-    // readable and names a DIFFERENT change.
-    const worktree = worktreeOf(context);
-    const refs = evidenceRefs(context, worktree);
-    if (!refs.missing && !refs.unreadable && refs.problems.length === 0 &&
-        refs.targets.length > 0) {
-      const current = changeIdentity(context);
-      if (current.ok) {
-        const stale = refs.targets.find((target) => target.sha !== current.identity.branch_commit);
-        if (stale) {
-          return unsatisfied(
-            `the evidence names \`${stale.sha}\`, not the change being reviewed \`${current.identity.branch_commit}\` -- re-run the gate against the repaired commit`);
-        }
-      }
+    // The comparison is precondition 6's, shared -- not a second copy that could
+    // drift from the one the approval gate makes.
+    //
+    // A package that is missing, unreadable, or names no change is undecidable
+    // here and is left to precondition 2 and INV-04; this row only rejects a
+    // package it can read and that names a DIFFERENT change.
+    const evidence = evidenceMatchesChange(context);
+    if (evidence.holds === false) {
+      return unsatisfied(
+        `${evidence.detail} -- re-run the gate against the repaired commit`);
     }
     for (const role of ROLES) {
       const verdict = context.verdict(role);
