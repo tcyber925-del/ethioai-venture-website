@@ -318,7 +318,7 @@ export const PREDICATES = Object.freeze({
   // "the repair was driven by a review `CHANGES` verdict, so the round re-runs"
   // A review-triggered repair has no failed check to hand the builder -- the
   // gate passed -- so this exit returns the job to the round it came from.
-  "repairing>reviewing": () => [satisfied("the review round re-runs after the repair")],
+  "repairing>reviewing": () => satisfied("the review round re-runs after the repair"),
 
   // "all four verdict files exist, none carries a blocking finding, and `decision.md` says APPROVE"
   "reviewing>awaiting_human_review": (context) => {
