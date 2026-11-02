@@ -318,7 +318,12 @@ export const PREDICATES = Object.freeze({
   // "the repair was driven by a review `CHANGES` verdict, so the round re-runs"
   // A review-triggered repair has no failed check to hand the builder -- the
   // gate passed -- so this exit returns the job to the round it came from.
-  "repairing>reviewing": () => satisfied("the review round re-runs after the repair"),
+  //
+  // CR-007 Option A: this row was retired. It was unconditional, and it was the
+  // only route out of `repairing` that reached neither `entryToVerification` nor
+  // `protectedPathCheck`, so a diff-changing repair could reach approval with the
+  // gate unrun and a protected path never checked. Every review repair now takes
+  // `repairing>verifying` above, which is gated identically to `building>verifying`.
 
   // "all four verdict files exist, none carries a blocking finding, and `decision.md` says APPROVE"
   "reviewing>awaiting_human_review": (context) => {

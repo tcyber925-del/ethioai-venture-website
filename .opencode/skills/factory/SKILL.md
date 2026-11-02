@@ -402,10 +402,13 @@ reviewers launches them for every in-flight job, four each, all together.
      commit and `evidence.json` is rewritten for it before the round re-runs.
      (A *check-failed* repair takes `repairing` → `building` instead; the gate
      row's predicate checks the tree, not the verdict that drove the repair, so
-     the orchestrator routes the two — `reference/state-machine.md`.) The direct
-     `repairing` → `reviewing` row still exists for a repair that does not
-     change the diff; if it does, `reviewing` → `awaiting_human_review` refuses
-     the stale package. That refusal needs a package it can read and resolve, and
+     the orchestrator routes the two — `reference/state-machine.md`.) Every
+     review repair takes that row: there is no direct `repairing` → `reviewing`
+     route (CR-007 Option A), because it was unconditional and skipped both the
+     gate and the protected-path check. If the repair did not change the diff
+     the gate re-runs anyway — rare, and idempotent.
+     `reviewing` → `awaiting_human_review` still refuses a stale package, and
+     that refusal needs a package it can read and resolve, and
      a change identity it can compute: a package that is missing, unreadable, or
      names an unresolvable ref — or a change identity that cannot be computed —
      is left to the preconditions and INV-04. If a stale package is refused at `reviewing`
