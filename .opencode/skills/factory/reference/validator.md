@@ -109,11 +109,12 @@ schema requires it there too.
 
 A transition **not in the table** is a **reject**, not an inconclusive.
 
-The transition into `verifying` also reads the profile's `protected_paths`. A
-changed path that matches one is a reject (`INV-01/PROTECTED_PATH_CHANGED`) on
-every tier; a profile or section that cannot be read is an inconclusive, never
-a permit. The list is read from the main
-checkout's `.factory/profile.md`, and the paths compared are the ones git
+A transition **into `verifying`** — both `building → verifying` and the CR-006
+`repairing → verifying`, which share one predicate — also reads the profile's
+`protected_paths`. A changed path that matches one is a reject
+(`INV-01/PROTECTED_PATH_CHANGED`) on every tier; a profile or section that
+cannot be read is an inconclusive, never a permit. The list is read from the
+main checkout's `.factory/profile.md`, and the paths compared are the ones git
 reports between the recorded `base_commit` and the job branch's `HEAD`.
 
 The effective policy always adds `.factory/profile.md` and

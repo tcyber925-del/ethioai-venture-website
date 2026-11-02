@@ -139,9 +139,14 @@ function protectedPathCheck(context) {
  * May this job enter verification?
  *
  * `building>verifying` and (CR-006) `repairing>verifying` ask the same
- * question: the tree being verified is the tree that was built, on the job
- * branch's own commit, with no protected path touched. One helper, so the two
- * edges are gated identically and cannot drift apart.
+ * question: the tree that will be verified is the job branch's own commit,
+ * with no protected path touched. One helper, so the two edges are gated
+ * identically and cannot drift apart.
+ *
+ * `build.md`'s `STATUS: READY` is checked on both edges. On the `repairing`
+ * edge it is the pre-repair build's report — the builder is not re-run for a
+ * review repair — so only the tree checks (clean, `HEAD` on the branch, no
+ * protected path) are live for the repaired commit; step 6 re-runs the gate.
  */
 function entryToVerification(context) {
   return withArtifact(context, "build.md", (text) => {
