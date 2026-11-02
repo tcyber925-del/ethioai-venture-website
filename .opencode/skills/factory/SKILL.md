@@ -408,8 +408,9 @@ reviewers launches them for every in-flight job, four each, all together.
      unconditional and skipped both the gate and the protected-path check. If
      the repair did not change the diff the gate re-runs anyway — rare, and
      idempotent. If that row refuses (a protected path, a non-READY `build.md`,
-     a dirty tree), the job has no other exit: it fails safe and waits for a
-     human (CR-008).
+     a dirty tree), the job has no other exit: it fails safe and never reaches
+     approval, but it cannot be parked, so it sits at `repairing` until a human
+     intervenes (CR-008).
      `reviewing` → `awaiting_human_review` still refuses a stale package, and
      that refusal needs a package it can read and resolve, and
      a change identity it can compute: a package that is missing, unreadable, or

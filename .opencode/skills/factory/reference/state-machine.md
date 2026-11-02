@@ -128,7 +128,8 @@ path never checked. A review repair now goes `repairing` → `verifying` →
 `reviewing`: one route, always re-gated. The cost is a gate re-run for a repair
 that did not change the diff, which is rare and idempotent. When
 `repairing` → `verifying` refuses, the job has no other exit — it fails safe and
-waits for a human, which CR-008 records.
+never reaches approval, but it cannot be parked, so it sits at `repairing` until
+a human intervenes, which CR-008 records.
 
 `repairing` → `verifying` exists because a review repair changes the diff, and
 `reference/fast-gate.md` requires the package to correspond to the diff
