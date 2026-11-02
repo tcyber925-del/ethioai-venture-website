@@ -126,20 +126,27 @@ export const PRECONDITIONS = Object.freeze([
       if (!commit.ok) {
         return { holds: false, detail: `the recorded base commit \`${baseCommit}\` is not in the worktree` };
       }
-      // "Has not moved" is read as: the base branch is still where the record
-      // says it was. `approval.md` and `state-machine.md`'s sixth invariant
-      // both say a moved base invalidates a pending handoff, and a base that
-      // moved forward is a moved base.
+      // "Has not moved" is read as: the recorded base commit is still in the
+      // base branch's history. `approval.md` says "has not moved
+      // **unexpectedly**", and its staleness table names only a rewrite; the
+      // change identity's `base_intact` is exactly that test. A base that moved
+      // FORWARD leaves the recorded commit an ancestor, so the change being
+      // approved is still what the branch added to it. Only a rewrite -- the
+      // recorded commit no longer reachable -- invalidates the handoff.
       if (branch.sha !== commit.sha) {
         const ancestor = gitIsAncestor(worktree.path, commit.sha, branch.sha);
         if (!ancestor.ok) {
           return { undecidable: true, detail: ancestor.reason };
         }
+        if (ancestor.ancestor) {
+          return {
+            holds: true,
+            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
+          };
+        }
         return {
           holds: false,
-          detail: ancestor.ancestor
-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
         };
       }
       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };

@@ -93,7 +93,7 @@ rule the pack commits to in writing.
 3. A job is never reported `merged` without confirming the merge completed via `gh pr view`.
 4. A failed or interrupted stage resumes from persisted state or stops safely; it never restarts in a way that overwrites user work.
 5. Exhausted retries transition to `blocked` or `needs_human`, never to success.
-6. A moved base branch, a merge conflict, or a stale approval invalidates the pending handoff.
+6. A rewritten base branch (the recorded base commit is no longer reachable), a merge conflict, or a stale approval invalidates the pending handoff. A base that merely advanced is not a rewrite and does not.
 7. Terminal jobs remain inspectable, with their artifacts and decisions intact.
 8. No skill, agent, or status view reports a state the persisted record does not support.
 

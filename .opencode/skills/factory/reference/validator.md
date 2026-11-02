@@ -357,13 +357,16 @@ How the six are read:
 - **2** — no check in the evidence package is `not_run` or `blocked`, and all
   four reviews have returned.
 - **3** — the record names a base branch and a base commit, and the base
-  branch is still where the record says it was. A base that moved forward has
-  moved; `approval.md` and `state-machine.md`'s sixth invariant both say a
-  moved base invalidates a pending handoff. (`git merge-base --is-ancestor`
-  then says which kind of move it was: forward, or a rewrite that no longer
-  contains the recorded commit.) A base that is **not recorded** is a missing
-  input rather than a moved base: the check cannot be performed at all, so it
-  is `inconclusive`.
+  branch still contains the recorded commit. A base that moved **forward** has
+  not invalidated anything: the recorded commit is still an ancestor, so the
+  change being approved is still what the branch added to it. Only a base that
+  was **rewritten** — the recorded commit is no longer reachable — invalidates a
+  pending handoff. This is the lenient reading `approval.md` ("has not moved
+  **unexpectedly**") and its staleness table already state, and it matches
+  `isolation.md:42`'s third outcome for the same event one layer down.
+  (`git merge-base --is-ancestor` says which kind of move it was: forward, or a
+  rewrite.) A base that is **not recorded** is a missing input rather than a
+  moved base: the check cannot be performed at all, so it is `inconclusive`.
 - **4** — the tracked working tree is clean (`git status --porcelain
   --untracked-files=no`) **and the worktree is on the job branch**: its `HEAD`
   is the branch's tip. A clean worktree somewhere else is not the tree that

@@ -117,8 +117,9 @@ identity preconditions, and they are computed from the change identity above.
 
 Approval is **bound to a diff, not to a job**. Any material diff change after
 approval clears `approval.diff_ref` and forces re-review and re-approval. A
-merge conflict, a moved base branch, or a stale approval invalidates a pending
-handoff until it is re-evaluated.
+merge conflict, a **rewritten** base branch (the recorded `base_commit` is no
+longer reachable — a base that merely advanced is not a rewrite), or a stale
+approval invalidates a pending handoff until it is re-evaluated.
 
 The approval is recorded while the job is still at `awaiting_human_review`;
 the stage advances to `approved_to_merge` only once the preconditions hold.
