@@ -37,9 +37,9 @@ no exit, which is the point — the pause waits for a person.
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
-| `repairing` | `verifying` | the repair was driven by a review `CHANGES` verdict, so the gate re-runs against the repaired commit (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path) before the round re-runs |
+| `repairing` | `verifying` | the repaired tree is ready to re-verify (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path), so the gate re-runs against the repaired commit before the round re-runs (CR-006). Take this row for a review repair; a failed check takes `repairing` → `building` |
 | `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs (CR-002) |
-| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
+| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, `decision.md` says APPROVE, and the evidence package names the current change (CR-006 part B) |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
 | `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
