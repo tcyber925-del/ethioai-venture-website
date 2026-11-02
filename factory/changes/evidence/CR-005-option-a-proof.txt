@@ -1,0 +1,51 @@
+=== CR-005 Option A proof (scratch tree) ===
+captured: 2026-11-02T03:21:43Z
+scratch pack: /tmp/proof005 (copy of .opencode/skills/factory, CR-005 patch only)
+real job: factory/jobs/001-post-ux-qa-regression (never written by this proof)
+
+--- the patch applied to the scratch pack ---
+--- .opencode/skills/factory/tools/lib/preconditions.mjs	2026-10-31 04:24:44.005991739 +0000
++++ .opencode/skills/factory/tools/lib/preconditions.mjs	2026-11-02 03:21:20.804848232 +0000
+@@ -135,11 +135,20 @@
+         if (!ancestor.ok) {
+           return { undecidable: true, detail: ancestor.reason };
+         }
++        // A base that moved FORWARD is not the stale case: the recorded
++        // commit is still in the branch's history, so `base_intact` holds and
++        // the change being approved is still what the branch added to it.
++        // `approval.md` says "has not moved **unexpectedly**", and its
++        // staleness table names only a rewrite. Only a rewrite refuses.
++        if (ancestor.ancestor) {
++          return {
++            holds: true,
++            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
++          };
++        }
+         return {
+           holds: false,
+-          detail: ancestor.ancestor
+-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
+-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
++          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+         };
+       }
+       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };
+
+--- CASE 0: CONTROL, unpatched pack refuses the approve edge ---
+INV-01/PRECONDITION_FAILS  reject        §14.2 precondition 3 fails: the base branch `main` moved: it is at `369f7100c852af7dc0c4042f0211920c9f320471`, not the recorded `f094b79e983b3110f77651725e0e48e0db9f8936`
+
+--- CASE A: forward move (recorded f094b79, main at 369f710) -> permit ---
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 3 holds: the base branch `main` advanced to `369f7100c852af7dc0c4042f0211920c9f320471` but still contains the recorded `f094b79e983b3110f77651725e0e48e0db9f8936` -- a forward move, not a rewrite
+
+--- CASE B: rewrite (recorded commit not an ancestor of main) -> refuse ---
+INV-01/PRECONDITION_FAILS  reject        §14.2 precondition 3 fails: the base branch `main` was rewritten: it no longer contains the recorded `85e3ee317890e74761852f1569c1dbf7eb1f6853`
+
+--- CASE C: unmoved (recorded = main tip) -> permit ---
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 3 holds: the base branch is `main` at `369f7100c852af7dc0c4042f0211920c9f320471`, unmoved
+
+--- CASE D: END TO END, patched pack, approval recorded, approve edge -> permit ---
+ok  awaiting_human_review
+ok  approved_to_merge
+  stage: approved_to_merge
+
+=== scratch job dirs cleaned: 001-post-ux-qa-regression ===
