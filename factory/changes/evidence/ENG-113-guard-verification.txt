@@ -1,0 +1,29 @@
+ENG-113 — workspace guard re-baseline
+Throwaway tree at main fd7d1e1 + the ENG-113 patch.
+Date: 2026-11-01
+
+Context: main advanced f094b79 -> fd7d1e1 by two human merges (#39, #40). The job's
+baseline predates them, so on the unpatched pack every write is refused.
+
+0. Precondition — job wedged at repairing, tree clean, base intact
+   stage: repairing
+   git status --porcelain: 0 line(s)
+   base_intact: yes (f094b79 is an ancestor of main)
+
+=== AC1/AC2 — a committed-only difference refreshes the baseline and the job advances ===
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to reviewing
+    ok  reviewing
+    exit=0  (expect 0)
+    stage now: reviewing  (expect reviewing)
+
+=== AC3 — an uncommitted change is still refused, naming only the dirty path ===
+  $ git status --porcelain
+     M README.md
+  $ node ... --to reviewing
+    refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`: README.md
+    exit=1  (expect 1) — only README.md is named
+
+=== AC4 — a committed change plus one dirty file is still refused, naming only the dirty path ===
+  $ node ... --to reviewing
+    refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`: README.md
+    exit=1  (expect 1) — only README.md is named

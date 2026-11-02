@@ -1,0 +1,522 @@
+ENG-116 — review repair re-verifies; stale package refused (CR-006 Option C)
+captured: 2026-11-02T13:54:39Z
+pack: .opencode/skills/factory (branch ENG-116-review-repair-reverify)
+needs: job 001's record, and its worktree at
+       ../ethioai-venture-website-factory/001-post-ux-qa-regression
+each case prints its fixture reset; the fixture is removed at the end
+
+unpatched control pack: .tmp/eng116/pack-original (transitions.mjs + state-machine.md from main)
+
+=== PART A — the review repair can re-enter verification ===
+job 001 worktree tip: 85e3ee3
+--- A0: PATCHED, building -> verifying (regression: the refactored edge still holds) ---
+  fixture reset: fresh job at stage 'building'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+ok  verifying
+  exit=0
+  -> stage: verifying
+
+--- A1: PATCHED pack, repairing -> verifying (build.md READY, clean tree) ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+ok  verifying
+  exit=0
+  -> stage: verifying
+
+--- A2: CONTROL (unpatched), repairing -> verifying ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .tmp/eng116/pack-original/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/EDGE_UNKNOWN: `repairing` -> `verifying` is not a row in `reference/state-machine.md`
+  exit=1
+
+--- A3: PATCHED, repairing -> verifying with build.md BLOCKED ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/TRIGGER_FALSE: the trigger does not hold: `build.md` opens with `STATUS: BLOCKED`
+  exit=1
+
+--- A4: PATCHED, repairing -> verifying with build.md missing ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/TRIGGER_INPUT_MISSING: the trigger's own condition is false: build.md does not exist
+  exit=1
+
+=== PART B — a stale package cannot reach awaiting_human_review ===
+current change (branch tip): 85e3ee317890e74761852f1569c1dbf7eb1f6853
+a stale commit (round-1 tip): 6d28cfb24d8ea0c871637cfcf1dfc8696951db58
+
+--- B1: CONTROL (unpatched), reviewing -> awaiting_human_review, STALE package ---
+  fixture reset: fresh job at stage 'reviewing'
+  $ node .tmp/eng116/pack-original/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+ok  awaiting_human_review
+  exit=0
+  (the hole: the unpatched pack lets a stale package through)
+
+--- B2: PATCHED, reviewing -> awaiting_human_review, STALE package ---
+  fixture reset: fresh job at stage 'reviewing'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+refused  INV-01/TRIGGER_FALSE: the trigger does not hold: the evidence names `6d28cfb24d8ea0c871637cfcf1dfc8696951db58`, not the current change `85e3ee317890e74761852f1569c1dbf7eb1f6853` -- the package does not correspond to the current diff -- park the job and rework it through `repairing` -> `verifying`, which re-runs the gate on the repaired commit (there is no `reviewing` -> `verifying` row)
+  exit=1
+
+--- B3: PATCHED, reviewing -> awaiting_human_review, CURRENT package ---
+  fixture reset: fresh job at stage 'reviewing'
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+ok  awaiting_human_review
+  exit=0
+  -> stage: awaiting_human_review
+
+=== PART C — the read-only validator can inspect the CR-002 row ===
+the old predicate returned [satisfied(...)] -- a double-wrapped array that
+crashed validate.mjs; the predicate now returns satisfied(...) directly.
+
+--- C1: PATCHED, validate INV-01 repairing -> reviewing ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng116-verify --invariant INV-01 --to reviewing --json
+{
+  "job": "/workspace/project/ethioai-venture-website/factory/jobs/900-eng116-verify",
+  "invariant": "INV-01",
+  "outcome": "permit",
+  "checks": [
+    {
+      "id": "INV-01/EDGE_IN_TABLE",
+      "outcome": "permit",
+      "detail": "the transition `repairing` -> `reviewing` is a row in `reference/state-machine.md`"
+    },
+    {
+      "id": "INV-01/TRIGGER_SATISFIED",
+      "outcome": "permit",
+      "detail": "the trigger holds: the review round re-runs after the repair"
+    }
+  ],
+  "reasons": []
+}
+  exit=0
+
+--- C2: CONTROL (unpatched), validate INV-01 repairing -> reviewing ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .tmp/eng116/pack-original/tools/validate.mjs --job factory/jobs/900-eng116-verify --invariant INV-01 --to reviewing --json
+{
+  "job": "/workspace/project/ethioai-venture-website/factory/jobs/900-eng116-verify",
+  "invariant": "INV-01",
+  "outcome": "permit",
+  "checks": [
+    {
+      "id": "INV-01/EDGE_IN_TABLE",
+      "outcome": "permit",
+      "detail": "the transition `repairing` -> `reviewing` is a row in `reference/state-machine.md`"
+    },
+    {}
+  ],
+  "reasons": [
+    null
+  ]
+}
+  exit=0
+  (the control leaves a malformed check entry and a null reason)
+
+--- C3: CONTROL (unpatched), the same check in human mode ---
+  fixture reset: fresh job at stage 'repairing'
+  $ node .tmp/eng116/pack-original/tools/validate.mjs --job factory/jobs/900-eng116-verify --invariant INV-01 --to reviewing
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.21.0
+  exit=1
+  (the control crashes -- the malformed entry is dereferenced)
+
+=== the fix, as it stands in the pack ===
+diff --git a/.opencode/skills/factory/SKILL.md b/.opencode/skills/factory/SKILL.md
+index 9fc9d61..f9c224b 100644
+--- a/.opencode/skills/factory/SKILL.md
++++ b/.opencode/skills/factory/SKILL.md
+@@ -387,9 +387,31 @@ reviewers launches them for every in-flight job, four each, all together.
+    source it came from:
+    - **A failed check** — set `stage: "building"` and return to step 5 with the
+      failing check's output.
+-   - **A review `CHANGES` verdict** — set `stage: "reviewing"` and return to
+-     step 9. There is no failed check to hand the builder; the round re-runs
+-     against the repaired commit.
++   - **A review `CHANGES` verdict** — spawn the `builder` for a repair round
++     under step 5's rules, and give it the review findings as its input: the
++     blocking findings in `round-N/review-code.md`, `review-security.md`,
++     `review-scope.md`, `review-visual.md`, where `round-N` is the round whose
++     verdicts returned `CHANGES` (the record's `round` has already advanced
++     past it — `tools/transition.mjs`). It is the only source editor and it
++     commits the repair, since the row below refuses a dirty tree. Then set
++     `stage: "verifying"` and return to step 6, and continue **through step 7**
++     (the gate run owns the re-run's outcomes) to step 9. There is no failed
++     check to hand the builder, but the repair changed the diff,
++     and `reference/fast-gate.md` requires the package to correspond to the
++     diff submitted for approval: so the gate re-runs against the repaired
++     commit and `evidence.json` is rewritten for it before the round re-runs.
++     (A *check-failed* repair takes `repairing` → `building` instead; the gate
++     row's predicate checks the tree, not the verdict that drove the repair, so
++     the orchestrator routes the two — `reference/state-machine.md`.) The direct
++     `repairing` → `reviewing` row still exists for a repair that does not
++     change the diff; if it does, `reviewing` → `awaiting_human_review` refuses
++     the stale package. That refusal needs a package it can read and resolve, and
++     a change identity it can compute: a package that is missing, unreadable, or
++     names an unresolvable ref — or a change identity that cannot be computed —
++     is left to the preconditions and INV-04. If a stale package is refused at `reviewing`
++     there is no `reviewing` → `verifying` row — park the job and rework it
++     through `repairing` → `verifying` (see `reference/recovery.md`); do not
++     rewrite `evidence.json` in place, which would skip the tree checks.
+    The budget was already spent in the write that set `repairing`.
+ 
+ 9. **Run the review round.** Set `stage: "reviewing"` if it is not already
+diff --git a/.opencode/skills/factory/reference/approval.md b/.opencode/skills/factory/reference/approval.md
+index fc49e7d..46b48a8 100644
+--- a/.opencode/skills/factory/reference/approval.md
++++ b/.opencode/skills/factory/reference/approval.md
+@@ -66,7 +66,7 @@ catch the four staleness cases:
+ | the job branch moved | `branch_commit` changes |
+ | the working tree carries uncommitted changes | `clean` becomes false — the commit sha does not move, the tree does |
+ | the base was rewritten | `base_intact` becomes false — the same commit now means a different diff |
+-| the evidence names another change | precondition 6 fails — the change that was reviewed is not the change being approved |
++| the evidence names another change | precondition 6 fails — the package does not correspond to the current diff |
+ 
+ An approval records the **binding**: `approval.diff_ref` (the `branch_commit`)
+ and `approval.base_commit` (the base it was granted against), together with
+diff --git a/.opencode/skills/factory/reference/isolation.md b/.opencode/skills/factory/reference/isolation.md
+index 694ebf5..8bb501b 100644
+--- a/.opencode/skills/factory/reference/isolation.md
++++ b/.opencode/skills/factory/reference/isolation.md
+@@ -50,7 +50,7 @@ and only the dirty paths are named, so a job cannot advance over work in
+ progress.
+ 
+ The same job-scoped comparison holds for the protected-path policy: the policy
+-is bound to the job when it is claimed, and the transition into `verifying` and
++is bound to the job when it is claimed, and the transitions into `verifying` and
+ the guarded handoff check that binding again. The effective binding always
+ includes `.factory/profile.md` and `.factory/policies/**`, even when the
+ profile says `none`, so a job cannot edit the policy files it is judged by. A
+diff --git a/.opencode/skills/factory/reference/state-machine.md b/.opencode/skills/factory/reference/state-machine.md
+index 75df205..c45bea8 100644
+--- a/.opencode/skills/factory/reference/state-machine.md
++++ b/.opencode/skills/factory/reference/state-machine.md
+@@ -37,8 +37,9 @@ no exit, which is the point — the pause waits for a person.
+ | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
+ | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
+ | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
+-| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
+-| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
++| `repairing` | `verifying` | the repaired tree is ready to re-verify (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path), so the gate re-runs against the repaired commit before the round re-runs (CR-006). Take this row for a review repair; a failed check takes `repairing` → `building` |
++| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs (CR-002) |
++| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, `decision.md` says APPROVE, and — when the package can be read, resolved, and the change identity computed — it names the current change (CR-006 part B). A package that is missing, unreadable, or names an unresolvable ref, or a change identity that cannot be computed, is left to the preconditions and INV-04 |
+ | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
+ | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
+ | `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
+@@ -112,11 +113,26 @@ that sets `stage: "repairing"` — whether the job arrived there from
+ sources pass through, which is why the budget cannot be re-rolled by failing a
+ different way. It resets only on explicit human `/factory rework`.
+ 
+-The funnel has one exit per failure source, because only one of them carries a
+-failing check. A check failure re-dispatches the builder (`repairing` →
+-`building`, handing it the failing check's output); a review `CHANGES` verdict
+-has no failed check to hand over, so it re-runs the round (`repairing` →
+-`reviewing`). Neither exit moves the budget, which was spent on the way in.
++The funnel's two failure sources are re-dispatched differently, because only one
++of them carries a failing check. A check failure re-dispatches the builder
++(`repairing` → `building`, handing it the failing check's output). A review
++`CHANGES` verdict has no failed check to hand over, but the repair changed the
++diff, so the gate re-runs first (`repairing` → `verifying`) and the round then
++re-runs from `verifying` (`verifying` → `reviewing`). Neither path moves the
++budget, which was spent on the way in.
++
++The direct `repairing` → `reviewing` row (CR-002) remains: the round may re-run
++without re-gating. If the repair changed the diff, `reviewing` →
++`awaiting_human_review` refuses the now-stale package (CR-006 part B), so the
++shortcut is caught rather than silent.
++
++`repairing` → `verifying` exists because a review repair changes the diff, and
++`reference/fast-gate.md` requires the package to correspond to the diff
++submitted for approval. Step 6 *enters* `verifying`, and a job at `repairing`
++cannot take `building` → `verifying`; without this row the repaired diff would
++reach approval on the package written for the commit it replaced. The row is
++gated exactly as `building` → `verifying` is, so the tree that re-verifies is
++the tree the handoff would push.
+ 
+ A rework re-grants the budget, and the resume **spends** it: `needs_human` →
+ `repairing` requires a recorded rework and a remaining retry, and the write that
+diff --git a/.opencode/skills/factory/reference/validator.md b/.opencode/skills/factory/reference/validator.md
+index 4c997bc..093e206 100644
+--- a/.opencode/skills/factory/reference/validator.md
++++ b/.opencode/skills/factory/reference/validator.md
+@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
+ is on disk right now?" X is the record's `stage`; Y is `--to`.
+ 
+ The set of legal edges is **parsed from the table**, never copied into code.
+-The table has 24 rows. Three of them are conversational and are not
+-implemented (see below); the other 21 each get a predicate that reads the
++The table has 25 rows. Three of them are conversational and are not
++implemented (see below); the other 22 each get a predicate that reads the
+ row's own trigger. A row the validator has no predicate for is reported as
+ `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
+ 
+@@ -109,11 +109,12 @@ schema requires it there too.
+ 
+ A transition **not in the table** is a **reject**, not an inconclusive.
+ 
+-The transition into `verifying` also reads the profile's `protected_paths`. A
+-changed path that matches one is a reject (`INV-01/PROTECTED_PATH_CHANGED`) on
+-every tier; a profile or section that cannot be read is an inconclusive, never
+-a permit. The list is read from the main
+-checkout's `.factory/profile.md`, and the paths compared are the ones git
++A transition **into `verifying`** — both `building → verifying` and the CR-006
++`repairing → verifying`, which share one predicate — also reads the profile's
++`protected_paths`. A changed path that matches one is a reject
++(`INV-01/PROTECTED_PATH_CHANGED`) on every tier; a profile or section that
++cannot be read is an inconclusive, never a permit. The list is read from the
++main checkout's `.factory/profile.md`, and the paths compared are the ones git
+ reports between the recorded `base_commit` and the job branch's `HEAD`.
+ 
+ The effective policy always adds `.factory/profile.md` and
+diff --git a/.opencode/skills/factory/tools/lib/preconditions.mjs b/.opencode/skills/factory/tools/lib/preconditions.mjs
+index 0328236..c53348f 100644
+--- a/.opencode/skills/factory/tools/lib/preconditions.mjs
++++ b/.opencode/skills/factory/tools/lib/preconditions.mjs
+@@ -23,6 +23,53 @@ import { reason } from "./reasons.mjs";
+ /** The stages a job is parked at when it cannot proceed. */
+ export const FAILURE_STAGES = Object.freeze(["needs_human", "blocked"]);
+ 
++/**
++ * Does the evidence package name the current change?
++ *
++ * The comparison §14.2 precondition 6 makes, and that the review-repair
++ * transitions (CR-006) reuse: every `diff_ref` the package carries must
++ * resolve to the job branch's tip. One implementation, so the approval gate
++ * and the review-repair route cannot disagree about which change was verified.
++ *
++ * Returns the precondition shape: `{ holds }`, or `{ undecidable }` when the
++ * package, a ref, or the identity cannot be read.
++ */
++export function evidenceMatchesChange(context) {
++  const current = changeIdentity(context);
++  if (!current.ok) return { undecidable: true, detail: current.reason };
++
++  const worktree = worktreeOf(context);
++  const refs = evidenceRefs(context, worktree);
++  if (refs.missing) {
++    return { undecidable: true, detail: "the evidence package is missing" };
++  }
++  if (refs.unreadable) {
++    return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
++  }
++  if (refs.problems.length > 0) {
++    const problem = refs.problems[0];
++    return {
++      undecidable: true,
++      detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
++    };
++  }
++  if (refs.targets.length === 0) {
++    return { undecidable: true, detail: "the evidence package names no change" };
++  }
++  for (const target of refs.targets) {
++    if (target.sha !== current.identity.branch_commit) {
++      return {
++        holds: false,
++        detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the package does not correspond to the current diff`,
++      };
++    }
++  }
++  return {
++    holds: true,
++    detail: `the evidence names \`${current.identity.branch_commit}\`, the current change`,
++  };
++}
++
+ /**
+  * The registry. Every precondition is here, implemented or not.
+  *
+@@ -195,39 +242,7 @@ export const PRECONDITIONS = Object.freeze([
+       // not the same commit when the worktree is detached at an older one,
+       // which is the exact hole the change identity was introduced to close.
+       // A worktree that is not on the branch is precondition 4's business.
+-      const current = changeIdentity(context);
+-      if (!current.ok) return { undecidable: true, detail: current.reason };
+-
+-      const worktree = worktreeOf(context);
+-      const refs = evidenceRefs(context, worktree);
+-      if (refs.missing) {
+-        return { undecidable: true, detail: "the evidence package is missing" };
+-      }
+-      if (refs.unreadable) {
+-        return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
+-      }
+-      if (refs.problems.length > 0) {
+-        const problem = refs.problems[0];
+-        return {
+-          undecidable: true,
+-          detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
+-        };
+-      }
+-      if (refs.targets.length === 0) {
+-        return { undecidable: true, detail: "the evidence package names no change" };
+-      }
+-      for (const target of refs.targets) {
+-        if (target.sha !== current.identity.branch_commit) {
+-          return {
+-            holds: false,
+-            detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the change that was reviewed is not the change being approved`,
+-          };
+-        }
+-      }
+-      return {
+-        holds: true,
+-        detail: `the evidence names \`${current.identity.branch_commit}\`, the change being approved`,
+-      };
++      return evidenceMatchesChange(context);
+     },
+   },
+ ]);
+diff --git a/.opencode/skills/factory/tools/lib/transitions.mjs b/.opencode/skills/factory/tools/lib/transitions.mjs
+index 034f431..927dd76 100644
+--- a/.opencode/skills/factory/tools/lib/transitions.mjs
++++ b/.opencode/skills/factory/tools/lib/transitions.mjs
+@@ -23,7 +23,7 @@ import { ROLES } from "./job-folder.mjs";
+ import { gitDiffNames, gitHead, gitRevParse } from "./git.mjs";
+ import { changeIdentity, worktreeOf, worktreeSafety } from "./change-identity.mjs";
+ import { matchesProtectedPath, checkPolicyBinding } from "./profile.mjs";
+-import { implementedPreconditions, runPreconditions } from "./preconditions.mjs";
++import { implementedPreconditions, runPreconditions, evidenceMatchesChange } from "./preconditions.mjs";
+ import { reason } from "./reasons.mjs";
+ 
+ const satisfied = (detail) => [reason("INV-01/TRIGGER_SATISFIED", { detail })];
+@@ -135,6 +135,52 @@ function protectedPathCheck(context) {
+   };
+ }
+ 
++/**
++ * May this job enter verification?
++ *
++ * `building>verifying` and (CR-006) `repairing>verifying` ask the same
++ * question: the tree that will be verified is the job branch's own commit,
++ * with no protected path touched. One helper, so the two edges are gated
++ * identically and cannot drift apart.
++ *
++ * `build.md`'s `STATUS: READY` is checked on both edges. On the `repairing`
++ * edge it is the pre-repair build's report — the builder is not re-run for a
++ * review repair — so only the tree checks (clean, `HEAD` on the branch, no
++ * protected path) are live for the repaired commit; step 6 re-runs the gate.
++ */
++function entryToVerification(context) {
++  return withArtifact(context, "build.md", (text) => {
++    const first = text.split("\n", 1)[0].trim();
++    if (first !== "STATUS: READY") {
++      return unsatisfied(`\`build.md\` opens with \`${first}\``);
++    }
++    const safety = worktreeSafety(context);
++    if (safety.undecidable) {
++      return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
++        artifact: "the job worktree",
++        reason: safety.detail,
++      })];
++    }
++    if (!safety.holds) return unsatisfied(safety.detail);
++    const protection = protectedPathCheck(context);
++    if (!protection.ok) {
++      return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
++        artifact: protection.artifact,
++        reason: protection.reason,
++      })];
++    }
++    if (protection.hits.length > 0) {
++      const paths = protection.hits
++        .map(({ path, pattern }) => `\`${path}\` (matches \`${pattern}\`)`)
++        .join(", ");
++      return [reason("INV-01/PROTECTED_PATH_CHANGED", { paths })];
++    }
++    return satisfied(
++      `\`build.md\` opens with \`STATUS: READY\`; ${safety.detail}; ${protection.detail}`,
++    );
++  });
++}
++
+ /**
+  * The predicates, keyed by `from>to`.
+  *
+@@ -193,37 +239,19 @@ export const PREDICATES = Object.freeze({
+   // "`build.md` first line is `STATUS: READY`, the worktree is clean,
+   //  `HEAD` is the job branch's own commit, and no changed path matches the
+   //  profile's `protected_paths`"
+-  "building>verifying": (context) =>
+-    withArtifact(context, "build.md", (text) => {
+-      const first = text.split("\n", 1)[0].trim();
+-      if (first !== "STATUS: READY") {
+-        return unsatisfied(`\`build.md\` opens with \`${first}\``);
+-      }
+-      const safety = worktreeSafety(context);
+-      if (safety.undecidable) {
+-        return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
+-          artifact: "the job worktree",
+-          reason: safety.detail,
+-        })];
+-      }
+-      if (!safety.holds) return unsatisfied(safety.detail);
+-      const protection = protectedPathCheck(context);
+-      if (!protection.ok) {
+-        return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
+-          artifact: protection.artifact,
+-          reason: protection.reason,
+-        })];
+-      }
+-      if (protection.hits.length > 0) {
+-        const paths = protection.hits
+-          .map(({ path, pattern }) => `\`${path}\` (matches \`${pattern}\`)`)
+-          .join(", ");
+-        return [reason("INV-01/PROTECTED_PATH_CHANGED", { paths })];
+-      }
+-      return satisfied(
+-        `\`build.md\` opens with \`STATUS: READY\`; ${safety.detail}; ${protection.detail}`,
+-      );
+-    }),
++  "building>verifying": (context) => entryToVerification(context),
++
++  // "a review `CHANGES` repair re-runs the profile's gate against the repaired
++  //  commit before the review round, so the package names the diff being
++  //  reviewed"
++  //
++  // CR-006: a review-triggered repair changes the diff, and `fast-gate.md`
++  // requires the package to correspond to the diff submitted for approval. Step
++  // 6 enters `verifying` and the only other edge into it is `building>verifying`,
++  // which a job at `repairing` cannot take. This edge is the route back through
++  // step 6 -- gated identically to `building>verifying`, so the tree that
++  // re-verifies is the tree the handoff would push.
++  "repairing>verifying": (context) => entryToVerification(context),
+ 
+   // "`build.md` first line is `STATUS: BLOCKED`" -- a failure stage.
+   "building>needs_human": () => failureStage("needs_human"),
+@@ -290,13 +318,31 @@ export const PREDICATES = Object.freeze({
+   // "the repair was driven by a review `CHANGES` verdict, so the round re-runs"
+   // A review-triggered repair has no failed check to hand the builder -- the
+   // gate passed -- so this exit returns the job to the round it came from.
+-  "repairing>reviewing": () => [satisfied("the review round re-runs after the repair")],
++  "repairing>reviewing": () => satisfied("the review round re-runs after the repair"),
+ 
+   // "all four verdict files exist, none carries a blocking finding, and `decision.md` says APPROVE"
+   "reviewing>awaiting_human_review": (context) => {
+     if (context.round === null) {
+       return unsatisfied("the record carries no round, so the verdict files cannot be found");
+     }
++    // CR-006 part B: a review-triggered repair changes the diff without
++    // re-running the gate, so the package can name a commit other than the one
++    // being reviewed. `fast-gate.md`: "the final package must correspond to the
++    // diff submitted for approval." Refuse a package that names another change,
++    // so the omission is caught here rather than surfacing late at the handoff.
++    // The comparison is precondition 6's, shared -- not a second copy that could
++    // drift from the one the approval gate makes.
++    //
++    // A package that is missing, unreadable, or names no change is undecidable
++    // here and is left to precondition 2 and INV-04; this row only rejects a
++    // package it can read and that names a DIFFERENT change.
++    const evidence = evidenceMatchesChange(context);
++    if (evidence.holds === false) {
++      return unsatisfied(
++        `${evidence.detail} -- park the job and rework it through ` +
++        `\`repairing\` -> \`verifying\`, which re-runs the gate on the repaired ` +
++        `commit (there is no \`reviewing\` -> \`verifying\` row)`);
++    }
+     for (const role of ROLES) {
+       const verdict = context.verdict(role);
+       if (!verdict) return unsatisfied("the record carries no round, so the verdict files cannot be found");

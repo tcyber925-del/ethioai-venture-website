@@ -1,0 +1,37 @@
+# CR-006 evidence — a review-triggered repair changes the diff but never re-runs the gate
+
+## The walkthrough routes a review repair to step 9 (review), never step 6 (verify)
+SKILL.md step 8:
+
+8. **Route a repair.** A job set to `repairing` is re-dispatched by the failure
+   source it came from:
+   - **A failed check** — set `stage: "building"` and return to step 5 with the
+     failing check's output.
+   - **A review `CHANGES` verdict** — set `stage: "reviewing"` and return to
+     step 9. There is no failed check to hand the builder; the round re-runs
+     against the repaired commit.
+
+## fast-gate.md requires the package to correspond to the diff
+If a repair changes the diff, every check affected by that change re-runs. The
+final package must correspond to the diff submitted for approval.
+
+## evidence.json is written only at step 6
+   worktree, following
+   `reference/fast-gate.md`, and write `evidence.json` per
+   `schemas/evidence.schema.json`. Only `passed` and `not_applicable` advance
+
+## reviewing>awaiting_human_review reads no evidence and no diff_ref (0 matches)
+$ sed -n "296,338p" .opencode/skills/factory/tools/lib/transitions.mjs | grep -c "evidence\|diff_ref"
+0
+
+## Precedent: the round-1 repair DID refresh evidence to its own tip
+  evidence.json named 6d28cfb (round-1 repair tip) before round 3
+  after the round-3 repair (tip 85e3ee3) it still named 6d28cfb -> INV-04/REF_STALE
+
+## The only writer of job.json runs INV-01, not INV-04
+428:    const verdict = validateJob(folder, { invariant: "INV-01", to, record: prospective });
+
+## Precondition 6 then blocks approval on the stale package
+18:        if (target.sha !== current.identity.branch_commit) {
+21:            detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the change that was reviewed is not the change being approved`,
+27:        detail: `the evidence names \`${current.identity.branch_commit}\`, the change being approved`,

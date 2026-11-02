@@ -1,0 +1,25 @@
+CR-003 Option A — verification
+Throwaway tree at fd7d1e1, job 001 copied in.
+Date: 2026-10-31
+
+0. Precondition — the guard refuses on the UNPATCHED pack
+   refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`: factory/changes/evidence/CR-002-rejections.log, factory/changes/evidence/CR-002-job-001-evidence.json, factory/changes/evidence/CR-002-option-a.patch, factory/changes/evidence/ENG-112-transition-verification.txt, factory/changes/evidence/CR-002-inv01-repairing-to-building.txt, factory/changes/CR-002.md, factory/changes/evidence/CR-002-job-001-commits.txt, factory/changes/evidence/CR-002-round-0-review-code.md, factory/changes/CR-002.decision.md, factory/changes/evidence/CR-002-job-001-diffstat.txt, factory/changes/evidence/CR-002-round-0-review-scope.md, factory/changes/evidence/CR-002-round-0-review-security.md, factory/changes/evidence/CR-002-job-001-record.json, factory/changes/evidence/CR-002-round-0-review-visual.md, .opencode/skills/factory/reference/state-machine.md, .opencode/skills/factory/tools/lib/transitions.mjs, .opencode/skills/factory/SKILL.md
+   exit=1  (expect 1)
+
+1. Apply the patch (evidence/CR-003-option-a.patch)
+   applied cleanly
+
+2. POSITIVE — committed-only difference, tree clean: expect permit
+   ok  reviewing
+   exit=0  (expect 0)
+   stage now: reviewing
+
+3. NEGATIVE — the user's uncommitted work must still be protected
+   dirty:  M README.md
+   refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`: README.md
+   exit=1  (expect 1)
+   stage still: repairing
+
+4. NEGATIVE — a committed change with one dirty file still refuses, naming only the dirty path
+   refused  MAIN_CHECKOUT_CHANGED: the main checkout changed outside `factory/jobs/`: README.md
+   exit=1  (expect 1)

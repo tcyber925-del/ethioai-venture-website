@@ -24,6 +24,53 @@ import { reason } from "./reasons.mjs";
 export const FAILURE_STAGES = Object.freeze(["needs_human", "blocked"]);
 
 /**
+ * Does the evidence package name the current change?
+ *
+ * The comparison §14.2 precondition 6 makes, and that the review-repair
+ * transitions (CR-006) reuse: every `diff_ref` the package carries must
+ * resolve to the job branch's tip. One implementation, so the approval gate
+ * and the review-repair route cannot disagree about which change was verified.
+ *
+ * Returns the precondition shape: `{ holds }`, or `{ undecidable }` when the
+ * package, a ref, or the identity cannot be read.
+ */
+export function evidenceMatchesChange(context) {
+  const current = changeIdentity(context);
+  if (!current.ok) return { undecidable: true, detail: current.reason };
+
+  const worktree = worktreeOf(context);
+  const refs = evidenceRefs(context, worktree);
+  if (refs.missing) {
+    return { undecidable: true, detail: "the evidence package is missing" };
+  }
+  if (refs.unreadable) {
+    return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
+  }
+  if (refs.problems.length > 0) {
+    const problem = refs.problems[0];
+    return {
+      undecidable: true,
+      detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
+    };
+  }
+  if (refs.targets.length === 0) {
+    return { undecidable: true, detail: "the evidence package names no change" };
+  }
+  for (const target of refs.targets) {
+    if (target.sha !== current.identity.branch_commit) {
+      return {
+        holds: false,
+        detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the package does not correspond to the current diff`,
+      };
+    }
+  }
+  return {
+    holds: true,
+    detail: `the evidence names \`${current.identity.branch_commit}\`, the current change`,
+  };
+}
+
+/**
  * The registry. Every precondition is here, implemented or not.
  *
  * An implemented precondition returns one of:
@@ -126,20 +173,27 @@ export const PRECONDITIONS = Object.freeze([
       if (!commit.ok) {
         return { holds: false, detail: `the recorded base commit \`${baseCommit}\` is not in the worktree` };
       }
-      // "Has not moved" is read as: the base branch is still where the record
-      // says it was. `approval.md` and `state-machine.md`'s sixth invariant
-      // both say a moved base invalidates a pending handoff, and a base that
-      // moved forward is a moved base.
+      // "Has not moved" is read as: the recorded base commit is still in the
+      // base branch's history. `approval.md` says "has not moved
+      // **unexpectedly**", and its staleness table names only a rewrite; the
+      // change identity's `base_intact` is exactly that test. A base that moved
+      // FORWARD leaves the recorded commit an ancestor, so the change being
+      // approved is still what the branch added to it. Only a rewrite -- the
+      // recorded commit no longer reachable -- invalidates the handoff.
       if (branch.sha !== commit.sha) {
         const ancestor = gitIsAncestor(worktree.path, commit.sha, branch.sha);
         if (!ancestor.ok) {
           return { undecidable: true, detail: ancestor.reason };
         }
+        if (ancestor.ancestor) {
+          return {
+            holds: true,
+            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
+          };
+        }
         return {
           holds: false,
-          detail: ancestor.ancestor
-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
         };
       }
       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };
@@ -188,39 +242,7 @@ export const PRECONDITIONS = Object.freeze([
       // not the same commit when the worktree is detached at an older one,
       // which is the exact hole the change identity was introduced to close.
       // A worktree that is not on the branch is precondition 4's business.
-      const current = changeIdentity(context);
-      if (!current.ok) return { undecidable: true, detail: current.reason };
-
-      const worktree = worktreeOf(context);
-      const refs = evidenceRefs(context, worktree);
-      if (refs.missing) {
-        return { undecidable: true, detail: "the evidence package is missing" };
-      }
-      if (refs.unreadable) {
-        return { undecidable: true, detail: `the evidence package cannot be read (${refs.reason})` };
-      }
-      if (refs.problems.length > 0) {
-        const problem = refs.problems[0];
-        return {
-          undecidable: true,
-          detail: `${problem.where} names \`${problem.ref}\`, which ${problem.reason}`,
-        };
-      }
-      if (refs.targets.length === 0) {
-        return { undecidable: true, detail: "the evidence package names no change" };
-      }
-      for (const target of refs.targets) {
-        if (target.sha !== current.identity.branch_commit) {
-          return {
-            holds: false,
-            detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the change that was reviewed is not the change being approved`,
-          };
-        }
-      }
-      return {
-        holds: true,
-        detail: `the evidence names \`${current.identity.branch_commit}\`, the change being approved`,
-      };
+      return evidenceMatchesChange(context);
     },
   },
 ]);

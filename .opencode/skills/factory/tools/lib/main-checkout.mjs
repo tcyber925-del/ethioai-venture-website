@@ -158,11 +158,18 @@ export function guardMainCheckout(jobDir, repoRoot) {
   const outside = [...differences.added, ...differences.removed, ...differences.modified]
     .filter((path) => !path.startsWith(ALLOWED_PREFIX));
   if (outside.length > 0) {
+    // A committed change to the base branch is not the user's uncommitted work.
+    // If every differing path is clean against HEAD, refresh the baseline.
+    const dirty = outside.filter((path) =>
+      git(["status", "--porcelain", "--", path], { cwd: repoRoot }).out !== "");
+    if (dirty.length === 0) {
+      return { ok: true, recorded: true, baseline: current.text, changes: outside };
+    }
     return {
       ok: false,
       kind: "changed",
-      changes: outside,
-      reason: `the main checkout changed outside \`${ALLOWED_PREFIX}\`: ${outside.join(", ")}`,
+      changes: dirty,
+      reason: `the main checkout changed outside \`${ALLOWED_PREFIX}\`: ${dirty.join(", ")}`,
     };
   }
   return { ok: true, recorded: false, changes: [] };

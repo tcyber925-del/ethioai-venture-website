@@ -1,0 +1,26 @@
+--- a/.opencode/skills/factory/tools/lib/preconditions.mjs
++++ b/.opencode/skills/factory/tools/lib/preconditions.mjs
+@@ -135,11 +135,20 @@
+         if (!ancestor.ok) {
+           return { undecidable: true, detail: ancestor.reason };
+         }
++        // A base that moved FORWARD is not the stale case: the recorded
++        // commit is still in the branch's history, so `base_intact` holds and
++        // the change being approved is still what the branch added to it.
++        // `approval.md` says "has not moved **unexpectedly**", and its
++        // staleness table names only a rewrite. Only a rewrite refuses.
++        if (ancestor.ancestor) {
++          return {
++            holds: true,
++            detail: `the base branch \`${baseBranch}\` advanced to \`${branch.sha}\` but still contains the recorded \`${commit.sha}\` -- a forward move, not a rewrite`,
++          };
++        }
+         return {
+           holds: false,
+-          detail: ancestor.ancestor
+-            ? `the base branch \`${baseBranch}\` moved: it is at \`${branch.sha}\`, not the recorded \`${commit.sha}\``
+-            : `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
++          detail: `the base branch \`${baseBranch}\` was rewritten: it no longer contains the recorded \`${commit.sha}\``,
+         };
+       }
+       return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };

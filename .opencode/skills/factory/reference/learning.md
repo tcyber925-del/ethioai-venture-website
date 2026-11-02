@@ -13,10 +13,14 @@ When the job's outcome is actually known:
 - **`handed_off`** — the §14.3 gate passed and the pull request opened. The job
   is finished.
 - **a job parked at `blocked` or `needs_human`, when a human asks for its record.**
-  Both are terminal transitions but neither is an outcome: `blocked` is
-  recoverable through `/factory go`, and `needs_human` is a pause. An automatic
-  record written at either describes a job that may yet succeed, and a record
-  that is false in a way no later reader can detect is worse than none.
+  Neither is an outcome, and neither advances on its own. `needs_human` is a
+  pause with a door: a human `/factory rework` re-grants the budget, and
+  `/factory go` resumes the job through the `needs_human` → `repairing` row. A
+  `blocked` job has no resume edge yet — a known gap recorded in
+  `factory/changes/CR-004.md`, not a designed stop — so it is reported, not
+  resumed. An automatic record written at either describes a job that may yet
+  succeed, and a record that is false in a way no later reader can detect is
+  worse than none.
 
 `merged`, `rejected` and `cancelled` are in `job.schema.json`'s stage enum, in no
 transition row and in no walkthrough. Nothing sets them, so this document names

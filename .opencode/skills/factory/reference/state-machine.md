@@ -10,7 +10,13 @@ changes `stage` only via a row in the table below.
 `awaiting_human_review` · `approved_to_merge` · `handed_off` · `merged` ·
 `queued` · `blocked` · `needs_human` · `rejected` · `cancelled`
 
-Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
+Terminal: `merged`, `blocked`, `rejected`, `cancelled`.
+
+`needs_human` is a **pause**, not a terminal state. It has one exit, taken only
+after a human rework re-grants the budget: `/factory rework` stamps
+`retry_budget_reset_at`, and `/factory go` then resumes the job through the
+`needs_human` → `repairing` row below. A parked job with no rework recorded has
+no exit, which is the point — the pause waits for a person.
 
 ## Transitions
 
@@ -31,9 +37,12 @@ Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
-| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
+| `repairing` | `verifying` | the repaired tree is ready to re-verify (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path), so the gate re-runs against the repaired commit before the round re-runs (CR-006). Take this row for a review repair; a failed check takes `repairing` → `building` |
+| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs (CR-002) |
+| `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, `decision.md` says APPROVE, and — when the package can be read, resolved, and the change identity computed — it names the current change (CR-006 part B). A package that is missing, unreadable, or names an unresolvable ref, or a change identity that cannot be computed, is left to the preconditions and INV-04 |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
+| `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
 | `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref` — the change identity, `reference/approval.md` — with every §14.2 precondition holding |
 | `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4), the change identity of `reference/approval.md` |
 | `approved_to_merge` | `handed_off` | the full gate passes and the pull request is opened (§14.3) |
@@ -85,7 +94,7 @@ rule the pack commits to in writing.
 3. A job is never reported `merged` without confirming the merge completed via `gh pr view`.
 4. A failed or interrupted stage resumes from persisted state or stops safely; it never restarts in a way that overwrites user work.
 5. Exhausted retries transition to `blocked` or `needs_human`, never to success.
-6. A moved base branch, a merge conflict, or a stale approval invalidates the pending handoff.
+6. A rewritten base branch (the recorded base commit is no longer reachable), a merge conflict, or a stale approval invalidates the pending handoff. A base that merely advanced is not a rewrite, and does not invalidate it.
 7. Terminal jobs remain inspectable, with their artifacts and decisions intact.
 8. No skill, agent, or status view reports a state the persisted record does not support.
 
@@ -103,3 +112,31 @@ that sets `stage: "repairing"` — whether the job arrived there from
 `verifying` or from `reviewing`. `repairing` is the single funnel both failure
 sources pass through, which is why the budget cannot be re-rolled by failing a
 different way. It resets only on explicit human `/factory rework`.
+
+The funnel's two failure sources are re-dispatched differently, because only one
+of them carries a failing check. A check failure re-dispatches the builder
+(`repairing` → `building`, handing it the failing check's output). A review
+`CHANGES` verdict has no failed check to hand over, but the repair changed the
+diff, so the gate re-runs first (`repairing` → `verifying`) and the round then
+re-runs from `verifying` (`verifying` → `reviewing`). Neither path moves the
+budget, which was spent on the way in.
+
+The direct `repairing` → `reviewing` row (CR-002) remains: the round may re-run
+without re-gating. If the repair changed the diff, `reviewing` →
+`awaiting_human_review` refuses the now-stale package (CR-006 part B), so the
+shortcut is caught rather than silent.
+
+`repairing` → `verifying` exists because a review repair changes the diff, and
+`reference/fast-gate.md` requires the package to correspond to the diff
+submitted for approval. Step 6 *enters* `verifying`, and a job at `repairing`
+cannot take `building` → `verifying`; without this row the repaired diff would
+reach approval on the package written for the commit it replaced. The row is
+gated exactly as `building` → `verifying` is, so the tree that re-verifies is
+the tree the handoff would push.
+
+A rework re-grants the budget, and the resume **spends** it: `needs_human` →
+`repairing` requires a recorded rework and a remaining retry, and the write that
+takes the row decrements `retries_left` and increments `round` exactly as any
+other repair does. So the pause cannot be used to spin the loop — a reworked job
+gets a fresh budget and at most as many further rounds as that budget allows,
+and a job with no rework recorded has no exit at all.

@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
 is on disk right now?" X is the record's `stage`; Y is `--to`.
 
 The set of legal edges is **parsed from the table**, never copied into code.
-The table has 22 rows. Three of them are conversational and are not
-implemented (see below); the other 19 each get a predicate that reads the
+The table has 25 rows. Three of them are conversational and are not
+implemented (see below); the other 22 each get a predicate that reads the
 row's own trigger. A row the validator has no predicate for is reported as
 `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
 
@@ -109,11 +109,12 @@ schema requires it there too.
 
 A transition **not in the table** is a **reject**, not an inconclusive.
 
-The transition into `verifying` also reads the profile's `protected_paths`. A
-changed path that matches one is a reject (`INV-01/PROTECTED_PATH_CHANGED`) on
-every tier; a profile or section that cannot be read is an inconclusive, never
-a permit. The list is read from the main
-checkout's `.factory/profile.md`, and the paths compared are the ones git
+A transition **into `verifying`** — both `building → verifying` and the CR-006
+`repairing → verifying`, which share one predicate — also reads the profile's
+`protected_paths`. A changed path that matches one is a reject
+(`INV-01/PROTECTED_PATH_CHANGED`) on every tier; a profile or section that
+cannot be read is an inconclusive, never a permit. The list is read from the
+main checkout's `.factory/profile.md`, and the paths compared are the ones git
 reports between the recorded `base_commit` and the job branch's `HEAD`.
 
 The effective policy always adds `.factory/profile.md` and
@@ -181,7 +182,8 @@ reached.
 | `reviewing` | `build.md`, `evidence.json`, `round-<N>/review-{code,security,scope,visual}.md` |
 | `awaiting_human_review` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
 | `approved_to_merge`, `handed_off`, `merged` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
-| `needs_human`, `blocked`, `rejected`, `cancelled` | none — a parked job is not advancing |
+| `needs_human`, `blocked` | none — a parked job is not advancing while it waits |
+| `rejected`, `cancelled` | none — a terminal job is not advancing |
 
 A **missing artifact** is a reject. An artifact that exists but **cannot be
 parsed** is an inconclusive when the file is unreadable or corrupt, and a
@@ -356,13 +358,16 @@ How the six are read:
 - **2** — no check in the evidence package is `not_run` or `blocked`, and all
   four reviews have returned.
 - **3** — the record names a base branch and a base commit, and the base
-  branch is still where the record says it was. A base that moved forward has
-  moved; `approval.md` and `state-machine.md`'s sixth invariant both say a
-  moved base invalidates a pending handoff. (`git merge-base --is-ancestor`
-  then says which kind of move it was: forward, or a rewrite that no longer
-  contains the recorded commit.) A base that is **not recorded** is a missing
-  input rather than a moved base: the check cannot be performed at all, so it
-  is `inconclusive`.
+  branch still contains the recorded commit. A base that moved **forward** has
+  not invalidated anything: the recorded commit is still an ancestor, so the
+  change being approved is still what the branch added to it. Only a base that
+  was **rewritten** — the recorded commit is no longer reachable — invalidates a
+  pending handoff. This is the lenient reading `approval.md` ("has not moved
+  **unexpectedly**") and its staleness table already state, and it matches
+  `isolation.md:42`'s third outcome for the same event one layer down.
+  (`git merge-base --is-ancestor` says which kind of move it was: forward, or a
+  rewrite.) A base that is **not recorded** is a missing input rather than a
+  moved base: the check cannot be performed at all, so it is `inconclusive`.
 - **4** — the tracked working tree is clean (`git status --porcelain
   --untracked-files=no`) **and the worktree is on the job branch**: its `HEAD`
   is the branch's tip. A clean worktree somewhere else is not the tree that

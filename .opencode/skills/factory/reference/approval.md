@@ -66,7 +66,7 @@ catch the four staleness cases:
 | the job branch moved | `branch_commit` changes |
 | the working tree carries uncommitted changes | `clean` becomes false — the commit sha does not move, the tree does |
 | the base was rewritten | `base_intact` becomes false — the same commit now means a different diff |
-| the evidence names another change | precondition 6 fails — the change that was reviewed is not the change being approved |
+| the evidence names another change | precondition 6 fails — the package does not correspond to the current diff |
 
 An approval records the **binding**: `approval.diff_ref` (the `branch_commit`)
 and `approval.base_commit` (the base it was granted against), together with
@@ -117,8 +117,9 @@ identity preconditions, and they are computed from the change identity above.
 
 Approval is **bound to a diff, not to a job**. Any material diff change after
 approval clears `approval.diff_ref` and forces re-review and re-approval. A
-merge conflict, a moved base branch, or a stale approval invalidates a pending
-handoff until it is re-evaluated.
+merge conflict, a **rewritten** base branch (the recorded `base_commit` is no
+longer reachable — a base that merely advanced is not a rewrite), or a stale
+approval invalidates a pending handoff until it is re-evaluated.
 
 The approval is recorded while the job is still at `awaiting_human_review`;
 the stage advances to `approved_to_merge` only once the preconditions hold.

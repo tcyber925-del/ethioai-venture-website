@@ -1,0 +1,26 @@
+ENG-112 — transition verification (throwaway tree at f094b79 + the patch)
+Date: 2026-10-31
+
+AC1 — the edge is a row of the table AND has an implemented predicate
+  doc:  34:| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
+  code: 274:  "repairing>reviewing": () => [satisfied("the review round re-runs after the repair")],
+
+AC2 — all checks passed, review-driven repair: expect the new exit to permit
+  cmd:    transition.mjs --job factory/jobs/001-post-ux-qa-regression --to reviewing
+  expect: exit 0
+  got:    exit 0 -> stage=reviewing
+  output: ok  reviewing
+
+AC3a — all checks passed, gate path: expect the failed-check guard to still refuse
+  cmd:    transition.mjs --job factory/jobs/001-post-ux-qa-regression --to building
+  expect: exit 1
+  got:    exit 1 -> stage=repairing
+  output: refused  INV-01/TRIGGER_FALSE: the trigger does not hold: the evidence names no failed check to hand to the builder
+
+  (injected a failed check: format)
+AC3b — one check failed, gate path: expect the guard to permit
+  cmd:    transition.mjs --job factory/jobs/001-post-ux-qa-regression --to building
+  expect: exit 0
+  got:    exit 0 -> stage=building
+  output: ok  building
+

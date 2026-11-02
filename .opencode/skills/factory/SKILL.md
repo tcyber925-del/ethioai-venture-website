@@ -383,8 +383,35 @@ reviewers launches them for every in-flight job, four each, all together.
    - Evidence could not be written — set `stage: "blocked"` with the cause and
      stop.
 
-8. **Route a repair.** A job set to `repairing` is re-dispatched: set
-   `stage: "building"` and return to step 5 with the failing check's output.
+8. **Route a repair.** A job set to `repairing` is re-dispatched by the failure
+   source it came from:
+   - **A failed check** — set `stage: "building"` and return to step 5 with the
+     failing check's output.
+   - **A review `CHANGES` verdict** — spawn the `builder` for a repair round
+     under step 5's rules, and give it the review findings as its input: the
+     blocking findings in `round-N/review-code.md`, `review-security.md`,
+     `review-scope.md`, `review-visual.md`, where `round-N` is the round whose
+     verdicts returned `CHANGES` (the record's `round` has already advanced
+     past it — `tools/transition.mjs`). It is the only source editor and it
+     commits the repair, since the row below refuses a dirty tree. Then set
+     `stage: "verifying"` and return to step 6, and continue **through step 7**
+     (the gate run owns the re-run's outcomes) to step 9. There is no failed
+     check to hand the builder, but the repair changed the diff,
+     and `reference/fast-gate.md` requires the package to correspond to the
+     diff submitted for approval: so the gate re-runs against the repaired
+     commit and `evidence.json` is rewritten for it before the round re-runs.
+     (A *check-failed* repair takes `repairing` → `building` instead; the gate
+     row's predicate checks the tree, not the verdict that drove the repair, so
+     the orchestrator routes the two — `reference/state-machine.md`.) The direct
+     `repairing` → `reviewing` row still exists for a repair that does not
+     change the diff; if it does, `reviewing` → `awaiting_human_review` refuses
+     the stale package. That refusal needs a package it can read and resolve, and
+     a change identity it can compute: a package that is missing, unreadable, or
+     names an unresolvable ref — or a change identity that cannot be computed —
+     is left to the preconditions and INV-04. If a stale package is refused at `reviewing`
+     there is no `reviewing` → `verifying` row — park the job and rework it
+     through `repairing` → `verifying` (see `reference/recovery.md`); do not
+     rewrite `evidence.json` in place, which would skip the tree checks.
    The budget was already spent in the write that set `repairing`.
 
 9. **Run the review round.** Set `stage: "reviewing"` if it is not already
@@ -445,20 +472,27 @@ reviewers launches them for every in-flight job, four each, all together.
 
 ## /factory go <job-id>
 
-- **Purpose:** Approve a job's plan and resume it into building.
-- **May not:** Run any stage on its own; only flip spec_approved.
+- **Purpose:** Approve a job's plan, or resume a reworked job, and set it moving again.
+- **May not:** Run any stage on its own; only flip spec_approved, or take the `needs_human` → `repairing` row.
 - **Inputs:** job id; current job state.
-- **Preconditions:** Job at awaiting_plan_approval; human has read spec.md.
-- **Allowed actions:** Set spec_approved true, stage building, then resume dispatch.
-- **Evidence before success:** spec.md present and approved.
-- **Failure behaviour:** If stage mismatches, report and stop.
-- **Outputs:** Job advanced to building, resumed.
+- **Preconditions:** Job at `awaiting_plan_approval` with `spec.md` read by a human, **or** at `needs_human` with a recorded rework (`retry_budget_reset_at` set and `retries_left` above zero).
+- **Allowed actions:** Set spec_approved true and stage building; or resume a reworked job into repairing. Then resume dispatch.
+- **Evidence before success:** `spec.md` present and approved; or a rework recorded against the job.
+- **Failure behaviour:** If the stage is neither, or the trigger does not hold, report and stop.
+- **Outputs:** Job advanced to building, or to repairing, and resumed.
 - **Autonomy tier:** human-gated resume.
 
-Run only after a human has read `spec.md`. If the job is at
-`awaiting_plan_approval`, set `spec_approved: true` and `stage: "building"`
-through `tools/transition.mjs`, then continue the dispatch walkthrough from its
-step 5.
+Run only after a human has decided. Which resume this is depends on the stage:
+
+- **At `awaiting_plan_approval`** — after a human has read `spec.md`, set
+  `spec_approved: true` and `stage: "building"` through `tools/transition.mjs`,
+  then continue the dispatch walkthrough from its step 5.
+- **At `needs_human`** — after a human has granted `/factory rework`, take the
+  `needs_human` → `repairing` row, decrementing `retries_left` and incrementing
+  `round` in the same write, then continue from step 8. The row's trigger
+  requires the rework stamp and a remaining retry, so this door opens only for a
+  job a human has reworked, and it spends the re-granted budget rather than
+  preserving it.
 
 This is also the resume door. `/factory recover` reports what resuming would do
 (`reference/recovery.md`); this command performs it, once a human has decided.
@@ -486,7 +520,7 @@ Any other stage: report it and stop.
 - **Purpose:** Bind a human approval to the exact change, then hand off through the guarded tool.
 - **May not:** Merge or push to the base branch; never self-initiate.
 - **Inputs:** job id, explicit approval naming this job.
-- **Preconditions:** Six 14.2 preconditions (verification, bindings, base unmoved).
+- **Preconditions:** Six 14.2 preconditions (verification, bindings, base intact).
 - **Allowed actions:** Record the approval and its binding; set approved_to_merge; run the full gate; run `tools/handoff.mjs`.
 - **Evidence before success:** Change identity bound; all verifications passed; review verdicts clean; the handoff recorded.
 - **Failure behaviour:** The tool refuses, the approval is cleared, and the job returns to awaiting_human_review.
@@ -525,7 +559,8 @@ branch, and never runs this on its own initiative.**
 
    and read the exit code: `0` permits, `1` rejects, `2` is inconclusive. The
    six preconditions are: approval bound to the current `diff_ref`; no
-   `not_run` and no `blocked` check; base branch unmoved; working tree meeting
+   `not_run` and no `blocked` check; base branch intact (a forward move holds,
+   only a rewrite fails); working tree meeting
    the merge mechanism's safety requirements; no unresolved conflict; current
    diff matching the reviewed and approved change.
 

@@ -44,7 +44,7 @@ Plan 6's. These five are the ones recovery owns:
 | Agent crashes or session ends | Report the last completed stage and the next one; resume from `job.json`, never re-running a completed stage. |
 | Workspace creation fails | Preserve repository state and mark `blocked` with the cause. |
 | Scope expands | Pause and reclassify the risk tier before anything continues. |
-| Base branch moves | Invalidate the approval and re-evaluate; never proceed on a stale one. |
+| Base branch moves | A **rewrite** (the recorded base commit is no longer reachable) invalidates the approval and re-evaluates; never proceed on a stale one. A base that merely advanced forward does not — the recorded commit is still an ancestor, and the change is still what the branch added to it. |
 | Merge conflict | Stop and request resolution; never force through silently. |
 
 Already handled elsewhere: intake unclear (`intake-gate.md`), a dead or timed-out

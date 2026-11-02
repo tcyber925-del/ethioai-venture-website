@@ -1,0 +1,41 @@
+# CR-005 evidence — §14.2 precondition 3 refuses a legitimately advanced base
+
+## The refusal, verbatim (the job's own validate)
+$ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/001-post-ux-qa-regression --invariant INV-01 --to approved_to_merge
+
+INV-01/EDGE_IN_TABLE       permit        the transition `awaiting_human_review` -> `approved_to_merge` is a row in `reference/state-machine.md`
+INV-01/PRECONDITION_FAILS  reject        §14.2 precondition 1 fails: the record carries no approval
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 2 holds: no check is `not_run` or `blocked`, and all four reviews returned
+INV-01/PRECONDITION_FAILS  reject        §14.2 precondition 3 fails: the base branch `main` moved: it is at `369f7100c852af7dc0c4042f0211920c9f320471`, not the recorded `f094b79e983b3110f77651725e0e48e0db9f8936`
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 4 holds: the tracked working tree is clean, and it is the job branch's own commit
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 5 holds: no path is left unmerged
+INV-01/PRECONDITION_HOLDS  permit        §14.2 precondition 6 holds: the evidence names `85e3ee317890e74761852f1569c1dbf7eb1f6853`, the change being approved
+
+## The six commits that moved main (f094b79..369f710)
+369f710 ENG-114: give `needs_human` a resume edge so a granted rework can be spent (#44) (#44)
+4070a3b ENG-109: CR-004 — `needs_human` is terminal with no resume edge, so a granted rework cannot be spent (#43)
+0138811 ENG-113: let the workspace guard re-baseline after the base branch moves (CR-003 Option A) (#42)
+2a1e5f7 ENG-109: CR-003 — the workspace guard has no exit once the base branch moves (#41)
+fd7d1e1 ENG-112: give `repairing` an exit for review-triggered repairs (#40)
+b944994 ENG-109: CR-002 — `repairing` is a dead end for review-triggered repairs (#39)
+
+## base_intact holds: f094b79 is an ancestor of main (forward move, not a rewrite)
+exit 0 — f094b79 IS an ancestor of main
+
+## Nothing writes base_commit after isolation (grep over the pack tools)
+.opencode/skills/factory/tools/handoff.mjs:153:    `Approved against base: ${record.approval?.base_commit ?? "(none)"}`,
+.opencode/skills/factory/tools/lib/preconditions.mjs:107:      const baseCommit = context.record?.base_commit;
+.opencode/skills/factory/tools/lib/transitions.mjs:79:  const baseCommit = context.record?.base_commit;
+
+
+## Proof: with a valid approval recorded, precondition 3 is the ONLY blocker a human cannot clear
+$ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/zz-scratch --set-fields --set approval={...approved:true, diff_ref:85e3ee3, base_commit:f094b79..., job:001-post-ux-qa-regression, approver:<human>...}
+
+$ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/zz-scratch --to approved_to_merge
+refused  INV-01/PRECONDITION_FAILS, INV-01/PRECONDITION_FAILS: §14.2 precondition 1 fails: the record carries no approval; §14.2 precondition 3 fails: the base branch `main` moved: it is at `369f7100c852af7dc0c4042f0211920c9f320471`, not the recorded `f094b79e983b3110f77651725e0e48e0db9f8936`
+  -> stage unchanged: awaiting_human_review
+
+## Prose: only a REWRITE is stale, and a move must be 're-evaluated'
+approval.md:105  -> '3. The base branch is known and has not moved **unexpectedly**.'
+approval.md:38   -> 'base_intact  true when base_commit is still in the base branch history'  (HOLDS here)
+recovery.md:47   -> '| Base branch moves | Invalidate the approval and re-evaluate; never proceed on a stale one. |'

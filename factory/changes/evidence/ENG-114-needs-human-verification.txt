@@ -1,0 +1,189 @@
+ENG-114 — needs_human resume edge, verified on the real pack
+captured: 2026-11-01T15:34:32Z
+
+Pack under test: .opencode/skills/factory (branch eng-114-needs-human-resume-edge)
+Fixture: a throwaway copy of job 001's record at factory/jobs/900-eng114-verify
+
+--- diff of the pack ---
+diff --git a/.opencode/skills/factory/SKILL.md b/.opencode/skills/factory/SKILL.md
+index e289e2d..64daf6d 100644
+--- a/.opencode/skills/factory/SKILL.md
++++ b/.opencode/skills/factory/SKILL.md
+@@ -450,20 +450,27 @@ reviewers launches them for every in-flight job, four each, all together.
+ 
+ ## /factory go <job-id>
+ 
+-- **Purpose:** Approve a job's plan and resume it into building.
+-- **May not:** Run any stage on its own; only flip spec_approved.
++- **Purpose:** Approve a job's plan, or resume a reworked job, and set it moving again.
++- **May not:** Run any stage on its own; only flip spec_approved, or take the `needs_human` → `repairing` row.
+ - **Inputs:** job id; current job state.
+-- **Preconditions:** Job at awaiting_plan_approval; human has read spec.md.
+-- **Allowed actions:** Set spec_approved true, stage building, then resume dispatch.
+-- **Evidence before success:** spec.md present and approved.
+-- **Failure behaviour:** If stage mismatches, report and stop.
+-- **Outputs:** Job advanced to building, resumed.
++- **Preconditions:** Job at `awaiting_plan_approval` with `spec.md` read by a human, **or** at `needs_human` with a recorded rework (`retry_budget_reset_at` set and `retries_left` above zero).
++- **Allowed actions:** Set spec_approved true and stage building; or resume a reworked job into repairing. Then resume dispatch.
++- **Evidence before success:** `spec.md` present and approved; or a rework recorded against the job.
++- **Failure behaviour:** If the stage is neither, or the trigger does not hold, report and stop.
++- **Outputs:** Job advanced to building, or to repairing, and resumed.
+ - **Autonomy tier:** human-gated resume.
+ 
+-Run only after a human has read `spec.md`. If the job is at
+-`awaiting_plan_approval`, set `spec_approved: true` and `stage: "building"`
+-through `tools/transition.mjs`, then continue the dispatch walkthrough from its
+-step 5.
++Run only after a human has decided. Which resume this is depends on the stage:
++
++- **At `awaiting_plan_approval`** — after a human has read `spec.md`, set
++  `spec_approved: true` and `stage: "building"` through `tools/transition.mjs`,
++  then continue the dispatch walkthrough from its step 5.
++- **At `needs_human`** — after a human has granted `/factory rework`, take the
++  `needs_human` → `repairing` row, decrementing `retries_left` and incrementing
++  `round` in the same write, then continue from step 8. The row's trigger
++  requires the rework stamp and a remaining retry, so this door opens only for a
++  job a human has reworked, and it spends the re-granted budget rather than
++  preserving it.
+ 
+ This is also the resume door. `/factory recover` reports what resuming would do
+ (`reference/recovery.md`); this command performs it, once a human has decided.
+diff --git a/.opencode/skills/factory/reference/learning.md b/.opencode/skills/factory/reference/learning.md
+index 3e6d6dc..a876848 100644
+--- a/.opencode/skills/factory/reference/learning.md
++++ b/.opencode/skills/factory/reference/learning.md
+@@ -13,10 +13,14 @@ When the job's outcome is actually known:
+ - **`handed_off`** — the §14.3 gate passed and the pull request opened. The job
+   is finished.
+ - **a job parked at `blocked` or `needs_human`, when a human asks for its record.**
+-  Both are terminal transitions but neither is an outcome: `blocked` is
+-  recoverable through `/factory go`, and `needs_human` is a pause. An automatic
+-  record written at either describes a job that may yet succeed, and a record
+-  that is false in a way no later reader can detect is worse than none.
++  Neither is an outcome, and neither advances on its own. `needs_human` is a
++  pause with a door: a human `/factory rework` re-grants the budget, and
++  `/factory go` resumes the job through the `needs_human` → `repairing` row. A
++  `blocked` job has no resume edge yet — a known gap recorded in
++  `factory/changes/CR-004.md`, not a designed stop — so it is reported, not
++  resumed. An automatic record written at either describes a job that may yet
++  succeed, and a record that is false in a way no later reader can detect is
++  worse than none.
+ 
+ `merged`, `rejected` and `cancelled` are in `job.schema.json`'s stage enum, in no
+ transition row and in no walkthrough. Nothing sets them, so this document names
+diff --git a/.opencode/skills/factory/reference/state-machine.md b/.opencode/skills/factory/reference/state-machine.md
+index 89e49f3..df61db9 100644
+--- a/.opencode/skills/factory/reference/state-machine.md
++++ b/.opencode/skills/factory/reference/state-machine.md
+@@ -10,7 +10,13 @@ changes `stage` only via a row in the table below.
+ `awaiting_human_review` · `approved_to_merge` · `handed_off` · `merged` ·
+ `queued` · `blocked` · `needs_human` · `rejected` · `cancelled`
+ 
+-Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
++Terminal: `merged`, `blocked`, `rejected`, `cancelled`.
++
++`needs_human` is a **pause**, not a terminal state. It has one exit, taken only
++after a human rework re-grants the budget: `/factory rework` stamps
++`retry_budget_reset_at`, and `/factory go` then resumes the job through the
++`needs_human` → `repairing` row below. A parked job with no rework recorded has
++no exit, which is the point — the pause waits for a person.
+ 
+ ## Transitions
+ 
+@@ -35,6 +41,7 @@ Terminal: `merged`, `blocked`, `needs_human`, `rejected`, `cancelled`.
+ | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
+ | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
+ | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
++| `needs_human` | `repairing` | a human rework re-granted the budget (`retry_budget_reset_at` is set) and `/factory go` resumes the job into a repair |
+ | `awaiting_human_review` | `approved_to_merge` | `/factory approve <job-id>` records explicit human approval naming this job, bound to the current `diff_ref` — the change identity, `reference/approval.md` — with every §14.2 precondition holding |
+ | `awaiting_human_review` | `reviewing` | the approved `diff_ref` no longer matches the current diff — approval is stale (§12.4), the change identity of `reference/approval.md` |
+ | `approved_to_merge` | `handed_off` | the full gate passes and the pull request is opened (§14.3) |
+@@ -110,3 +117,10 @@ failing check. A check failure re-dispatches the builder (`repairing` →
+ `building`, handing it the failing check's output); a review `CHANGES` verdict
+ has no failed check to hand over, so it re-runs the round (`repairing` →
+ `reviewing`). Neither exit moves the budget, which was spent on the way in.
++
++A rework re-grants the budget, and the resume **spends** it: `needs_human` →
++`repairing` requires a recorded rework and a remaining retry, and the write that
++takes the row decrements `retries_left` and increments `round` exactly as any
++other repair does. So the pause cannot be used to spin the loop — a reworked job
++gets a fresh budget and at most as many further rounds as that budget allows,
++and a job with no rework recorded has no exit at all.
+diff --git a/.opencode/skills/factory/reference/validator.md b/.opencode/skills/factory/reference/validator.md
+index 2c631f0..36c8b80 100644
+--- a/.opencode/skills/factory/reference/validator.md
++++ b/.opencode/skills/factory/reference/validator.md
+@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
+ is on disk right now?" X is the record's `stage`; Y is `--to`.
+ 
+ The set of legal edges is **parsed from the table**, never copied into code.
+-The table has 22 rows. Three of them are conversational and are not
+-implemented (see below); the other 19 each get a predicate that reads the
++The table has 24 rows. Three of them are conversational and are not
++implemented (see below); the other 21 each get a predicate that reads the
+ row's own trigger. A row the validator has no predicate for is reported as
+ `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
+ 
+@@ -181,7 +181,8 @@ reached.
+ | `reviewing` | `build.md`, `evidence.json`, `round-<N>/review-{code,security,scope,visual}.md` |
+ | `awaiting_human_review` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
+ | `approved_to_merge`, `handed_off`, `merged` | `build.md`, `evidence.json`, the four verdict files, `decision.md` |
+-| `needs_human`, `blocked`, `rejected`, `cancelled` | none — a parked job is not advancing |
++| `needs_human`, `blocked` | none — a parked job is not advancing while it waits |
++| `rejected`, `cancelled` | none — a terminal job is not advancing |
+ 
+ A **missing artifact** is a reject. An artifact that exists but **cannot be
+ parsed** is an inconclusive when the file is unreadable or corrupt, and a
+diff --git a/.opencode/skills/factory/tools/lib/transitions.mjs b/.opencode/skills/factory/tools/lib/transitions.mjs
+index a9518d5..034f431 100644
+--- a/.opencode/skills/factory/tools/lib/transitions.mjs
++++ b/.opencode/skills/factory/tools/lib/transitions.mjs
+@@ -260,6 +260,25 @@ export const PREDICATES = Object.freeze({
+   // "evidence could not be written" -- a failure stage.
+   "verifying>blocked": () => failureStage("blocked"),
+ 
++  // "a human rework re-granted the budget (`retry_budget_reset_at` is set) and
++  // `/factory go` resumes the job into a repair"
++  // `needs_human` is a pause, not a terminal state, but it is a *gated* pause:
++  // the only way out is a rework. Requiring the stamp is what makes that true --
++  // without it a job parked for a person could resume itself, and the budget a
++  // rework grants could be spent without the rework. Requiring a retry keeps
++  // the anti-spin rule: the resume spends one, so a spent budget still stops.
++  "needs_human>repairing": (context) => {
++    const reset = context.current?.retry_budget_reset_at;
++    const left = context.current?.retries_left ?? 0;
++    if (typeof reset !== "string" || reset.length === 0) {
++      return unsatisfied("no human rework is recorded, so the job may not resume");
++    }
++    if (left <= 0) {
++      return unsatisfied("the re-granted budget is spent, so the job cannot repair again");
++    }
++    return satisfied(`a rework re-granted the budget at \`${reset}\`, and ${left} retries remain`);
++  },
++
+   // "the orchestrator re-dispatches the builder with the failing check's output"
+   "repairing>building": (context) =>
+     withEvidence(context, (checks) => {
+
+--- AC1: rework recorded, budget 2 -> permit ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng114-verify --to repairing --set retries_left=1 --set round=3
+  ok  repairing
+  exit=0
+
+  -> stage: repairing | retries_left: 1 | round: 3
+
+--- AC2: needs_human, no rework stamp -> refuse ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng114-verify --to repairing --set retries_left=1 --set round=3
+  refused  INV-01/TRIGGER_FALSE: the trigger does not hold: no human rework is recorded, so the job may not resume
+  exit=1
+
+--- AC3: rework recorded, budget spent -> refuse ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng114-verify --to repairing --set retries_left=-1 --set round=3
+  refused  INV-01/TRIGGER_FALSE: the trigger does not hold: the re-granted budget is spent, so the job cannot repair again
+  exit=1
+
+--- AC4: permit without spending -> refuse BUDGET_NOT_SPENT ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng114-verify --to repairing --set retries_left=2 --set round=3
+  refused  BUDGET_NOT_SPENT: a repair spends one retry and one round: `retries_left` must go 2 -> 1 and `round` must go 2 -> 3
+  exit=1
+

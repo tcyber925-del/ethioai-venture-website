@@ -1,0 +1,24 @@
+=== CR-004 evidence: exits from needs_human ===
+captured: 2026-11-01T15:07:39Z
+job: factory/jobs/001-post-ux-qa-regression (stage needs_human, round 2, retries_left 2 after founder rework)
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to repairing
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `repairing` is not a row in `reference/state-machine.md`
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to reviewing
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `reviewing` is not a row in `reference/state-machine.md`
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to building
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `building` is not a row in `reference/state-machine.md`
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to awaiting_human_review
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `awaiting_human_review` is not a row in `reference/state-machine.md`
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to approved_to_merge
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `approved_to_merge` is not a row in `reference/state-machine.md`
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --set-fields --set stage=reviewing
+  refused  FIELD_NOT_WRITABLE: a field write may not set `stage` -- `handoff` belongs to the guarded tool alone, and the rest identify the job
+
+$ node tools/transition.mjs --job factory/jobs/001-post-ux-qa-regression --to queued
+  refused  INV-01/EDGE_UNKNOWN: `needs_human` -> `queued` is not a row in `reference/state-machine.md`
