@@ -1,0 +1,34 @@
+--- a/.opencode/skills/factory/tools/lib/transitions.mjs
++++ b/.opencode/skills/factory/tools/lib/transitions.mjs
+@@ -24,6 +24,7 @@
+ import { changeIdentity, worktreeOf, worktreeSafety } from "./change-identity.mjs";
+ import { matchesProtectedPath, checkPolicyBinding } from "./profile.mjs";
+ import { implementedPreconditions, runPreconditions } from "./preconditions.mjs";
++import { evidenceRefs } from "./refs.mjs";
+ import { reason } from "./reasons.mjs";
+ 
+ const satisfied = (detail) => [reason("INV-01/TRIGGER_SATISFIED", { detail })];
+@@ -297,6 +298,23 @@
+     if (context.round === null) {
+       return unsatisfied("the record carries no round, so the verdict files cannot be found");
+     }
++    // CR-006: a review-triggered repair changes the diff without re-running
++    // the gate, so the package can name a commit other than the one being
++    // approved. `fast-gate.md`: "the final package must correspond to the diff
++    // submitted for approval." Refuse a package that names another change.
++    const worktree = worktreeOf(context);
++    const refs = evidenceRefs(context, worktree);
++    if (!refs.missing && !refs.unreadable && refs.problems.length === 0 &&
++        refs.targets.length > 0) {
++      const current = changeIdentity(context);
++      if (current.ok) {
++        const stale = refs.targets.find((target) => target.sha !== current.identity.branch_commit);
++        if (stale) {
++          return unsatisfied(
++            `the evidence names \`${stale.sha}\`, not the change being reviewed \`${current.identity.branch_commit}\` -- re-run the gate against the repaired commit`);
++        }
++      }
++    }
+     for (const role of ROLES) {
+       const verdict = context.verdict(role);
+       if (!verdict) return unsatisfied("the record carries no round, so the verdict files cannot be found");
