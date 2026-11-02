@@ -388,8 +388,10 @@ reviewers launches them for every in-flight job, four each, all together.
    - **A failed check** — set `stage: "building"` and return to step 5 with the
      failing check's output.
    - **A review `CHANGES` verdict** — spawn the `builder` for a repair round
-     under step 5's rules; it is the only source editor and it commits the
-     repair, since the row below refuses a dirty tree. Then set
+     under step 5's rules, and give it the review findings as its input: the
+     blocking findings in `round-N/review-code.md`, `review-security.md`,
+     `review-scope.md`, `review-visual.md`. It is the only source editor and it
+     commits the repair, since the row below refuses a dirty tree. Then set
      `stage: "verifying"` and return to step 6, then continue to step 9. There
      is no failed check to hand the builder, but the repair changed the diff,
      and `reference/fast-gate.md` requires the package to correspond to the

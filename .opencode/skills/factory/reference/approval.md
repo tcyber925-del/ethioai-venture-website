@@ -66,7 +66,7 @@ catch the four staleness cases:
 | the job branch moved | `branch_commit` changes |
 | the working tree carries uncommitted changes | `clean` becomes false — the commit sha does not move, the tree does |
 | the base was rewritten | `base_intact` becomes false — the same commit now means a different diff |
-| the evidence names another change | precondition 6 fails — the change that was reviewed is not the change being approved |
+| the evidence names another change | precondition 6 fails — the package does not correspond to the current diff |
 
 An approval records the **binding**: `approval.diff_ref` (the `branch_commit`)
 and `approval.base_commit` (the base it was granted against), together with

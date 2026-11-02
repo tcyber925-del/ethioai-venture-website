@@ -339,9 +339,9 @@ export const PREDICATES = Object.freeze({
     const evidence = evidenceMatchesChange(context);
     if (evidence.holds === false) {
       return unsatisfied(
-        `${evidence.detail} -- re-run the gate against the repaired commit, ` +
-        `or park the job and rework it through \`repairing\` -> \`verifying\` ` +
-        `(there is no \`reviewing\` -> \`verifying\` row)`);
+        `${evidence.detail} -- park the job and rework it through ` +
+        `\`repairing\` -> \`verifying\`, which re-runs the gate on the repaired ` +
+        `commit (there is no \`reviewing\` -> \`verifying\` row)`);
     }
     for (const role of ROLES) {
       const verdict = context.verdict(role);

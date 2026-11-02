@@ -60,13 +60,13 @@ export function evidenceMatchesChange(context) {
     if (target.sha !== current.identity.branch_commit) {
       return {
         holds: false,
-        detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the package does not correspond to the diff being handed off`,
+        detail: `the evidence names \`${target.sha}\`, not the current change \`${current.identity.branch_commit}\` -- the package does not correspond to the current diff`,
       };
     }
   }
   return {
     holds: true,
-    detail: `the evidence names \`${current.identity.branch_commit}\`, the change being handed off`,
+    detail: `the evidence names \`${current.identity.branch_commit}\`, the current change`,
   };
 }
 
