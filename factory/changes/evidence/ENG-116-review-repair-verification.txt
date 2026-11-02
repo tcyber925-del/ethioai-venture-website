@@ -1,0 +1,66 @@
+ENG-116 — review repair re-verifies; a stale package cannot reach approval (CR-006 Option C)
+captured: 2026-11-02T10:32:17Z
+pack: .opencode/skills/factory (branch ENG-116-review-repair-reverify)
+fixture: a copy of job 001's record at factory/jobs/900-eng116-verify (removed after the run)
+control: a scratch copy of the pack with transitions.mjs + state-machine.md from main
+
+ENG-116 — review repair re-verifies; stale package refused (CR-006 Option C)
+captured: 2026-11-02T10:32:12Z
+pack: .opencode/skills/factory (branch ENG-116-review-repair-reverify)
+
+unpatched control pack: .tmp/eng116/pack-original (transitions.mjs + state-machine.md from main)
+
+=== PART A — the review repair can re-enter verification ===
+job 001 worktree tip: 85e3ee3
+--- A0: PATCHED, building -> verifying (regression: the refactored edge still holds) ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+ok  verifying
+  exit=0
+  -> stage: verifying
+
+--- A1: PATCHED pack, repairing -> verifying (build.md READY, clean tree) ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+ok  verifying
+  exit=0
+  -> stage: verifying
+
+--- A2: CONTROL (unpatched), repairing -> verifying ---
+  $ node .tmp/eng116/pack-original/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/EDGE_UNKNOWN: `repairing` -> `verifying` is not a row in `reference/state-machine.md`
+  exit=1
+
+--- A3: PATCHED, repairing -> verifying with build.md BLOCKED ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/TRIGGER_FALSE: the trigger does not hold: `build.md` opens with `STATUS: BLOCKED`
+  exit=1
+
+--- A4: PATCHED, repairing -> verifying with build.md missing ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to verifying
+refused  INV-01/TRIGGER_INPUT_MISSING: the trigger's own condition is false: build.md does not exist
+  exit=1
+
+=== PART B — a stale package cannot reach awaiting_human_review ===
+current change (branch tip): 85e3ee317890e74761852f1569c1dbf7eb1f6853
+a stale commit (round-1 tip): 6d28cfb24d8ea0c871637cfcf1dfc8696951db58
+
+--- B1: CONTROL (unpatched), reviewing -> awaiting_human_review, STALE package ---
+  $ node .tmp/eng116/pack-original/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+ok  awaiting_human_review
+  exit=0
+  (the hole: the unpatched pack lets a stale package through)
+
+--- B2: PATCHED, reviewing -> awaiting_human_review, STALE package ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+refused  INV-01/TRIGGER_FALSE: the trigger does not hold: the evidence names `6d28cfb24d8ea0c871637cfcf1dfc8696951db58`, not the change being reviewed `85e3ee317890e74761852f1569c1dbf7eb1f6853` -- re-run the gate against the repaired commit
+  exit=1
+
+--- B3: PATCHED, reviewing -> awaiting_human_review, CURRENT package ---
+  $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng116-verify --to awaiting_human_review
+ok  awaiting_human_review
+  exit=0
+  -> stage: awaiting_human_review
+
+=== the fix, as it stands in the pack ===
+diff --git a/.opencode/skills/factory/SKILL.md b/.opencode/skills/factory/SKILL.md
+index 64daf6d..48c4d1e 100644
+--- a/.opencode/skills/factory/SKILL.md

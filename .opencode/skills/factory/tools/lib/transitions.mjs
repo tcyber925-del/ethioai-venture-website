@@ -24,6 +24,7 @@ import { gitDiffNames, gitHead, gitRevParse } from "./git.mjs";
 import { changeIdentity, worktreeOf, worktreeSafety } from "./change-identity.mjs";
 import { matchesProtectedPath, checkPolicyBinding } from "./profile.mjs";
 import { implementedPreconditions, runPreconditions } from "./preconditions.mjs";
+import { evidenceRefs } from "./refs.mjs";
 import { reason } from "./reasons.mjs";
 
 const satisfied = (detail) => [reason("INV-01/TRIGGER_SATISFIED", { detail })];
@@ -136,6 +137,47 @@ function protectedPathCheck(context) {
 }
 
 /**
+ * May this job enter verification?
+ *
+ * `building>verifying` and (CR-006) `repairing>verifying` ask the same
+ * question: the tree being verified is the tree that was built, on the job
+ * branch's own commit, with no protected path touched. One helper, so the two
+ * edges are gated identically and cannot drift apart.
+ */
+function entryToVerification(context) {
+  return withArtifact(context, "build.md", (text) => {
+    const first = text.split("\n", 1)[0].trim();
+    if (first !== "STATUS: READY") {
+      return unsatisfied(`\`build.md\` opens with \`${first}\``);
+    }
+    const safety = worktreeSafety(context);
+    if (safety.undecidable) {
+      return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
+        artifact: "the job worktree",
+        reason: safety.detail,
+      })];
+    }
+    if (!safety.holds) return unsatisfied(safety.detail);
+    const protection = protectedPathCheck(context);
+    if (!protection.ok) {
+      return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
+        artifact: protection.artifact,
+        reason: protection.reason,
+      })];
+    }
+    if (protection.hits.length > 0) {
+      const paths = protection.hits
+        .map(({ path, pattern }) => `\`${path}\` (matches \`${pattern}\`)`)
+        .join(", ");
+      return [reason("INV-01/PROTECTED_PATH_CHANGED", { paths })];
+    }
+    return satisfied(
+      `\`build.md\` opens with \`STATUS: READY\`; ${safety.detail}; ${protection.detail}`,
+    );
+  });
+}
+
+/**
  * The predicates, keyed by `from>to`.
  *
  * Every implemented row of the table has one. A row without one is reported
@@ -193,37 +235,19 @@ export const PREDICATES = Object.freeze({
   // "`build.md` first line is `STATUS: READY`, the worktree is clean,
   //  `HEAD` is the job branch's own commit, and no changed path matches the
   //  profile's `protected_paths`"
-  "building>verifying": (context) =>
-    withArtifact(context, "build.md", (text) => {
-      const first = text.split("\n", 1)[0].trim();
-      if (first !== "STATUS: READY") {
-        return unsatisfied(`\`build.md\` opens with \`${first}\``);
-      }
-      const safety = worktreeSafety(context);
-      if (safety.undecidable) {
-        return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
-          artifact: "the job worktree",
-          reason: safety.detail,
-        })];
-      }
-      if (!safety.holds) return unsatisfied(safety.detail);
-      const protection = protectedPathCheck(context);
-      if (!protection.ok) {
-        return [reason("INV-01/TRIGGER_INPUT_UNREADABLE", {
-          artifact: protection.artifact,
-          reason: protection.reason,
-        })];
-      }
-      if (protection.hits.length > 0) {
-        const paths = protection.hits
-          .map(({ path, pattern }) => `\`${path}\` (matches \`${pattern}\`)`)
-          .join(", ");
-        return [reason("INV-01/PROTECTED_PATH_CHANGED", { paths })];
-      }
-      return satisfied(
-        `\`build.md\` opens with \`STATUS: READY\`; ${safety.detail}; ${protection.detail}`,
-      );
-    }),
+  "building>verifying": (context) => entryToVerification(context),
+
+  // "a review `CHANGES` repair re-runs the profile's gate against the repaired
+  //  commit before the review round, so the package names the diff being
+  //  reviewed"
+  //
+  // CR-006: a review-triggered repair changes the diff, and `fast-gate.md`
+  // requires the package to correspond to the diff submitted for approval. Step
+  // 6 enters `verifying` and the only other edge into it is `building>verifying`,
+  // which a job at `repairing` cannot take. This edge is the route back through
+  // step 6 -- gated identically to `building>verifying`, so the tree that
+  // re-verifies is the tree the handoff would push.
+  "repairing>verifying": (context) => entryToVerification(context),
 
   // "`build.md` first line is `STATUS: BLOCKED`" -- a failure stage.
   "building>needs_human": () => failureStage("needs_human"),
@@ -296,6 +320,27 @@ export const PREDICATES = Object.freeze({
   "reviewing>awaiting_human_review": (context) => {
     if (context.round === null) {
       return unsatisfied("the record carries no round, so the verdict files cannot be found");
+    }
+    // CR-006 part B: a review-triggered repair changes the diff without
+    // re-running the gate, so the package can name a commit other than the one
+    // being reviewed. `fast-gate.md`: "the final package must correspond to the
+    // diff submitted for approval." Refuse a package that names another change,
+    // so the omission is caught here rather than surfacing late at the handoff.
+    // A package that is missing, unreadable, or names no change is left to
+    // precondition 2 and INV-04; this row only rejects a package that is
+    // readable and names a DIFFERENT change.
+    const worktree = worktreeOf(context);
+    const refs = evidenceRefs(context, worktree);
+    if (!refs.missing && !refs.unreadable && refs.problems.length === 0 &&
+        refs.targets.length > 0) {
+      const current = changeIdentity(context);
+      if (current.ok) {
+        const stale = refs.targets.find((target) => target.sha !== current.identity.branch_commit);
+        if (stale) {
+          return unsatisfied(
+            `the evidence names \`${stale.sha}\`, not the change being reviewed \`${current.identity.branch_commit}\` -- re-run the gate against the repaired commit`);
+        }
+      }
     }
     for (const role of ROLES) {
       const verdict = context.verdict(role);

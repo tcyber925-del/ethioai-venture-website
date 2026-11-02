@@ -37,6 +37,7 @@ no exit, which is the point — the pause waits for a person.
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
+| `repairing` | `verifying` | the repair was driven by a review `CHANGES` verdict, so the gate re-runs against the repaired commit (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path) before the round re-runs |
 | `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs |
 | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, and `decision.md` says APPROVE |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
@@ -115,8 +116,17 @@ different way. It resets only on explicit human `/factory rework`.
 The funnel has one exit per failure source, because only one of them carries a
 failing check. A check failure re-dispatches the builder (`repairing` →
 `building`, handing it the failing check's output); a review `CHANGES` verdict
-has no failed check to hand over, so it re-runs the round (`repairing` →
+has no failed check to hand over, so it re-runs the gate against the repaired
+commit (`repairing` → `verifying`) and then the round (`repairing` →
 `reviewing`). Neither exit moves the budget, which was spent on the way in.
+
+`repairing` → `verifying` exists because a review repair changes the diff, and
+`reference/fast-gate.md` requires the package to correspond to the diff
+submitted for approval. Step 6 *enters* `verifying`, and a job at `repairing`
+cannot take `building` → `verifying`; without this row the repaired diff would
+reach approval on the package written for the commit it replaced. The row is
+gated exactly as `building` → `verifying` is, so the tree that re-verifies is
+the tree the handoff would push.
 
 A rework re-grants the budget, and the resume **spends** it: `needs_human` →
 `repairing` requires a recorded rework and a remaining retry, and the write that

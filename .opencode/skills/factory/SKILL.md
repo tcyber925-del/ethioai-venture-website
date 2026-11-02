@@ -387,9 +387,13 @@ reviewers launches them for every in-flight job, four each, all together.
    source it came from:
    - **A failed check** — set `stage: "building"` and return to step 5 with the
      failing check's output.
-   - **A review `CHANGES` verdict** — set `stage: "reviewing"` and return to
-     step 9. There is no failed check to hand the builder; the round re-runs
-     against the repaired commit.
+   - **A review `CHANGES` verdict** — set `stage: "verifying"` and return to
+     step 6, then continue to step 9. There is no failed check to hand the
+     builder, but the repair changed the diff, and `reference/fast-gate.md`
+     requires the package to correspond to the diff submitted for approval: so
+     the gate re-runs against the repaired commit and `evidence.json` is
+     rewritten for it before the round re-runs. A job whose package still names
+     the pre-repair commit cannot reach `awaiting_human_review`.
    The budget was already spent in the write that set `repairing`.
 
 9. **Run the review round.** Set `stage: "reviewing"` if it is not already
