@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
 is on disk right now?" X is the record's `stage`; Y is `--to`.
 
 The set of legal edges is **parsed from the table**, never copied into code.
-The table has 24 rows. Three of them are conversational and are not
-implemented (see below); the other 21 each get a predicate that reads the
+The table has 25 rows. Three of them are conversational and are not
+implemented (see below); the other 22 each get a predicate that reads the
 row's own trigger. A row the validator has no predicate for is reported as
 `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
 
@@ -109,11 +109,12 @@ schema requires it there too.
 
 A transition **not in the table** is a **reject**, not an inconclusive.
 
-The transition into `verifying` also reads the profile's `protected_paths`. A
-changed path that matches one is a reject (`INV-01/PROTECTED_PATH_CHANGED`) on
-every tier; a profile or section that cannot be read is an inconclusive, never
-a permit. The list is read from the main
-checkout's `.factory/profile.md`, and the paths compared are the ones git
+A transition **into `verifying`** — both `building → verifying` and the CR-006
+`repairing → verifying`, which share one predicate — also reads the profile's
+`protected_paths`. A changed path that matches one is a reject
+(`INV-01/PROTECTED_PATH_CHANGED`) on every tier; a profile or section that
+cannot be read is an inconclusive, never a permit. The list is read from the
+main checkout's `.factory/profile.md`, and the paths compared are the ones git
 reports between the recorded `base_commit` and the job branch's `HEAD`.
 
 The effective policy always adds `.factory/profile.md` and

@@ -387,9 +387,31 @@ reviewers launches them for every in-flight job, four each, all together.
    source it came from:
    - **A failed check** — set `stage: "building"` and return to step 5 with the
      failing check's output.
-   - **A review `CHANGES` verdict** — set `stage: "reviewing"` and return to
-     step 9. There is no failed check to hand the builder; the round re-runs
-     against the repaired commit.
+   - **A review `CHANGES` verdict** — spawn the `builder` for a repair round
+     under step 5's rules, and give it the review findings as its input: the
+     blocking findings in `round-N/review-code.md`, `review-security.md`,
+     `review-scope.md`, `review-visual.md`, where `round-N` is the round whose
+     verdicts returned `CHANGES` (the record's `round` has already advanced
+     past it — `tools/transition.mjs`). It is the only source editor and it
+     commits the repair, since the row below refuses a dirty tree. Then set
+     `stage: "verifying"` and return to step 6, and continue **through step 7**
+     (the gate run owns the re-run's outcomes) to step 9. There is no failed
+     check to hand the builder, but the repair changed the diff,
+     and `reference/fast-gate.md` requires the package to correspond to the
+     diff submitted for approval: so the gate re-runs against the repaired
+     commit and `evidence.json` is rewritten for it before the round re-runs.
+     (A *check-failed* repair takes `repairing` → `building` instead; the gate
+     row's predicate checks the tree, not the verdict that drove the repair, so
+     the orchestrator routes the two — `reference/state-machine.md`.) The direct
+     `repairing` → `reviewing` row still exists for a repair that does not
+     change the diff; if it does, `reviewing` → `awaiting_human_review` refuses
+     the stale package. That refusal needs a package it can read and resolve, and
+     a change identity it can compute: a package that is missing, unreadable, or
+     names an unresolvable ref — or a change identity that cannot be computed —
+     is left to the preconditions and INV-04. If a stale package is refused at `reviewing`
+     there is no `reviewing` → `verifying` row — park the job and rework it
+     through `repairing` → `verifying` (see `reference/recovery.md`); do not
+     rewrite `evidence.json` in place, which would skip the tree checks.
    The budget was already spent in the write that set `repairing`.
 
 9. **Run the review round.** Set `stage: "reviewing"` if it is not already

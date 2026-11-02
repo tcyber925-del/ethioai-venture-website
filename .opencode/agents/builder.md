@@ -42,7 +42,10 @@ Nothing else is writable to you.
 
 1. `AGENTS.md` and `.factory/profile.md`.
 2. `<job folder>/spec.md`. **Its acceptance criteria are your test plan.**
-3. If resumed after a repair round, the failing check output you are given.
+3. If resumed after a repair round, what drove the repair: the failing check
+   output you are given, or — for a review repair — the blocking findings in
+   `<job folder>/round-N/review-*.md` (`N` is the round the verdicts came from;
+   see step 8 of the walkthrough).
 
 ## Build
 

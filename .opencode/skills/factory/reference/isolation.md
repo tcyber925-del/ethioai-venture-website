@@ -50,7 +50,7 @@ and only the dirty paths are named, so a job cannot advance over work in
 progress.
 
 The same job-scoped comparison holds for the protected-path policy: the policy
-is bound to the job when it is claimed, and the transition into `verifying` and
+is bound to the job when it is claimed, and the transitions into `verifying` and
 the guarded handoff check that binding again. The effective binding always
 includes `.factory/profile.md` and `.factory/policies/**`, even when the
 profile says `none`, so a job cannot edit the policy files it is judged by. A
