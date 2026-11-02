@@ -403,10 +403,11 @@ reviewers launches them for every in-flight job, four each, all together.
      (A *check-failed* repair takes `repairing` → `building` instead; the gate
      row's predicate checks the tree, not the verdict that drove the repair, so
      the orchestrator routes the two — `reference/state-machine.md`.) Every
-     review repair takes that row: there is no direct `repairing` → `reviewing`
-     route (CR-007 Option A), because it was unconditional and skipped both the
-     gate and the protected-path check. If the repair did not change the diff
-     the gate re-runs anyway — rare, and idempotent.
+     review repair takes `repairing` → `verifying`: there is no direct
+     `repairing` → `reviewing` route (CR-007 Option A), because it was
+     unconditional and skipped both the gate and the protected-path check. If
+     the repair did not change the diff the gate re-runs anyway — rare, and
+     idempotent.
      `reviewing` → `awaiting_human_review` still refuses a stale package, and
      that refusal needs a package it can read and resolve, and
      a change identity it can compute: a package that is missing, unreadable, or
