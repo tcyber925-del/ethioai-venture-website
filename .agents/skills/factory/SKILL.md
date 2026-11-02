@@ -1,6 +1,6 @@
 ---
-name: factory-openhands
-description: Run the installed feature factory pack from OpenHands Cloud, where the pack's Herdr/OpenCode orchestration seam is unavailable. Use when asked to run, dispatch, continue, review or approve a factory job from OpenHands rather than from the local OpenCode harness.
+name: factory
+description: Run the installed feature factory pack from OpenHands Cloud, where the pack's Herdr/OpenCode orchestration seam is unavailable. Use when asked to run, dispatch, continue, review or approve a factory job from OpenHands rather than from the local OpenCode harness — including the /factory commands.
 ---
 
 # Factory — OpenHands adapter
@@ -23,6 +23,31 @@ Read the pack before acting. This adapter does not restate it:
 | `reference/fast-gate.md`            | Fast/full gate rules                                |
 | `reference/approval.md`             | Change identity, preconditions, the guarded handoff |
 | `reference/intake.md`               | Polling, eligibility, untrusted input               |
+
+## Commands
+
+The pack defines eleven commands and this adapter runs all of them. The pack's
+`SKILL.md` is authoritative for each verb's steps, inputs and preconditions;
+the table below only says where the verb's work happens in OpenHands. Nothing
+here restates a step — read the pack section before running the command.
+
+| Command | Pack section | How it runs here |
+| --- | --- | --- |
+| `/factory <description>` | `## /factory <description>` | Intake gate, then claim the job folder (`mkdir`, no `-p`) and write the first record with `transition.mjs --create`. Stops at `queued`. |
+| `/factory intake [provider]` | `## /factory intake [provider]` | Query Linear (team `ENG`, label `agent-ready`) or `gh` for open `agent-ready` issues, apply the intake gate, enqueue, stop. Enqueues only — never dispatches. |
+| `/factory status` | `## /factory status` | `node .opencode/skills/factory/tools/queue.mjs --root "$PWD" --json` for the record, plus `gh pr view` for PR state. Reads only. |
+| `/factory dispatch [N]` | `## /factory dispatch <job-id> — the per-job loop` | The per-job loop with `git worktree add` in place of `herdr worktree create`, and OpenHands subagents (`task`) in place of OpenCode subagents. See §Running a job. |
+| `/factory go <job-id>` | `## /factory go <job-id>` | Plan approval: set the approval field, advance `awaiting_plan_approval` → `building` through `transition.mjs`. |
+| `/factory next` | `## /factory next` | Read `factory/backlog.md`, enqueue the first unchecked item, stop at `queued`. |
+| `/factory rework <job-id>` | `## /factory rework <job-id>` | Reset the retry budget through `transition.mjs`. |
+| `/factory approve <job-id>` | `## /factory approve <job-id>` | **Human-gated.** See §Approval and handoff — record the approval, advance to `approved_to_merge`, run the full gate, run `handoff.mjs`. |
+| `/factory recover <job-id>` | `## /factory recover <job-id>` | The `reference/recovery.md` runbook: diagnose, preserve, route. Exit `4` from `handoff.mjs` routes here, not to a retry. |
+| `/factory learn <job-id>` | `## /factory learn <job-id>` | `reference/learning.md`: record what the job did and propose follow-ups. |
+| `/factory review <job-id>` | `## /factory review <job-id>` | Present the approval surface (`reference/approval.md`) for a human decision. Reads only. |
+
+Two verbs carry the same human gate as in the pack: `approve` is the human's
+command and the agent never self-initiates it, and `dispatch` may not merge,
+push to `main`, or approve. `intake` enqueues and stops.
 
 ## Why an adapter exists
 
