@@ -1,0 +1,526 @@
+{
+  "method": "CDP Runtime.evaluate over the built dist/ served at http://127.0.0.1:8080; getComputedStyle + getAttribute('role')",
+  "harness": "/tmp/qa-harness/listsemantics.mjs (outside the worktree; not committed)",
+  "viewport": "1280x900",
+  "browser": "Chromium 155.0.8059.79 (headless, DevTools Protocol)",
+  "routes": [
+    {
+      "route": "/",
+      "ul": 7,
+      "ol": 0,
+      "total": 7,
+      "roleList": 7,
+      "markerStripped": 7,
+      "markerStrippedWithRoleList": 7,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "card-grid",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "card-grid",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "approach-list",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "evidence-list",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "evidence__stack",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/about/",
+      "ul": 4,
+      "ol": 1,
+      "total": 5,
+      "roleList": 4,
+      "markerStripped": 4,
+      "markerStrippedWithRoleList": 4,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "principles",
+          "role": null,
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "focus-list",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ol",
+          "cls": "steps",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/research/",
+      "ul": 2,
+      "ol": 0,
+      "total": 2,
+      "roleList": 2,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 3,
+      "markerStrippedWithRoleList": 3,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "solution-grid",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/ai-applications-agents/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/ai-knowledge-systems/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/ai-product-engineering/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/document-intelligence/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/solutions/workflow-automation/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/start-a-project/",
+      "ul": 2,
+      "ol": 0,
+      "total": 2,
+      "roleList": 2,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/work/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 3,
+      "markerStrippedWithRoleList": 3,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "project-grid",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/work/ethiobio/",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 2,
+      "markerStrippedWithRoleList": 2,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/work/ethiosci/",
+      "ul": 4,
+      "ol": 0,
+      "total": 4,
+      "roleList": 4,
+      "markerStripped": 3,
+      "markerStrippedWithRoleList": 3,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "tech-list",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "pending__list",
+          "role": "list",
+          "listStyleType": "disc",
+          "markerStripped": false
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    },
+    {
+      "route": "/404.html",
+      "ul": 3,
+      "ol": 0,
+      "total": 3,
+      "roleList": 3,
+      "markerStripped": 3,
+      "markerStrippedWithRoleList": 3,
+      "markerStrippedMissingRoleList": [],
+      "lists": [
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        },
+        {
+          "tag": "ul",
+          "cls": "",
+          "role": "list",
+          "listStyleType": "none",
+          "markerStripped": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "routesChecked": 14,
+    "totalLists": 47,
+    "totalRoleList": 46,
+    "markerStrippedLists": 39,
+    "markerStrippedWithRoleList": 39,
+    "markerStrippedMissingRoleList": []
+  },
+  "conclusion": {
+    "roleListRationale": "Safari/VoiceOver drop list semantics when list-style:none removes the markers (ENG-103); role=\"list\" restores them.",
+    "markerStrippingListsAllRetainRoleList": true,
+    "roleListCoverage": "46/47 lists carry role=\"list\"",
+    "listsWithoutRoleList": [
+      {
+        "route": "/about/",
+        "tag": "ul",
+        "cls": "principles",
+        "reason": "keeps visible disc markers (list-style-type:disc), so no role=\"list\" needed"
+      }
+    ]
+  }
+}

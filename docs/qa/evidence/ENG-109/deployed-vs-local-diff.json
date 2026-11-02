@@ -1,0 +1,18 @@
+[
+  {
+    "label": "deployed",
+    "cssHash": "/_astro/BaseLayout.C6TDEktS.css",
+    "chipDefaultBorder": "--color-border (1.42:1)",
+    "pressedHasNonColourCue": false,
+    "cardFullSurfaceHitTarget": false,
+    "interFontPreload": false
+  },
+  {
+    "label": "local",
+    "cssHash": "/_astro/BaseLayout.B2aqkuIU.css",
+    "chipDefaultBorder": "--color-secondary (7.81:1)",
+    "pressedHasNonColourCue": true,
+    "cardFullSurfaceHitTarget": true,
+    "interFontPreload": true
+  }
+]

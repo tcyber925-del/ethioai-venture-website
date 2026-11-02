@@ -1,0 +1,139 @@
+{
+  "method": "CDP Input.dispatchKeyEvent; getComputedStyle(document.activeElement)",
+  "url": "http://127.0.0.1:8080/work/",
+  "viewport": "1280x900",
+  "focusVisibility": {
+    "viaFocusMethod": {
+      "method": "el.focus()",
+      "tag": "A",
+      "outlineStyle": "none",
+      "outlineWidth": "3px",
+      "outlineColor": "rgb(23, 23, 23)"
+    },
+    "viaRealKeyEvents": {
+      "tag": "A",
+      "text": "EthioBio",
+      "inCard": true,
+      "cardLink": true,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    "note": ":focus-visible matches only when focus came from a keyboard interaction, so el.focus() shows no ring and a real Tab does."
+  },
+  "tabStopsFromTopToCardLink": 10,
+  "tabSequence": [
+    {
+      "tag": "A",
+      "text": "Skip to content",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "EthioAI Venture",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "Solutions",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "Work",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "Research",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "About",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "Start a Project",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "All statuses",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "BUTTON",
+      "text": "In Development",
+      "inCard": false,
+      "cardLink": false,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    },
+    {
+      "tag": "A",
+      "text": "EthioBio",
+      "inCard": true,
+      "cardLink": true,
+      "outlineStyle": "solid",
+      "outlineWidth": "2px",
+      "outlineColor": "rgb(15, 91, 90)",
+      "outlineOffset": "2px"
+    }
+  ],
+  "enterNavigation": {
+    "from": "/work/",
+    "to": "/work/ethiobio/",
+    "navigated": true
+  },
+  "conclusion": {
+    "focusRingRequiresKeyEvents": true,
+    "cardLinkOutline": "2px solid rgb(15, 91, 90)",
+    "cardLinkOutlineMatchesTertiaryToken": true,
+    "enterNavigates": true
+  }
+}

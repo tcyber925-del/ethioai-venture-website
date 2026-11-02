@@ -1,0 +1,249 @@
+{
+  "origin": "https://ethioai-venture-website.tcyber925.workers.dev",
+  "fetchedAt": "2026-10-31T12:00:33.661Z",
+  "pages": [
+    {
+      "route": "/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/",
+      "title": "EthioAI Venture",
+      "desc": "Practical AI systems for real-world organizations",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["EthioAI Venture"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 21,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/solutions/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/solutions/",
+      "title": "Solutions · EthioAI Venture",
+      "desc": "EthioAI Venture's 5 solution areas: AI Knowledge Systems, Workflow Automation, AI Applications and Agents, AI Product Engineering, Document Intelligence.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["Solutions"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 18,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/work/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/work/",
+      "title": "Work · EthioAI Venture",
+      "desc": "Selected work from EthioAI Venture: projects and their current status.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["Work"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 13,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/work/ethiobio/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/work/ethiobio/",
+      "title": "EthioBio · EthioAI Venture",
+      "desc": "EthioBio — selected work from EthioAI Venture. Status: In Development.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["EthioBio"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 13,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/work/ethiosci/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/work/ethiosci/",
+      "title": "EthioSci · EthioAI Venture",
+      "desc": "An AI-assisted science learning and teaching assistant for Ethiopian middle and high school education (Grades 7-12) across biology, chemistry, physics and mathematics.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["EthioSci"],
+      "analyticsScript": true,
+      "analyticsEvents": ["github-click", "demo-click"],
+      "internalCount": 13,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/research/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/research/",
+      "title": "Research · EthioAI Venture",
+      "desc": "Research entries from EthioAI Venture — question, context, investigation, experiment, result, what we learned, what comes next.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["Research"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 11,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/about/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/about/",
+      "title": "About · EthioAI Venture",
+      "desc": "About EthioAI Venture — a founder-led AI engineering and implementation studio building practical AI systems for real-world organizations.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["About EthioAI Venture"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 17,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/start-a-project/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/start-a-project/",
+      "title": "Start a Project · EthioAI Venture",
+      "desc": "Describe the AI, workflow, knowledge, or document problem you want to solve and start a project with EthioAI Venture.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["Start a Project"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 11,
+      "broken": [],
+      "thirdParty": []
+    },
+    {
+      "route": "/solutions/ai-applications-agents/",
+      "status": 200,
+      "consoleErrors": [],
+      "failed": [],
+      "canon": "https://ethioai-venture-website.tcyber925.workers.dev/solutions/ai-applications-agents/",
+      "title": "AI Applications and Agents · EthioAI Venture",
+      "desc": "AI Applications and Agents — a solution area from EthioAI Venture. Practical AI systems for real-world organizations.",
+      "ogCount": 5,
+      "h1Count": 1,
+      "h1": ["AI Applications and Agents"],
+      "analyticsScript": true,
+      "analyticsEvents": [],
+      "internalCount": 15,
+      "broken": [],
+      "thirdParty": []
+    }
+  ],
+  "assets": {
+    "/": {
+      "status": 200,
+      "bytes": 35010,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/solutions/": {
+      "status": 200,
+      "bytes": 29432,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/work/": {
+      "status": 200,
+      "bytes": 30376,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/work/ethiobio/": {
+      "status": 200,
+      "bytes": 30806,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/work/ethiosci/": {
+      "status": 200,
+      "bytes": 33785,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/research/": {
+      "status": 200,
+      "bytes": 27697,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/about/": {
+      "status": 200,
+      "bytes": 32284,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/start-a-project/": {
+      "status": 200,
+      "bytes": 30791,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/solutions/ai-applications-agents/": {
+      "status": 200,
+      "bytes": 30033,
+      "contentType": "text/html",
+      "cache": "HIT"
+    },
+    "/sitemap.xml": {
+      "status": 200,
+      "bytes": 1370,
+      "contentType": "application/xml",
+      "cache": "HIT"
+    },
+    "/robots.txt": {
+      "status": 200,
+      "bytes": 99,
+      "contentType": "text/plain",
+      "cache": "HIT"
+    },
+    "/nonexistent-eng109-check/": {
+      "status": 404,
+      "bytes": 28011,
+      "contentType": "text/html",
+      "cache": "HIT"
+    }
+  },
+  "links": [],
+  "sitemap": {
+    "status": 200,
+    "urls": 13,
+    "sample": [
+      "https://ethioai-venture-website.tcyber925.workers.dev/",
+      "https://ethioai-venture-website.tcyber925.workers.dev/solutions/",
+      "https://ethioai-venture-website.tcyber925.workers.dev/work/",
+      "https://ethioai-venture-website.tcyber925.workers.dev/research/",
+      "https://ethioai-venture-website.tcyber925.workers.dev/about/"
+    ]
+  },
+  "robots": {
+    "status": 200,
+    "text": "User-agent: *\nAllow: /\n\nSitemap: https://ethioai-venture-website.tcyber925.workers.dev/sitemap.xml\n"
+  }
+}
