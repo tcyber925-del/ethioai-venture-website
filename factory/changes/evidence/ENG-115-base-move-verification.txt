@@ -1,5 +1,5 @@
 ENG-115 — lenient base-move rule (CR-005 Option A), verified on the real pack
-captured: 2026-11-02T10:57:28Z
+captured: 2026-11-02T11:23:33Z
 pack: .opencode/skills/factory (branch ENG-115-lenient-base-move)
 fixture: a copy of job 001's record at factory/jobs/900-eng115-verify
 
@@ -136,6 +136,10 @@ reject
   exit=1
 
 === CASE D — end to end: record the approval, take awaiting_human_review -> approved_to_merge ===
+  $ node tools/transition.mjs --job factory/jobs/900-eng115-verify --set-fields --set approval.approved=true \
+        --set approval.diff_ref=85e3ee3 --set approval.job=900-eng115-verify \
+        --set approval.base_commit=f094b79 --set approval.approver=founder --set approval.at=<now>
+  (approval recorded; job still at awaiting_human_review)
   $ node .opencode/skills/factory/tools/transition.mjs --job factory/jobs/900-eng115-verify --to approved_to_merge
 ok  approved_to_merge
   exit=0
@@ -275,3 +279,8 @@ index 27b9699..0328236 100644
          };
        }
        return { holds: true, detail: `the base branch is \`${baseBranch}\` at \`${commit.sha}\`, unmoved` };
+
+=== job 001 untouched (content hash, not git -- it is gitignored) ===
+  before: 9c12b6b9809cca89160592ec99935ca548286a76de1a176fb4d6dbc16cfbfb4a
+  after:  9c12b6b9809cca89160592ec99935ca548286a76de1a176fb4d6dbc16cfbfb4a
+  -> unchanged
