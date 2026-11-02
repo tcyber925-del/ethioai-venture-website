@@ -402,12 +402,14 @@ reviewers launches them for every in-flight job, four each, all together.
      commit and `evidence.json` is rewritten for it before the round re-runs.
      (A *check-failed* repair takes `repairing` → `building` instead; the gate
      row's predicate checks the tree, not the verdict that drove the repair, so
-     the orchestrator routes the two — `reference/state-machine.md`.) Every
-     review repair takes `repairing` → `verifying`: there is no direct
+     the orchestrator routes the two — `reference/state-machine.md`.) A review
+     repair takes `repairing` → `verifying`: there is no direct
      `repairing` → `reviewing` route (CR-007 Option A), because it was
      unconditional and skipped both the gate and the protected-path check. If
      the repair did not change the diff the gate re-runs anyway — rare, and
-     idempotent.
+     idempotent. If that row refuses (a protected path, a non-READY `build.md`,
+     a dirty tree), the job has no other exit: it fails safe and waits for a
+     human (CR-008).
      `reviewing` → `awaiting_human_review` still refuses a stale package, and
      that refusal needs a package it can read and resolve, and
      a change identity it can compute: a package that is missing, unreadable, or

@@ -1,5 +1,5 @@
 ENG-118 — retire the unconditional repairing -> reviewing bypass (CR-007 Option A)
-captured: 2026-11-02T19:22:45Z
+captured: 2026-11-02T19:40:53Z
 pack: .opencode/skills/factory (branch ENG-118-retire-repairing-reviewing)
 unpatched control pack: .tmp/eng118/pack-original (full pack copied from main)
 fixture job: factory/jobs/900-eng118-verify (stage repairing); fixture worktree: ../ethioai-venture-website-factory/eng118-fixture on branch eng118-fixture
@@ -29,7 +29,7 @@ each case prints its own command and the tool's output verbatim; the fixture is 
 
 === AC3 — the protected-path hole this closes ===
 fixture worktree now has one commit touching a protected path (package.json)
-base: 4f99afa  tip: 4ac64e8a5daaba2dbc83610863587e842753c098
+base: 4f99afa  tip: bd827d231455045c36f0ed561aa6bf258a2acaa7
 
 --- AC3a: PATCHED, repairing -> verifying with package.json changed ---
   $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to verifying
@@ -74,7 +74,7 @@ approval -- but it cannot be parked, and SKILL step 6 tells the orchestrator to 
 === AC4 — no tracked file claims a direct repairing -> reviewing route ===
   $ grep -rn 'repairing' .opencode/skills/factory/ | grep 'reviewing'
   .opencode/skills/factory/tools/lib/transitions.mjs:389:  "reviewing>repairing": (context) => {
-  .opencode/skills/factory/SKILL.md:406:     review repair takes that row: there is no direct `repairing` → `reviewing`
+  .opencode/skills/factory/SKILL.md:407:     `repairing` → `reviewing` route (CR-007 Option A), because it was
   .opencode/skills/factory/reference/state-machine.md:9:`building` · `verifying` · `repairing` · `reviewing` ·
   .opencode/skills/factory/reference/state-machine.md:42:| `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
   .opencode/skills/factory/reference/state-machine.md:111:`verifying` or from `reviewing`. `repairing` is the single funnel both failure
