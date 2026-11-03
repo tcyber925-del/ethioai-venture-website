@@ -1,4 +1,4 @@
-CR-008 evidence — EthioBio Work-index listing
+CR-009 evidence — EthioBio Work-index listing (filed as CR-008; renumbered)
 Recorded: 2026-11-03T05:41:56Z  base: 4f99afa
 
 ## 1. projects collection entries (source of /work/ cards)
