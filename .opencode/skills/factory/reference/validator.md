@@ -89,8 +89,8 @@ The record holds no transition history, so a transition is checked as a
 is on disk right now?" X is the record's `stage`; Y is `--to`.
 
 The set of legal edges is **parsed from the table**, never copied into code.
-The table has 25 rows. Three of them are conversational and are not
-implemented (see below); the other 22 each get a predicate that reads the
+The table has 24 rows. Three of them are conversational and are not
+implemented (see below); the other 21 each get a predicate that reads the
 row's own trigger. A row the validator has no predicate for is reported as
 `INV-01/EDGE_NOT_IMPLEMENTED` — never as a permit.
 

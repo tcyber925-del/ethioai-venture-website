@@ -1,0 +1,88 @@
+ENG-118 — retire the unconditional repairing -> reviewing bypass (CR-007 Option A)
+captured: 2026-11-02T20:25:43Z
+pack: .opencode/skills/factory (branch ENG-118-retire-repairing-reviewing)
+unpatched control pack: .tmp/eng118/pack-original (full pack copied from main)
+fixture job: factory/jobs/900-eng118-verify (stage repairing); fixture worktree: ../ethioai-venture-website-factory/eng118-fixture on branch eng118-fixture
+each case prints its own command and the tool's output verbatim; the fixture is removed at the end
+
+=== AC1 — the retired row is gone (the fix) ===
+--- AC1a: PATCHED pack, repairing -> reviewing ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to reviewing
+  INV-01/EDGE_UNKNOWN  reject        `repairing` -> `reviewing` is not a row in `reference/state-machine.md`
+  reject
+  exit=1
+
+--- AC1b: CONTROL (unpatched), repairing -> reviewing ---
+  $ node .tmp/eng118/pack-original/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to reviewing
+  INV-01/EDGE_IN_TABLE      permit        the transition `repairing` -> `reviewing` is a row in `reference/state-machine.md`
+  INV-01/TRIGGER_SATISFIED  permit        the trigger holds: the review round re-runs after the repair
+  permit
+  exit=0
+
+=== AC2 — regression: the gated route still works ===
+--- AC2: PATCHED, repairing -> verifying (clean tree, build.md READY) ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to verifying
+  INV-01/EDGE_IN_TABLE      permit        the transition `repairing` -> `verifying` is a row in `reference/state-machine.md`
+  INV-01/TRIGGER_SATISFIED  permit        the trigger holds: `build.md` opens with `STATUS: READY`; the tracked working tree is clean, and it is the job branch's own commit; no changed path matches the profile's `protected_paths`
+  permit
+  exit=0
+
+=== AC3 — the protected-path hole this closes ===
+fixture worktree now has one commit touching a protected path (package.json)
+base: 4f99afa  tip: 7072277bec27cbd41b9b2f8f39203277e45d1a43
+
+--- AC3a: PATCHED, repairing -> verifying with package.json changed ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to verifying
+  INV-01/EDGE_IN_TABLE           permit        the transition `repairing` -> `verifying` is a row in `reference/state-machine.md`
+  INV-01/PROTECTED_PATH_CHANGED  reject        the change touches protected `package.json` (matches `package.json`) -- a human must decide before verification
+  reject
+  exit=1
+
+--- AC3b: CONTROL (unpatched), repairing -> reviewing with package.json changed ---
+  $ node .tmp/eng118/pack-original/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to reviewing
+  INV-01/EDGE_IN_TABLE      permit        the transition `repairing` -> `reviewing` is a row in `reference/state-machine.md`
+  INV-01/TRIGGER_SATISFIED  permit        the trigger holds: the review round re-runs after the repair
+  permit
+  exit=0
+
+=== AC7 — the dead end the advisory review found (recorded as CR-008) ===
+with the row retired, a review repair whose diff touches a protected path has no legal exit:
+verifying refuses (PROTECTED_PATH_CHANGED), building refuses (a review package has no failed
+check to hand over), and needs_human is not a row. The job fails safe -- it can never reach
+approval -- but it cannot be parked, and SKILL step 6 tells the orchestrator to park it.
+
+--- AC7a: PATCHED, repairing -> verifying (protected path changed) ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to verifying
+  INV-01/EDGE_IN_TABLE           permit        the transition `repairing` -> `verifying` is a row in `reference/state-machine.md`
+  INV-01/PROTECTED_PATH_CHANGED  reject        the change touches protected `package.json` (matches `package.json`) -- a human must decide before verification
+  reject
+  exit=1
+
+--- AC7b: PATCHED, repairing -> building (the package has no failed check) ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to building
+  INV-01/EDGE_IN_TABLE  permit        the transition `repairing` -> `building` is a row in `reference/state-machine.md`
+  INV-01/TRIGGER_FALSE  reject        the trigger does not hold: the evidence names no failed check to hand to the builder
+  reject
+  exit=1
+
+--- AC7c: PATCHED, repairing -> needs_human (no such row) ---
+  $ node .opencode/skills/factory/tools/validate.mjs --job factory/jobs/900-eng118-verify --invariant INV-01 --to needs_human
+  INV-01/EDGE_UNKNOWN  reject        `repairing` -> `needs_human` is not a row in `reference/state-machine.md`
+  reject
+  exit=1
+
+=== AC4 — no tracked file claims a direct repairing -> reviewing route ===
+  $ grep -rn 'repairing' .opencode/skills/factory/ | grep 'reviewing'
+  .opencode/skills/factory/tools/lib/transitions.mjs:318:  // CR-007 Option A retired the `repairing>reviewing` row that stood here. It was
+  .opencode/skills/factory/tools/lib/transitions.mjs:386:  "reviewing>repairing": (context) => {
+  .opencode/skills/factory/SKILL.md:407:     `repairing` → `reviewing` route (CR-007 Option A), because it was
+  .opencode/skills/factory/reference/state-machine.md:9:`building` · `verifying` · `repairing` · `reviewing` ·
+  .opencode/skills/factory/reference/state-machine.md:42:| `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
+  .opencode/skills/factory/reference/state-machine.md:111:`verifying` or from `reviewing`. `repairing` is the single funnel both failure
+  .opencode/skills/factory/reference/state-machine.md:123:There is no direct `repairing` → `reviewing` row (CR-007 Option A). The row
+  (every hit is the reverse row, the stage list, funnel prose, a note that the row was
+   retired, or an explicit negation -- none claims the forward route)
+
+=== AC6 — .factory/ and AGENTS.md untouched ===
+  $ git status --porcelain .factory/ AGENTS.md
+  (empty)
