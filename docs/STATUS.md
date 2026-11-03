@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-20 (Linear **ENG-108**; Git state and branch cleanup refreshed)
+**Last updated:** 2026-11-03 (Linear **ENG-121**; CR-009 EthioBio listing decision recorded)
 **Milestone:** V1 — shipped and verified in production on 2026-10-05
 **Live origin:** `https://ethioai-venture-website.tcyber925.workers.dev`
 
@@ -156,6 +156,32 @@ elsewhere in `src` name only files neither job touched.
 
 The ENG-103 row above records the same tool blocker for ENG-103's own AC11, which was never
 re-audited and remains a founder call.
+
+## Change Request CR-009 — the EthioBio listing decision
+
+CR-009 is the escalation that governed **ENG-119** (exclude EthioBio from the `/work` index).
+The ticket asked to remove the EthioBio card, but the approved MIS v1.0 "Evidence and content
+policy" was read as mandating the listing, so the automation raised a change request instead of
+implementing. The founder approved **Option A** on 2026-11-03: EthioBio is removed from the
+public index listings, and the content policy is updated so it no longer mandates a listing.
+
+- The Change Request is recorded in `factory/changes/CR-009.md`.
+- The Founder Decision that resolved it is recorded in `factory/changes/CR-009.decision.md`.
+
+What the decision preserves: EthioBio stays a routable project — `/work/ethiobio` and
+`src/content/projects/ethiobio.md` are kept, and `status: In Development` is unchanged and still
+mandated by MIS v1.0. What it supersedes is the reading of MIS v1.0 as requiring a public
+**listing**. ENG-119 (the `/work` index) is already merged; the same exclusion for the homepage
+Selected work section is ENG-120, carried under this decision.
+
+**Renumbering.** The automation filed this CR as `CR-008`, but that id was already held by an
+unrelated CR (the `repairing` → `reviewing` dead end, raised 2026-11-02), and a merge collision
+wrote both into `factory/changes/CR-008.md`. This CR is renumbered `CR-009`; the `repairing` CR
+keeps `CR-008`, which is what every pack reference to `CR-008` means.
+
+The specification update it required is made in the same change: the traceability comment in
+`src/content/projects/ethiobio.md` no longer claims the _listing_ is mandated. Amending MIS v1.0
+in Notion remains a founder action.
 
 ## Known limitations
 
