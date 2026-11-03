@@ -37,8 +37,7 @@ no exit, which is the point — the pause waits for a person.
 | `verifying` | `needs_human` | a check is `blocked` or `not_run`, or retries are exhausted |
 | `verifying` | `blocked` | evidence could not be written — cause recorded in `job.json`'s `cause` |
 | `repairing` | `building` | the orchestrator re-dispatches the builder with the failing check's output |
-| `repairing` | `verifying` | the repaired tree is ready to re-verify (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path), so the gate re-runs against the repaired commit before the round re-runs (CR-006). Take this row for a review repair; a failed check takes `repairing` → `building` |
-| `repairing` | `reviewing` | the repair was driven by a review `CHANGES` verdict, so the round re-runs (CR-002) |
+| `repairing` | `verifying` | the repaired tree is ready to re-verify (`build.md` READY, worktree clean, `HEAD` on the branch, no protected path), so the gate re-runs against the repaired commit before the round re-runs (CR-006). A review repair takes this row; a failed check takes `repairing` → `building`. When it refuses — a protected path, a non-READY `build.md`, a dirty tree — there is no other exit, which CR-008 records |
 | `reviewing` | `awaiting_human_review` | all four verdict files exist, the record's `reviews` claim exactly them (`tools/transition.mjs --sync`), none carries a blocking finding, `decision.md` says APPROVE, and — when the package can be read, resolved, and the change identity computed — it names the current change (CR-006 part B). A package that is missing, unreadable, or names an unresolvable ref, or a change identity that cannot be computed, is left to the preconditions and INV-04 |
 | `reviewing` | `repairing` | any verdict carries a blocking finding and `retries_left` remains |
 | `reviewing` | `needs_human` | blocking findings remain and `retries_left` is exhausted, or `decision.md` says ESCALATE |
@@ -121,10 +120,16 @@ diff, so the gate re-runs first (`repairing` → `verifying`) and the round then
 re-runs from `verifying` (`verifying` → `reviewing`). Neither path moves the
 budget, which was spent on the way in.
 
-The direct `repairing` → `reviewing` row (CR-002) remains: the round may re-run
-without re-gating. If the repair changed the diff, `reviewing` →
-`awaiting_human_review` refuses the now-stale package (CR-006 part B), so the
-shortcut is caught rather than silent.
+There is no direct `repairing` → `reviewing` row (CR-007 Option A). The row
+CR-002 added was unconditional, and it was the only route out of `repairing`
+that reached neither `entryToVerification` nor `protectedPathCheck`, so a
+diff-changing repair could reach approval with the gate unrun and a protected
+path never checked. A review repair now goes `repairing` → `verifying` →
+`reviewing`: one route, always re-gated. The cost is a gate re-run for a repair
+that did not change the diff, which is rare and idempotent. When
+`repairing` → `verifying` refuses, the job has no other exit — it fails safe and
+never reaches approval, but it cannot be parked, so it sits at `repairing` until
+a human intervenes, which CR-008 records.
 
 `repairing` → `verifying` exists because a review repair changes the diff, and
 `reference/fast-gate.md` requires the package to correspond to the diff
