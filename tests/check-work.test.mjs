@@ -46,6 +46,7 @@ function fixture({
   slugs = ["ethiobio"],
   html = "",
   indexHtml = "",
+  homeHtml = "",
   nestedSlugs = [],
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "check-work-"));
@@ -63,6 +64,16 @@ function fixture({
     writeFileSync(
       join(dist, page),
       `<!doctype html><title>x</title><h1>x</h1>${html}${isIndex ? indexHtml : ""}`,
+    );
+  }
+  // `homeHtml` is written ONLY into the built homepage (dist/index.html), so
+  // the homepage-listing assertion never entangles the /work index or detail
+  // pages. An absent `homeHtml` builds no homepage, which skips that block and
+  // keeps every pre-existing case's verdict unchanged.
+  if (homeHtml) {
+    writeFileSync(
+      join(dist, "index.html"),
+      `<!doctype html><title>x</title><h1>x</h1>${homeHtml}`,
     );
   }
   slugs.forEach((slug, index) =>
@@ -465,6 +476,78 @@ test("fails when a declared non-excluded project has no index card", () => {
     assert.match(
       result.stderr,
       /missing a card for that project: \/work\/ethiosci/,
+    );
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+// --- ENG-120: homepage Selected work listing -----------------------------
+
+test("passes when the homepage links every non-excluded slug and no excluded one", () => {
+  // `ethiobio` is excluded from the listing; `ethiosci` is not, so the homepage
+  // must carry a card for it and none for the excluded project.
+  const f = fixture({
+    pages: [
+      "work/index.html",
+      "work/ethiobio/index.html",
+      "work/ethiosci/index.html",
+    ],
+    slugs: ["ethiobio", "ethiosci"],
+    indexHtml: `<a href="/work/ethiosci">EthioSci</a>`,
+    homeHtml: `<a href="/work/ethiosci">EthioSci</a>`,
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /homepage listing verified/);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("fails when the homepage links the excluded project", () => {
+  const f = fixture({
+    pages: [
+      "work/index.html",
+      "work/ethiobio/index.html",
+      "work/ethiosci/index.html",
+    ],
+    slugs: ["ethiobio", "ethiosci"],
+    indexHtml: `<a href="/work/ethiosci">EthioSci</a>`,
+    homeHtml: `<a href="/work/ethiosci">EthioSci</a><a href="/work/ethiobio">EthioBio</a>`,
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 1);
+    assert.match(
+      result.stderr,
+      /homepage Selected work section links the excluded project: \/work\/ethiobio/,
+    );
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("fails when a declared non-excluded project has no homepage card", () => {
+  // The /work index still links `ethiosci`; only the homepage omits it, so the
+  // failure can come only from the homepage block.
+  const f = fixture({
+    pages: [
+      "work/index.html",
+      "work/ethiobio/index.html",
+      "work/ethiosci/index.html",
+    ],
+    slugs: ["ethiobio", "ethiosci"],
+    indexHtml: `<a href="/work/ethiosci">EthioSci</a>`,
+    homeHtml: `<p>No projects listed.</p>`,
+  });
+  try {
+    const result = run(f.dist, f.projects);
+    assert.equal(result.code, 1);
+    assert.match(
+      result.stderr,
+      /homepage Selected work section is missing a card for that project: \/work\/ethiosci/,
     );
   } finally {
     rmSync(f.root, { recursive: true, force: true });
