@@ -22,11 +22,12 @@
  * exactly one `<h1>` per rendered page. Re-asserting it would create a second
  * implementation of an existing gate, and two copies drift.
  *
- * ENG-119 additionally guards the /work INDEX listing: the built index must
- * link a card for every declared project except the excluded slugs, and must
- * link no excluded slug. The exclusion list is imported from
- * src/config/work.ts — the same constant the page filters on — so the shipped
- * page and this check cannot drift. The per-slug built-page requirement above
+ * ENG-119/ENG-120 additionally guard the shared exclusion across both public
+ * listing surfaces: the built /work index and the built homepage Selected work
+ * section must each link a card for every declared project except the excluded
+ * slugs, and must link no excluded slug. The exclusion list is imported from
+ * src/config/projects.ts — the same constant the pages filter on — so the shipped
+ * pages and this check cannot drift. The per-slug built-page requirement above
  * is unchanged: it is what proves the excluded project's detail route
  * (/work/ethiobio) still builds.
  *
@@ -38,12 +39,12 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { workIndexExcludedSlugs } from "../src/config/work.ts";
+import { listingExcludedSlugs } from "../src/config/projects.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
-/** Slugs excluded from the /work index listing (single source of truth). */
-const excludedSlugs = new Set(workIndexExcludedSlugs);
+/** Slugs excluded from the public listing surfaces (single source of truth). */
+const excludedSlugs = new Set(listingExcludedSlugs);
 
 // Default to the repo's dist/ and content collection; explicit paths (tests,
 // ad-hoc runs against another build) are taken as-is.
@@ -261,6 +262,33 @@ if (indexFile !== undefined) {
   }
 }
 
+/**
+ * ENG-120 — the homepage Selected work listing. When the built homepage exists,
+ * the same rule applies: every declared project must be linked by a card unless
+ * it is an excluded slug, and no excluded slug may be linked. Absence of
+ * dist/index.html is already a failure in check-pending.mjs, so this block does
+ * not re-own that invariant; skipping an absent homepage also keeps the fixture
+ * battery (which builds no homepage) at its current verdicts.
+ */
+const homeFile = join(distDir, "index.html");
+let homeListingChecked = false;
+if (existsSync(homeFile)) {
+  homeListingChecked = true;
+  const homeHtml = readFileSync(homeFile, "utf8");
+  for (const slug of declaredSlugs) {
+    const linksSlug = homeHtml.includes(`href="/work/${slug}"`);
+    if (excludedSlugs.has(slug) && linksSlug) {
+      failures.push(
+        `the homepage Selected work section links the excluded project: /work/${slug}`,
+      );
+    } else if (!excludedSlugs.has(slug) && !linksSlug) {
+      failures.push(
+        `the homepage Selected work section is missing a card for that project: /work/${slug}`,
+      );
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`check:work failed — ${failures.length} problem(s):\n`);
   for (const problem of failures) console.error(`  ✗ ${problem}`);
@@ -278,8 +306,11 @@ const carriers = foundRules
 const indexVerdict = indexListingChecked
   ? `, /work index listing verified against ${declaredSlugs.length} declared slug(s) (${excludedSlugs.size} excluded)`
   : ", /work index listing not checked (no built index)";
+const homeVerdict = homeListingChecked
+  ? `, homepage listing verified against ${declaredSlugs.length} declared slug(s) (${excludedSlugs.size} excluded)`
+  : ", homepage listing not checked (no built homepage)";
 console.log(
-  `check:work passed — ${foundRules.length} hide rule(s) in ${cssSources.length} CSS source(s), ${requiredRoutes.length} route(s) present${indexVerdict}. ${carriers}`,
+  `check:work passed — ${foundRules.length} hide rule(s) in ${cssSources.length} CSS source(s), ${requiredRoutes.length} route(s) present${indexVerdict}${homeVerdict}. ${carriers}`,
 );
 
 function escapeRegExp(value) {

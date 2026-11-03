@@ -8,6 +8,7 @@ import Section from "../components/home/Section.astro";
 import StatusBadge from "../components/home/StatusBadge.astro";
 import { getCollection } from "astro:content";
 import { routeExists } from "../config/routes";
+import { listingExcludedSlugs } from "../config/projects";
 import { hasContent as carries, hasListItem } from "../lib/content";
 
 /*
@@ -44,9 +45,13 @@ import { hasContent as carries, hasListItem } from "../lib/content";
 const solutions = (await getCollection("solutions")).sort((a, b) =>
   a.data.title.localeCompare(b.data.title),
 );
-const projects = (await getCollection("projects")).sort((a, b) =>
-  a.data.title.localeCompare(b.data.title),
-);
+// ENG-120 — the shared exclusion removes an entry from the public listing
+// surfaces (here and the /work index). The detail route is intentionally
+// preserved: /work/ethiobio still builds from the full collection.
+const excluded = new Set(listingExcludedSlugs);
+const projects = (await getCollection("projects"))
+  .filter((project) => !excluded.has(project.data.slug))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
 const research = (await getCollection("research")).sort((a, b) =>
   a.data.title.localeCompare(b.data.title),
 );
