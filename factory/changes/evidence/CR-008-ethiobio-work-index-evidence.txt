@@ -1,0 +1,31 @@
+CR-008 evidence — EthioBio Work-index listing
+Recorded: 2026-11-03T05:41:56Z  base: 4f99afa
+
+## 1. projects collection entries (source of /work/ cards)
+$ ls src/content/projects/
+ethiobio.md
+ethiosci.md
+
+$ grep -rl 'slug: ethiobio' src/content/projects/
+src/content/projects/ethiobio.md
+(one file only -> no duplicate EthioBio source entry)
+
+## 2. Approved content policy mandating the listing
+$ grep -n 'MIS v1.0' src/content/projects/ethiobio.md src/content.config.ts
+src/content/projects/ethiobio.md:3:# specifications. MIS v1.0 "Evidence and content policy": "EthioBio must be
+src/content.config.ts:10: * - MIS v1.0 "Technical contract" (content collections + field lists)
+src/content.config.ts:22: * Seeded value "In Development" for EthioBio is mandated by MIS v1.0.
+
+## 3. /work/ renders one card per collection entry
+$ grep -n 'projects.map' src/pages/work/index.astro
+53:          {projects.map((project) => (
+
+## 4. Deployed /work/ card count
+$ curl -sS https://ethioai-venture-website.tcyber925.workers.dev/work/ | grep -o 'href="/work/[a-z-]*"' | sort -u
+href="/work/ethiobio"
+href="/work/ethiosci"
+(two project links, one per project; no duplicate EthioBio link)
+
+## 5. Product diff on this branch is empty
+$ git diff --stat origin/main...HEAD -- src scripts tests public
+(empty -> this change request adds no product code)
