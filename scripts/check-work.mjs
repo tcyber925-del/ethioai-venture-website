@@ -22,6 +22,14 @@
  * exactly one `<h1>` per rendered page. Re-asserting it would create a second
  * implementation of an existing gate, and two copies drift.
  *
+ * ENG-119 additionally guards the /work INDEX listing: the built index must
+ * link a card for every declared project except the excluded slugs, and must
+ * link no excluded slug. The exclusion list is imported from
+ * src/config/work.ts — the same constant the page filters on — so the shipped
+ * page and this check cannot drift. The per-slug built-page requirement above
+ * is unchanged: it is what proves the excluded project's detail route
+ * (/work/ethiobio) still builds.
+ *
  * Local reproduction: npm run build && npm run check:work
  * Regression battery: npm test (tests/check-work.test.mjs via node:test —
  * wired into `npm run verify` and the CI job with the check-dist suite).
@@ -30,8 +38,12 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { workIndexExcludedSlugs } from "../src/config/work.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+
+/** Slugs excluded from the /work index listing (single source of truth). */
+const excludedSlugs = new Set(workIndexExcludedSlugs);
 
 // Default to the repo's dist/ and content collection; explicit paths (tests,
 // ad-hoc runs against another build) are taken as-is.
@@ -221,6 +233,34 @@ for (const route of requiredRoutes) {
   }
 }
 
+/**
+ * ENG-119 — the /work INDEX listing. When the built index exists, every
+ * declared project must be linked by a card unless it is an excluded slug, and
+ * no excluded slug may be linked. Absence of the index itself is already a
+ * failure above, so this block only inspects an index that was built.
+ */
+const declaredSlugs = projectSlugs(projectsDir);
+const indexFile = [join("work", "index.html"), "work.html"]
+  .map((candidate) => join(distDir, candidate))
+  .find((candidate) => existsSync(candidate));
+let indexListingChecked = false;
+if (indexFile !== undefined) {
+  indexListingChecked = true;
+  const indexHtml = readFileSync(indexFile, "utf8");
+  for (const slug of declaredSlugs) {
+    const linksSlug = indexHtml.includes(`href="/work/${slug}"`);
+    if (excludedSlugs.has(slug) && linksSlug) {
+      failures.push(
+        `the /work index links the excluded project: /work/${slug}`,
+      );
+    } else if (!excludedSlugs.has(slug) && !linksSlug) {
+      failures.push(
+        `the /work index is missing a card for that project: /work/${slug}`,
+      );
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error(`check:work failed — ${failures.length} problem(s):\n`);
   for (const problem of failures) console.error(`  ✗ ${problem}`);
@@ -235,8 +275,11 @@ const carriers = foundRules
       `${rule.label} → ${[...new Set(rule.carriers)].slice(0, 3).join(", ")}`,
   )
   .join("; ");
+const indexVerdict = indexListingChecked
+  ? `, /work index listing verified against ${declaredSlugs.length} declared slug(s) (${excludedSlugs.size} excluded)`
+  : ", /work index listing not checked (no built index)";
 console.log(
-  `check:work passed — ${foundRules.length} hide rule(s) in ${cssSources.length} CSS source(s), ${requiredRoutes.length} route(s) present. ${carriers}`,
+  `check:work passed — ${foundRules.length} hide rule(s) in ${cssSources.length} CSS source(s), ${requiredRoutes.length} route(s) present${indexVerdict}. ${carriers}`,
 );
 
 function escapeRegExp(value) {

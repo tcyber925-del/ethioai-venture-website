@@ -14,11 +14,16 @@ import MetadataLabel from "../../components/MetadataLabel.astro";
 import ProjectCard from "../../components/work/ProjectCard.astro";
 import StatusFilter from "../../components/work/StatusFilter.astro";
 import StartProjectCta from "../../components/solutions/StartProjectCta.astro";
+import { workIndexExcludedSlugs } from "../../config/work";
 import { getCollection } from "astro:content";
 
-const projects = (await getCollection("projects")).sort((a, b) =>
-  a.data.title.localeCompare(b.data.title),
-);
+// ENG-119 — the exclusion removes an entry from this index listing only. The
+// detail route is intentionally preserved: src/pages/work/[project].astro
+// still builds a page for every project, EthioBio included.
+const excluded = new Set(workIndexExcludedSlugs);
+const projects = (await getCollection("projects"))
+  .filter((project) => !excluded.has(project.data.slug))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
 
 /** Status values actually present in seed data — never an invented enum. */
 const statuses = [
