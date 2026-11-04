@@ -86,6 +86,11 @@ say it is. This mode writes them, leaves the stage alone, and refuses
 anything that would move it. --expect-stage names the stage the job was believed to be at; a
 record that has moved since is stale and is refused too.
 
+--rework-requested marks a budget write as an explicit human request: at
+needs_human, a rework may then stamp retry_budget_reset_at on a budget
+that still has retries left, without raising it. Without the flag a budget
+write is refused unless the budget is spent.
+
 --sync records the four review verdicts from the files that carry them:
 round-<N>/review-{code,security,scope,visual}.md, where N is the record's
 round. A file that exists is read exactly as it is; a malformed verdict, or a
@@ -160,7 +165,8 @@ const exitCodeFor = (outcome) => {
 export function parseArgs(argv) {
   const options = {
     job: null, to: null, expectStage: null, create: false, record: null,
-    setFields: false, sync: false, sets: [], appends: [], cause: null, json: false, help: false,
+    setFields: false, reworkRequested: false, sync: false,
+    sets: [], appends: [], cause: null, json: false, help: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
@@ -183,6 +189,9 @@ export function parseArgs(argv) {
         break;
       case "--set-fields":
         options.setFields = true;
+        break;
+      case "--rework-requested":
+        options.reworkRequested = true;
         break;
       case "--sync":
         options.sync = true;
@@ -213,6 +222,13 @@ export function parseArgs(argv) {
 export function checkUsage(options) {
   if (options.help) return null;
   if (!options.job) return "--job <job-folder> is required";
+  // The rework marker is a field-write flag and nothing else. `--set-fields`
+  // already conflicts with `--to`, `--create` and `--sync`, so refusing the
+  // marker outside it keeps the stamp off every mode that can move a stage:
+  // the stamp alone can never move anything.
+  if (options.reworkRequested && !options.setFields) {
+    return "--rework-requested belongs to --set-fields";
+  }
   if (options.create && options.to) return "--create and --to cannot be combined";
   if (options.create && options.setFields) return "--create and --set-fields cannot be combined";
   if (options.create && options.sync) return "--create and --sync cannot be combined";
@@ -502,7 +518,7 @@ export function advanceJob(folder, { to, expectStage = null, sets = [], appends 
  * stage does not move, the result must still validate against the schema,
  * and the main checkout must still be untouched.
  */
-export function recordFields(folder, { sets = [], appends = [], cause = null }) {
+export function recordFields(folder, { sets = [], appends = [], cause = null, reworkRequested = false }) {
   let from = null;
   // An ALLOWLIST, and a short one. A field write records what the pack's own
   // procedure records without moving the job -- the four review verdicts, the
@@ -529,32 +545,24 @@ export function recordFields(folder, { sets = [], appends = [], cause = null }) 
     from = record.stage;
 
     // The retry budget is reset by ONE thing: a human rework, and nothing
-    // else. `/factory rework` says the job must be "at `needs_human` with an
-    // exhausted budget", and until that is machine-checked the reset is a
-    // promise rather than a rule -- a writer that kept handing the budget
-    // back could spin the loop for ever, one reset at a time.
+    // else, and a rework is for a job parked at `needs_human`. The rework
+    // grants the budget two ways: the budget is exhausted (`retries_left`
+    // is 0) and is restored to the profile's budget, or budget remains and
+    // a human explicitly requests the reset (`--rework-requested`) -- that
+    // rework stamps `retry_budget_reset_at` and leaves `retries_left`
+    // exactly as it is. Until the second branch is machine-checked the
+    // reset is a promise rather than a rule -- a writer that kept handing
+    // the budget back could spin the loop for ever, one reset at a time --
+    // so a human-requested reset that would RAISE the budget is refused
+    // too.
     const touchesBudget = [...sets, ...appends]
       .map((entry) => entry.slice(0, entry.indexOf("=") === -1 ? entry.length : entry.indexOf("=")))
       .some((path) => path === "retries_left" || path === "retry_budget_reset_at");
-    if (touchesBudget) {
-      if (record.stage !== "needs_human") {
-        return {
-          ok: false,
-          kind: "illegal",
-          failed: "REWORK_NOT_PARKED",
-          reason: `the retry budget is reset by a human rework, and a rework is for a job parked at \`needs_human\`; this one is at \`${record.stage}\``,
-        };
-      }
-      if (record.retries_left !== 0) {
-        return {
-          ok: false,
-          kind: "illegal",
-          failed: "REWORK_BUDGET_LEFT",
-          reason: `a rework grants a fresh budget to a job whose budget is spent; this one has ${record.retries_left} left`,
-        };
-      }
-    }
 
+    // The record this write WOULD leave behind. The budget guard reads the
+    // prospective `retries_left`, not the one on disk: whether a
+    // human-requested rework raises the budget is decided by what the same
+    // write's `--set`/`--append` entries leave behind.
     const next = structuredClone(record);
     for (const entry of sets) {
       const at = entry.indexOf("=");
@@ -565,6 +573,40 @@ export function recordFields(folder, { sets = [], appends = [], cause = null }) 
       applyAppend(next, entry.slice(0, at), parseValue(entry.slice(at + 1)));
     }
     if (cause !== null) next.cause = cause;
+
+    if (touchesBudget) {
+      if (record.stage !== "needs_human") {
+        return {
+          ok: false,
+          kind: "illegal",
+          failed: "REWORK_NOT_PARKED",
+          reason: `the retry budget is reset by a human rework, and a rework is for a job parked at \`needs_human\`; this one is at \`${record.stage}\``,
+        };
+      }
+      if (record.retries_left !== 0) {
+        if (!reworkRequested) {
+          return {
+            ok: false,
+            kind: "illegal",
+            failed: "REWORK_BUDGET_LEFT",
+            reason: `a rework grants a fresh budget to a job whose budget is spent; this one has ${record.retries_left} left`,
+          };
+        }
+        // A human-requested rework stamps the reset WITHOUT raising the
+        // budget: the resume spends what remains, so granting more here
+        // would hand the loop extra rounds. Lowering it is not policed --
+        // a smaller budget cannot spin anything.
+        if (next.retries_left > record.retries_left) {
+          return {
+            ok: false,
+            kind: "illegal",
+            failed: "REWORK_BUDGET_RAISED",
+            reason: `a human-requested rework stamps the reset without raising the budget; this write would take \`retries_left\` from ${record.retries_left} to ${next.retries_left}`,
+          };
+        }
+      }
+    }
+
     // The stage must NOT move. A field write that moved the job would be a
     // transition wearing a different hat.
     if (next.stage !== record.stage) {
@@ -896,6 +938,7 @@ export function main(argv) {
       sets: options.sets,
       appends: options.appends,
       cause: options.cause,
+      reworkRequested: options.reworkRequested,
     });
     attempted = `record fields at ${outcome.from ?? "?"}`;
   } else if (options.create) {

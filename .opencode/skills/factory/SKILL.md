@@ -22,7 +22,7 @@ never copy a check's result out of `build.md`.
 - `/factory dispatch [N]` — claim up to N queued jobs and run them through the pipeline
 - `/factory go <job-id>` — approve a job's plan and continue it into `building`
 - `/factory next` — enqueue the first unchecked backlog item and stop
-- `/factory rework <job-id>` — reset a job's retry budget after human rework
+- `/factory rework <job-id>` — stamp a job's retry budget after human rework (restore a spent budget, or stamp a remaining one at an explicit human request)
 - `/factory approve <job-id>` — record a human approval
 - `/factory recover <job-id>` — diagnose a failed job, preserve its artifacts, and route it to a human
 - `/factory learn <job-id>` — record what a finished job did, and propose what to do about it
@@ -651,21 +651,28 @@ resuming would do.
 
 ## /factory rework <job-id>
 
-A human-gated reset of a job's retry budget after human rework. Read `job.json`
-first.
+A human-gated grant: it restores a spent retry budget, or — at a human's
+explicit request — stamps `retry_budget_reset_at` on a budget that still has
+retries left. Read `job.json` first.
 
 1. **Read the record.** Read `job.json` for this job. If no such job exists,
    report and stop.
-2. **Confirm the budget is exhausted or a human explicitly requests the reset.**
-   If the job is not at `needs_human` with an exhausted budget, report its
+2. **Confirm the job is at `needs_human`.** The writer touches the budget two
+   ways: the budget is exhausted (`retries_left` is 0) and is restored to the
+   profile's budget, or budget remains and a human explicitly requests the
+   reset — the request is the `--rework-requested` flag on the
+   `tools/transition.mjs` call in step 3, and without it the writer refuses
+   (`REWORK_BUDGET_LEFT`). If the job is not at `needs_human`, report its
    stage and stop.
-3. **Reset only two fields.** In one write, set `retries_left` to the profile's
-   budget and `retry_budget_reset_at` to the current UTC timestamp, through
-   `tools/transition.mjs`. Touch no other field — especially not `stage`,
-   `diff_ref`, or `round`.
-4. **Report and stop.** State the job, the restored budget, the timestamp, and
-   the stage that would run next. Re-running the job itself is the human's act
-   via `/factory go`.
+3. **Reset only two fields.** In one write through `tools/transition.mjs`, set
+   `retry_budget_reset_at` to the current UTC timestamp and — only when the
+   budget is exhausted — `retries_left` to the profile's budget; when budget
+   remains, pass `--rework-requested` and leave `retries_left` exactly as it
+   is (the writer refuses a human-requested reset that raises it). Touch no
+   other field — especially not `stage`, `diff_ref`, or `round`.
+4. **Report and stop.** State the job, the budget (restored, or what remains),
+   the timestamp, and the stage that would run next. Re-running the job itself
+   is the human's act via `/factory go`.
 
 ## /factory learn <job-id>
 
