@@ -329,6 +329,7 @@ test("the resume cannot skip the spend: --to repairing without the decrement is 
 
 test("an exhausted budget restores to the profile's budget exactly as before, marker optional", () => {
   const f = fixture({ stage: "needs_human", retriesLeft: 0 });
+  const g = fixture({ stage: "needs_human", retriesLeft: 0 });
   try {
     const withoutMarker = run(f.root, [
       "--set-fields",
@@ -343,9 +344,11 @@ test("an exhausted budget restores to the profile's budget exactly as before, ma
     assert.equal(job.retry_budget_reset_at, STAMP);
     assert.equal(job.stage, "needs_human");
 
-    // The same write with the marker is allowed too: the exhausted branch
-    // does not require it.
-    const withMarker = run(f.root, [
+    // The same exhausted restore with the marker, against a FRESH exhausted
+    // fixture, is allowed too: the exhausted branch does not require the
+    // marker, and the raise check stays behind the exhausted gate -- a
+    // restore from 0 to 2 must not be read as a raise.
+    const withMarker = run(g.root, [
       "--set-fields",
       "--rework-requested",
       "--set",
@@ -354,11 +357,29 @@ test("an exhausted budget restores to the profile's budget exactly as before, ma
       `retry_budget_reset_at=${STAMP}`,
     ]);
     assert.equal(withMarker.code, 0, withMarker.stderr);
+    job = jobRecord(g);
+    assert.equal(job.retries_left, 2);
+    assert.equal(job.retry_budget_reset_at, STAMP);
+    assert.equal(job.stage, "needs_human");
+
+    // The restore above left f's record at `retries_left: 2`, so this marker
+    // run sets an equal value on a remaining budget and is allowed: it pins
+    // the raise check as `>` and not `>=`.
+    const equalValue = run(f.root, [
+      "--set-fields",
+      "--rework-requested",
+      "--set",
+      "retries_left=2",
+      "--set",
+      `retry_budget_reset_at=${STAMP}`,
+    ]);
+    assert.equal(equalValue.code, 0, equalValue.stderr);
     job = jobRecord(f);
     assert.equal(job.retries_left, 2);
     assert.equal(job.stage, "needs_human");
   } finally {
     rmSync(f.root, { recursive: true, force: true });
+    rmSync(g.root, { recursive: true, force: true });
   }
 });
 
